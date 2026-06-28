@@ -1,0 +1,16 @@
+{
+  "name": "culones-rpg-bot",
+  "version": "1.0.0",
+  "description": "Bot de Discord para Culones RPG: genera/rota el código de admin y notifica logs nuevos",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "deploy-commands": "node deploy-commands.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "@supabase/supabase-js": "^2.45.4",
+    "dotenv": "^16.4.5"
+  }
+}
