@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Culones RPG · Logs del servidor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tektur:wght@500;700;900&family=Rubik:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon">🚽</span>
+      <div class="brand-text">
+        <h1>CULONES <span>RPG</span></h1>
+        <p class="brand-sub">Logs &amp; actualizaciones del server</p>
+      </div>
+    </div>
+
+    <!-- En el futuro: pestañas de navegación (Armas, Mobs, Ecos, Forja...) van aquí -->
+    <nav class="browser-tabs" id="browserTabs">
+      <button class="tab active" data-tab="logs">📜 Logs</button>
+      <!-- más pestañas próximamente -->
+    </nav>
+
+    <div class="admin-area">
+      <span id="adminBadge" class="admin-badge hidden">👑 ADMIN</span>
+      <button id="btnAddLog" class="btn btn-accent hidden">+ Agregar log</button>
+      <button id="btnAdminLogin" class="btn btn-ghost">Iniciar sesión admin</button>
+      <button id="btnAdminLogout" class="btn btn-ghost hidden">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <section class="toolbar">
+      <div class="toolbar-group">
+        <label for="sortSelect">Ordenar por</label>
+        <select id="sortSelect">
+          <option value="date_desc">Fecha (más nuevo)</option>
+          <option value="date_asc">Fecha (más viejo)</option>
+          <option value="relevance">Relevancia</option>
+          <option value="category">Categoría</option>
+        </select>
+      </div>
+
+      <div class="toolbar-group">
+        <label for="filterCategory">Categoría</label>
+        <select id="filterCategory">
+          <option value="">Todas</option>
+          <option value="item">Item</option>
+          <option value="mob">Mob</option>
+          <option value="mecanica">Mecánica</option>
+          <option value="evento">Evento</option>
+          <option value="npc">NPC</option>
+          <option value="casino">Casino</option>
+          <option value="forja">Forja</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+
+      <div class="toolbar-group">
+        <label for="filterRelevance">Relevancia</label>
+        <select id="filterRelevance">
+          <option value="">Todas</option>
+          <option value="baja">Baja</option>
+          <option value="media">Media</option>
+          <option value="alta">Alta</option>
+          <option value="critica">Crítica</option>
+        </select>
+      </div>
+
+      <span id="logCount" class="log-count"></span>
+    </section>
+
+    <section id="logsGrid" class="logs-grid">
+      <!-- las cards de logs se insertan aquí por JS -->
+    </section>
+
+    <p id="emptyState" class="empty-state hidden">Todavía no hay logs publicados. ¡Vuelve pronto!</p>
+  </main>
+
+  <!-- ============ MODAL: LOGIN ADMIN ============ -->
+  <div id="modalLogin" class="modal-overlay hidden">
+    <div class="modal">
+      <button class="modal-close" data-close="modalLogin">×</button>
+      <h2>Acceso admin</h2>
+      <p class="modal-hint">Pide el código con <code>/codigo</code> en Discord. Cambia cada 24 horas.</p>
+      <input id="inputAdminCode" type="text" placeholder="Código de 8 caracteres" maxlength="8" autocomplete="off" />
+      <p id="loginError" class="error-text hidden"></p>
+      <button id="btnSubmitLogin" class="btn btn-accent btn-block">Entrar</button>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: AGREGAR / EDITAR LOG ============ -->
+  <div id="modalLog" class="modal-overlay hidden">
+    <div class="modal modal-wide">
+      <button class="modal-close" data-close="modalLog">×</button>
+      <h2 id="logModalTitle">Agregar log</h2>
+
+      <div class="form-row">
+        <label>Título</label>
+        <input id="fieldTitle" type="text" placeholder="ej: 1.2.4: Feliz Cumpleaños" />
+      </div>
+
+      <div class="form-row form-row-split">
+        <div>
+          <label>Versión</label>
+          <input id="fieldVersion" type="text" placeholder="ej: 1.2.4" />
+        </div>
+        <div>
+          <label>Categoría</label>
+          <select id="fieldCategory">
+            <option value="item">Item</option>
+            <option value="mob">Mob</option>
+            <option value="mecanica">Mecánica</option>
+            <option value="evento">Evento</option>
+            <option value="npc">NPC</option>
+            <option value="casino">Casino</option>
+            <option value="forja">Forja</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div>
+          <label>Relevancia</label>
+          <select id="fieldRelevance">
+            <option value="baja">Baja</option>
+            <option value="media" selected>Media</option>
+            <option value="alta">Alta</option>
+            <option value="critica">Crítica</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Tags (separados por coma)</label>
+        <input id="fieldTags" type="text" placeholder="ej: evento, cumpleaños, casino" />
+      </div>
+
+      <div class="form-row">
+        <label>Descripción / resumen</label>
+        <textarea id="fieldDescription" rows="3" placeholder="Resumen corto de qué trae esta actualización"></textarea>
+      </div>
+
+      <div class="form-row">
+        <label>Especificaciones</label>
+        <p class="modal-hint">Agrupa por secciones (ej: un mob, un item) y dentro pon pares clave/valor (ej: Vida / 200).</p>
+        <div id="sectionsBuilder"></div>
+        <button id="btnAddSection" class="btn btn-ghost btn-small" type="button">+ Agregar sección</button>
+      </div>
+
+      <p id="logFormError" class="error-text hidden"></p>
+      <button id="btnSubmitLog" class="btn btn-accent btn-block">Publicar log</button>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: VER LOG (detalle + comentarios) ============ -->
+  <div id="modalView" class="modal-overlay hidden">
+    <div class="modal modal-wide">
+      <button class="modal-close" data-close="modalView">×</button>
+      <div id="viewLogContent"></div>
+
+      <hr class="divider" />
+
+      <h3>Comentarios</h3>
+      <div id="commentsList" class="comments-list"></div>
+
+      <div class="comment-form">
+        <input id="commentName" type="text" placeholder="Tu nombre (el que quieras)" />
+        <textarea id="commentText" rows="2" placeholder="Escribe una reseña o comentario..."></textarea>
+        <button id="btnSubmitComment" class="btn btn-accent btn-small">Comentar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
