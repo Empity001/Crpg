@@ -1685,3 +1685,275 @@ button:not(:disabled) {
   /* En móvil no hay drag&drop: el ✏️/↕ siempre visibles, sin depender de :hover */
   .tier-chip-admin-overlay { opacity: 1; background: rgba(12,10,20,0.55); }
 }
+
+/* =========================================================
+   SISTEMA DE BORRADORES (DraftManager)
+   =========================================================
+   Barra de estado del draft (dentro de modales de edición),
+   banner de restauración y animaciones de estado.
+   Reutiliza los tokens de color existentes para integrarse
+   naturalmente con el resto de la interfaz.
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   BARRA DE ESTADO DEL DRAFT
+   Aparece justo debajo del título del modal de edición.
+   Muestra: estado dirty / guardado + timestamp + botón guardar.
+   --------------------------------------------------------- */
+.draft-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  margin-bottom: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  transition: border-color 0.25s ease;
+}
+
+.draft-status-bar.is-dirty {
+  border-color: rgba(243,183,58,0.4);
+}
+
+.draft-status-bar.is-saved {
+  border-color: rgba(56,224,122,0.3);
+}
+
+.draft-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-600);
+  flex: 1;
+  min-width: 0;
+}
+
+.draft-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--ink-600);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.draft-status-bar.is-dirty .draft-status-dot {
+  background: var(--gold);
+  box-shadow: 0 0 6px rgba(243,183,58,0.5);
+  animation: pulse-dot 1.6s infinite;
+}
+
+.draft-status-bar.is-saved .draft-status-dot {
+  background: var(--hud-green);
+  box-shadow: 0 0 6px rgba(56,224,122,0.4);
+  animation: none;
+}
+
+.draft-status-text {
+  color: var(--ink-400);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.draft-status-bar.is-dirty .draft-status-text {
+  color: var(--gold);
+}
+
+.draft-status-bar.is-saved .draft-status-text {
+  color: var(--hud-green);
+}
+
+.btn-save-draft {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  color: var(--ink-400);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.btn-save-draft:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(243,183,58,0.08);
+}
+
+.btn-save-draft:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------
+   BANNER DE RESTAURACIÓN
+   Aparece encima del formulario cuando existe un borrador
+   previo. Tres acciones: Restaurar / Descartar / Ignorar.
+   --------------------------------------------------------- */
+.draft-restore-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(243,183,58,0.07);
+  border: 1px solid rgba(243,183,58,0.4);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  animation: fade-in 0.2s ease;
+}
+
+.draft-restore-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  line-height: 1.3;
+}
+
+.draft-restore-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.draft-restore-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gold);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.draft-restore-subtitle {
+  font-size: 11.5px;
+  color: var(--ink-400);
+  line-height: 1.4;
+}
+
+.draft-restore-subtitle strong {
+  color: var(--ink-300);
+  font-weight: 600;
+}
+
+.draft-restore-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-draft-restore {
+  background: var(--gold);
+  color: var(--bg);
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-draft-restore:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--glow-gold);
+}
+
+.btn-draft-discard {
+  background: rgba(255,61,142,0.1);
+  color: var(--magenta);
+  border: 1px solid rgba(255,61,142,0.4);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-draft-discard:hover {
+  background: rgba(255,61,142,0.2);
+  border-color: var(--magenta);
+}
+
+.btn-draft-ignore {
+  background: transparent;
+  color: var(--ink-600);
+  border: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-draft-ignore:hover {
+  color: var(--ink-300);
+  border-color: var(--ink-400);
+}
+
+/* ---------------------------------------------------------
+   AUTOSAVE FEEDBACK — pulso visual corto cuando el
+   autoguardado completa (aparece y desaparece en 1.5s).
+   --------------------------------------------------------- */
+@keyframes draft-saved-flash {
+  0%   { opacity: 0; transform: translateY(-4px); }
+  15%  { opacity: 1; transform: translateY(0); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.draft-autosave-flash {
+  position: fixed;
+  bottom: 90px;
+  right: 24px;
+  z-index: 210;
+  background: var(--bg-panel);
+  border: 1px solid rgba(56,224,122,0.5);
+  color: var(--hud-green);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  pointer-events: none;
+  animation: draft-saved-flash 1.8s ease forwards;
+}
+
+/* ---------------------------------------------------------
+   RESPONSIVE: en móvil la barra de estado se apila
+   verticalmente para no apretar el espacio horizontal.
+   --------------------------------------------------------- */
+@media (max-width: 720px) {
+  .draft-status-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .btn-save-draft {
+    width: 100%;
+    text-align: center;
+  }
+
+  .draft-restore-actions {
+    flex-direction: column;
+  }
+
+  .btn-draft-restore,
+  .btn-draft-discard,
+  .btn-draft-ignore {
+    width: 100%;
+    text-align: center;
+  }
+}
