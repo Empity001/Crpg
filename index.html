@@ -49,6 +49,9 @@
   <button class="tab-item" data-tab="about" role="tab" aria-selected="false">
     <span class="tab-icon">🎮</span> Acerca del Server
   </button>
+  <button class="tab-item admin-tab hidden" data-tab="admin" role="tab" aria-selected="false" id="admin-panel-tab">
+    <span class="tab-icon">🛠</span> Herramientas
+  </button>
   <div class="tab-spacer"></div>
   <div class="tab-fake-url">culones-rpg.gg/<span id="active-tab-path">logs</span></div>
 </nav>
@@ -138,6 +141,69 @@
     </div>
   </section>
 
+
+  <!-- ---------- PANEL: HERRAMIENTAS (solo admin) ---------- -->
+  <section class="tab-panel" id="panel-admin">
+
+    <!-- Borradores -->
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <h2 class="admin-section-title">📝 Borradores</h2>
+        <button type="button" class="btn-secondary-admin" id="drafts-clear-all-btn">🗑 Limpiar todos</button>
+      </div>
+      <p class="admin-section-hint">Borradores guardados localmente en este dispositivo. Los marcados con <span class="draft-local-tag">[local]</span> nunca fueron publicados.</p>
+      <div id="drafts-list" class="drafts-list">
+        <p class="admin-empty">No hay borradores guardados.</p>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <h2 class="admin-section-title">📤 Exportar</h2>
+      </div>
+      <p class="admin-section-hint">Exporta el contenido de la web a un archivo JSON o CSV. Útil como respaldo o para editar en masa.</p>
+      <div class="export-options">
+        <div class="export-option-group">
+          <h4 class="export-option-title">📜 Logs</h4>
+          <div class="export-btns">
+            <button type="button" class="btn-export" data-export="logs" data-format="json">JSON completo</button>
+            <button type="button" class="btn-export" data-export="logs" data-format="csv">CSV (campos planos)</button>
+          </div>
+        </div>
+        <div class="export-option-group">
+          <h4 class="export-option-title">🏆 Tierlist</h4>
+          <div class="export-btns">
+            <button type="button" class="btn-export" data-export="tierlist" data-format="json">JSON completo</button>
+          </div>
+        </div>
+        <div class="export-option-group">
+          <h4 class="export-option-title">📦 Todo</h4>
+          <div class="export-btns">
+            <button type="button" class="btn-export" data-export="all" data-format="json">Backup completo (JSON)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import -->
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <h2 class="admin-section-title">📥 Importar</h2>
+      </div>
+      <p class="admin-section-hint">Importa un archivo JSON generado por esta misma herramienta. Si hay conflictos de IDs, podrás elegir qué hacer con cada uno.</p>
+      <div class="import-drop-zone" id="import-drop-zone">
+        <p>Arrastra un archivo JSON aquí</p>
+        <span>o</span>
+        <label class="btn-secondary-admin import-file-label">
+          Seleccionar archivo
+          <input type="file" id="import-file-input" accept=".json,.csv" class="hidden" />
+        </label>
+      </div>
+    </div>
+
+  </section>
+
 </main>
 
 <!-- ============ MODAL: LOGIN DE ADMIN ============ -->
@@ -158,27 +224,25 @@
     <button class="modal-close" id="close-log-modal" aria-label="Cerrar">✕</button>
     <h3 class="modal-title" id="log-modal-title">📜 NUEVO LOG</h3>
 
-    <!-- DRAFT: banner de restauración (se muestra solo si hay borrador previo) -->
-    <div class="draft-restore-banner hidden" id="log-draft-restore-banner">
-      <span class="draft-restore-icon">📋</span>
-      <div class="draft-restore-body">
-        <p class="draft-restore-title">Borrador disponible</p>
-        <p class="draft-restore-subtitle">Guardado <strong id="log-draft-restore-time"></strong>. ¿Querés continuar desde donde lo dejaste?</p>
-        <div class="draft-restore-actions">
-          <button type="button" class="btn-draft-restore" id="log-draft-btn-restore">↩ Restaurar borrador</button>
-          <button type="button" class="btn-draft-discard" id="log-draft-btn-discard">🗑 Descartar</button>
-          <button type="button" class="btn-draft-ignore" id="log-draft-btn-ignore">Ignorar</button>
+    <!-- Banner de borrador disponible -->
+    <div class="draft-restore-banner hidden" id="log-draft-banner">
+      <div class="draft-banner-info">
+        <span class="draft-banner-icon">📝</span>
+        <div>
+          <strong>Hay un borrador disponible</strong>
+          <span class="draft-banner-time" id="log-draft-banner-time"></span>
         </div>
+      </div>
+      <div class="draft-banner-actions">
+        <button type="button" class="btn-draft-restore" id="log-draft-restore-btn">Restaurar</button>
+        <button type="button" class="btn-draft-discard" id="log-draft-discard-btn">Descartar</button>
       </div>
     </div>
 
-    <!-- DRAFT: barra de estado (siempre visible mientras el modal está abierto) -->
-    <div class="draft-status-bar" id="log-draft-status-bar">
-      <div class="draft-status-indicator">
-        <span class="draft-status-dot"></span>
-        <span class="draft-status-text" id="log-draft-status-text">Sin cambios</span>
-      </div>
-      <button type="button" class="btn-save-draft" id="log-draft-save-btn">💾 Guardar borrador</button>
+    <!-- Indicador de autoguardado -->
+    <div class="draft-autosave-row" id="draft-autosave-row">
+      <span class="draft-autosave-status" id="draft-autosave-status"></span>
+      <button type="button" class="btn-draft-save-manual" id="draft-manual-save-btn">💾 Guardar borrador</button>
     </div>
 
     <label class="field-label">Título</label>
@@ -414,29 +478,6 @@
     <button class="modal-close" id="close-tier-item-modal" aria-label="Cerrar">✕</button>
     <h3 class="modal-title" id="tier-item-modal-title">🎴 NUEVO ELEMENTO</h3>
 
-    <!-- DRAFT: banner de restauración -->
-    <div class="draft-restore-banner hidden" id="tieritem-draft-restore-banner">
-      <span class="draft-restore-icon">📋</span>
-      <div class="draft-restore-body">
-        <p class="draft-restore-title">Borrador disponible</p>
-        <p class="draft-restore-subtitle">Guardado <strong id="tieritem-draft-restore-time"></strong>. ¿Querés continuar desde donde lo dejaste?</p>
-        <div class="draft-restore-actions">
-          <button type="button" class="btn-draft-restore" id="tieritem-draft-btn-restore">↩ Restaurar borrador</button>
-          <button type="button" class="btn-draft-discard" id="tieritem-draft-btn-discard">🗑 Descartar</button>
-          <button type="button" class="btn-draft-ignore" id="tieritem-draft-btn-ignore">Ignorar</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- DRAFT: barra de estado -->
-    <div class="draft-status-bar" id="tieritem-draft-status-bar">
-      <div class="draft-status-indicator">
-        <span class="draft-status-dot"></span>
-        <span class="draft-status-text" id="tieritem-draft-status-text">Sin cambios</span>
-      </div>
-      <button type="button" class="btn-save-draft" id="tieritem-draft-save-btn">💾 Guardar borrador</button>
-    </div>
-
     <label class="field-label">Nombre</label>
     <input type="text" id="tier-item-name-input" class="modal-input" maxlength="80" placeholder="Ej: Espada de Pyrois" />
 
@@ -536,12 +577,33 @@
   </div>
 </div>
 
+<!-- ============ MODAL: IMPORTAR — CONFLICTOS ============ -->
+<div class="modal-overlay hidden" id="import-conflict-modal">
+  <div class="modal-box modal-box-wide modal-box-tall">
+    <button class="modal-close" id="close-import-conflict-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title">📥 IMPORTAR — CONFLICTOS</h3>
+    <p class="modal-hint" id="import-conflict-summary"></p>
+
+    <div class="import-conflict-actions-global">
+      <button type="button" class="btn-secondary-admin" id="import-conflict-all-overwrite">↻ Sobrescribir todos</button>
+      <button type="button" class="btn-secondary-admin" id="import-conflict-all-skip">⏭ Saltar todos</button>
+    </div>
+
+    <div class="import-conflict-list" id="import-conflict-list"></div>
+
+    <div class="modal-error hidden" id="import-conflict-error"></div>
+    <div class="import-conflict-footer">
+      <button type="button" class="btn-secondary-admin" id="import-conflict-cancel-btn">Cancelar</button>
+      <button class="btn-primary" id="import-conflict-confirm-btn">Importar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ TOASTS ============ -->
 <div class="toast-container" id="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
-<script src="js/draft-manager.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

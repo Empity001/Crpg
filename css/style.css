@@ -1687,273 +1687,231 @@ button:not(:disabled) {
 }
 
 /* =========================================================
-   SISTEMA DE BORRADORES (DraftManager)
-   =========================================================
-   Barra de estado del draft (dentro de modales de edición),
-   banner de restauración y animaciones de estado.
-   Reutiliza los tokens de color existentes para integrarse
-   naturalmente con el resto de la interfaz.
+   PESTAÑA HERRAMIENTAS / PANEL ADMIN
    ========================================================= */
-
-/* ---------------------------------------------------------
-   BARRA DE ESTADO DEL DRAFT
-   Aparece justo debajo del título del modal de edición.
-   Muestra: estado dirty / guardado + timestamp + botón guardar.
-   --------------------------------------------------------- */
-.draft-status-bar {
+.admin-section {
+  background: var(--surface);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+.admin-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.admin-section-title {
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  color: var(--cyan);
+  margin: 0;
+}
+.admin-section-hint {
+  font-size: 12px;
+  color: var(--ink-600);
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+.admin-empty {
+  font-size: 12px;
+  color: var(--ink-600);
+  font-style: italic;
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* ── Export ── */
+.export-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+.export-option-group {
   background: rgba(255,255,255,0.03);
-  border: 1px solid var(--border-soft);
+  border: 1px solid var(--border-dim);
   border-radius: var(--radius-sm);
-  padding: 7px 12px;
-  margin-bottom: 14px;
+  padding: 14px;
+}
+.export-option-title {
+  font-size: 12px;
+  font-family: var(--font-pixel);
+  color: var(--ink-200);
+  margin: 0 0 10px;
+}
+.export-btns { display: flex; flex-direction: column; gap: 6px; }
+.btn-export {
+  background: rgba(77,212,232,0.08);
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
   font-family: var(--font-mono);
   font-size: 11px;
-  transition: border-color 0.25s ease;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
 }
+.btn-export:hover { background: rgba(77,212,232,0.18); }
 
-.draft-status-bar.is-dirty {
-  border-color: rgba(243,183,58,0.4);
+/* ── Import drop zone ── */
+.import-drop-zone {
+  border: 2px dashed var(--border-dim);
+  border-radius: var(--radius);
+  padding: 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-600);
+  font-size: 13px;
+  transition: border-color 0.15s, background 0.15s;
+  cursor: default;
 }
-
-.draft-status-bar.is-saved {
-  border-color: rgba(56,224,122,0.3);
+.import-drop-zone.is-drag-over {
+  border-color: var(--cyan);
+  background: rgba(77,212,232,0.06);
+  color: var(--cyan);
 }
+.import-file-label {
+  cursor: pointer;
+}
+.import-file-label input { display: none; }
 
-.draft-status-indicator {
+/* ── Import conflict modal ── */
+.import-conflict-actions-global {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.import-conflict-list {
+  max-height: 340px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.import-conflict-row {
   display: flex;
   align-items: center;
-  gap: 7px;
-  color: var(--ink-600);
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-dim);
+  background: rgba(255,255,255,0.02);
+  gap: 12px;
+}
+.import-conflict-row.is-conflict { border-color: rgba(245,197,66,0.4); }
+.import-conflict-row.is-new { border-color: rgba(77,212,232,0.3); }
+.import-conflict-name { font-size: 12px; color: var(--ink-200); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.import-conflict-toggle { display: flex; gap: 12px; flex-shrink: 0; }
+.import-radio-label { font-size: 11px; color: var(--ink-600); display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.import-radio-label:hover { color: var(--ink-200); }
+.import-conflict-footer { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* =========================================================
+   SISTEMA DE BORRADORES — banner + autosave row
+   ========================================================= */
+.draft-restore-banner {
+  background: rgba(77,212,232,0.07);
+  border: 1px solid var(--cyan);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.draft-banner-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex: 1;
   min-width: 0;
 }
-
-.draft-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: var(--ink-600);
-  transition: background 0.25s ease, box-shadow 0.25s ease;
+.draft-banner-icon { font-size: 18px; flex-shrink: 0; }
+.draft-banner-info strong { display: block; font-size: 12px; color: var(--cyan); }
+.draft-banner-time { font-size: 11px; color: var(--ink-600); }
+.draft-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.btn-draft-restore {
+  background: var(--cyan);
+  color: var(--bg);
+  border: none;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
 }
-
-.draft-status-bar.is-dirty .draft-status-dot {
-  background: var(--gold);
-  box-shadow: 0 0 6px rgba(243,183,58,0.5);
-  animation: pulse-dot 1.6s infinite;
-}
-
-.draft-status-bar.is-saved .draft-status-dot {
-  background: var(--hud-green);
-  box-shadow: 0 0 6px rgba(56,224,122,0.4);
-  animation: none;
-}
-
-.draft-status-text {
-  color: var(--ink-400);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.draft-status-bar.is-dirty .draft-status-text {
-  color: var(--gold);
-}
-
-.draft-status-bar.is-saved .draft-status-text {
-  color: var(--hud-green);
-}
-
-.btn-save-draft {
+.btn-draft-restore:hover { opacity: 0.85; }
+.btn-draft-discard {
   background: transparent;
-  border: 1px solid var(--border-soft);
+  color: var(--ink-600);
+  border: 1px solid var(--border-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.btn-draft-discard:hover { color: var(--ink-200); }
+
+.draft-autosave-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  min-height: 24px;
+}
+.draft-autosave-status { font-size: 11px; color: var(--ink-600); }
+.draft-autosave-status.is-dirty { color: #f5c542; }
+.draft-autosave-status.is-saved { color: #4ade80; }
+.btn-draft-save-manual {
+  background: transparent;
+  border: 1px solid var(--border-dim);
   color: var(--ink-400);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   padding: 4px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: all 0.15s ease;
 }
+.btn-draft-save-manual:hover { border-color: var(--cyan); color: var(--cyan); }
 
-.btn-save-draft:hover {
-  border-color: var(--gold);
-  color: var(--gold);
-  background: rgba(243,183,58,0.08);
-}
-
-.btn-save-draft:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* ---------------------------------------------------------
-   BANNER DE RESTAURACIÓN
-   Aparece encima del formulario cuando existe un borrador
-   previo. Tres acciones: Restaurar / Descartar / Ignorar.
-   --------------------------------------------------------- */
-.draft-restore-banner {
+/* ── Lista de borradores en panel admin ── */
+.drafts-list { display: flex; flex-direction: column; gap: 8px; }
+.draft-list-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
   gap: 12px;
-  background: rgba(243,183,58,0.07);
-  border: 1px solid rgba(243,183,58,0.4);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  margin-bottom: 16px;
-  animation: fade-in 0.2s ease;
 }
-
-.draft-restore-icon {
-  font-size: 18px;
-  flex-shrink: 0;
-  line-height: 1.3;
-}
-
-.draft-restore-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.draft-restore-title {
+.draft-list-info { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.draft-list-title { font-size: 12px; color: var(--ink-200); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draft-list-meta { font-size: 11px; color: var(--ink-600); }
+.draft-list-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.draft-local-tag {
+  display: inline-block;
   font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--gold);
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  margin-bottom: 3px;
+  font-size: 9px;
+  color: #f5c542;
+  border: 1px solid #f5c54266;
+  background: rgba(245,197,66,0.08);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
 }
 
-.draft-restore-subtitle {
-  font-size: 11.5px;
-  color: var(--ink-400);
-  line-height: 1.4;
-}
-
-.draft-restore-subtitle strong {
-  color: var(--ink-300);
-  font-weight: 600;
-}
-
-.draft-restore-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-  flex-wrap: wrap;
-}
-
-.btn-draft-restore {
-  background: var(--gold);
-  color: var(--bg);
-  border: none;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  letter-spacing: 0.5px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.btn-draft-restore:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--glow-gold);
-}
-
-.btn-draft-discard {
-  background: rgba(255,61,142,0.1);
-  color: var(--magenta);
-  border: 1px solid rgba(255,61,142,0.4);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-draft-discard:hover {
-  background: rgba(255,61,142,0.2);
-  border-color: var(--magenta);
-}
-
-.btn-draft-ignore {
-  background: transparent;
-  color: var(--ink-600);
-  border: 1px solid var(--border-soft);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-draft-ignore:hover {
-  color: var(--ink-300);
-  border-color: var(--ink-400);
-}
-
-/* ---------------------------------------------------------
-   AUTOSAVE FEEDBACK — pulso visual corto cuando el
-   autoguardado completa (aparece y desaparece en 1.5s).
-   --------------------------------------------------------- */
-@keyframes draft-saved-flash {
-  0%   { opacity: 0; transform: translateY(-4px); }
-  15%  { opacity: 1; transform: translateY(0); }
-  70%  { opacity: 1; }
-  100% { opacity: 0; }
-}
-
-.draft-autosave-flash {
-  position: fixed;
-  bottom: 90px;
-  right: 24px;
-  z-index: 210;
-  background: var(--bg-panel);
-  border: 1px solid rgba(56,224,122,0.5);
-  color: var(--hud-green);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  padding: 7px 14px;
-  border-radius: var(--radius-sm);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-  pointer-events: none;
-  animation: draft-saved-flash 1.8s ease forwards;
-}
-
-/* ---------------------------------------------------------
-   RESPONSIVE: en móvil la barra de estado se apila
-   verticalmente para no apretar el espacio horizontal.
-   --------------------------------------------------------- */
-@media (max-width: 720px) {
-  .draft-status-bar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .btn-save-draft {
-    width: 100%;
-    text-align: center;
-  }
-
-  .draft-restore-actions {
-    flex-direction: column;
-  }
-
-  .btn-draft-restore,
-  .btn-draft-discard,
-  .btn-draft-ignore {
-    width: 100%;
-    text-align: center;
-  }
-}
+/* btn-secondary-admin.danger */
+.btn-secondary-admin.danger { border-color: var(--magenta); color: var(--magenta); }
+.btn-secondary-admin.danger:hover { background: var(--magenta); color: var(--bg); }

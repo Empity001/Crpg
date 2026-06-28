@@ -42,13 +42,7 @@ const state = {
   editingTierItemId: null,
   movingTierItemId: null,
   draggedTierItemId: null, // id del elemento que se está arrastrando (drag&drop PC)
-
-  // ---------- Drafts ----------
-  // Controladores activos de DraftManager (uno por modal de edición abierto).
-  // Se inicializan en openNewLogModal/openEditLogModal/openTierItemModal
-  // y se destruyen con teardown() al cerrar cada modal.
-  logDraft:      null,
-  tierItemDraft: null,
+  activeTab: 'logs',
 };
 
 const RELEVANCE_ORDER = { low: 0, normal: 1, high: 2, critical: 3 };
@@ -234,10 +228,14 @@ function initTabs() {
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('is-active'));
       document.getElementById(`panel-${target}`).classList.add('is-active');
       document.getElementById('active-tab-path').textContent = target;
+      state.activeTab = target;
 
       if (target === 'tierlist' && !state.tierlistLoaded) {
         state.tierlistLoaded = true;
         loadTierlist();
+      }
+      if (target === 'admin' && isAdmin()) {
+        renderDraftsList();
       }
     });
   });
@@ -953,6 +951,7 @@ function updateAdminUI() {
   const actionLogBtn = document.getElementById('open-action-log-btn');
   const newTierRowBtn = document.getElementById('open-new-tier-row-btn');
   const newTierItemBtn = document.getElementById('open-new-tier-item-btn');
+  const adminTab = document.getElementById('admin-panel-tab');
   if (isAdmin()) {
     dot.className = 'dot-online';
     newLogBtn.classList.remove('hidden');
@@ -960,6 +959,7 @@ function updateAdminUI() {
     actionLogBtn.classList.remove('hidden');
     newTierRowBtn.classList.remove('hidden');
     newTierItemBtn.classList.remove('hidden');
+    if (adminTab) adminTab.classList.remove('hidden');
   } else {
     dot.className = 'dot-offline';
     newLogBtn.classList.add('hidden');
@@ -967,6 +967,11 @@ function updateAdminUI() {
     actionLogBtn.classList.add('hidden');
     newTierRowBtn.classList.add('hidden');
     newTierItemBtn.classList.add('hidden');
+    if (adminTab) adminTab.classList.add('hidden');
+    // Si estaba en la pestaña admin, volver a logs
+    if (state.activeTab === 'admin') {
+      document.querySelector('[data-tab="logs"]').click();
+    }
   }
   renderLogs();
   if (state.tierlistLoaded) renderTierlist();
@@ -1033,8 +1038,6 @@ function renderDraftBlocksList() {
       else if (btn.dataset.kind === 'item') state.draftItems.splice(idx, 1);
       else state.draftLibres.splice(idx, 1);
       renderDraftBlocksList();
-      // Notificar al draft que hubo un cambio estructural
-      if (state.logDraft) state.logDraft.markDirty();
     });
   });
 }
@@ -1209,7 +1212,6 @@ function submitMobBlock() {
 
   document.getElementById('mob-modal').classList.add('hidden');
   renderDraftBlocksList();
-  if (state.logDraft) state.logDraft.markDirty();
 }
 
 // ---------------------------------------------------------
@@ -1291,7 +1293,6 @@ function submitItemBlock() {
   else state.draftItems.push(itemData);
   document.getElementById('item-modal').classList.add('hidden');
   renderDraftBlocksList();
-  if (state.logDraft) state.logDraft.markDirty();
 }
 
 // ---------------------------------------------------------
@@ -1411,7 +1412,6 @@ function submitLibreBlock() {
 
   document.getElementById('libre-modal').classList.add('hidden');
   renderDraftBlocksList();
-  if (state.logDraft) state.logDraft.markDirty();
 }
 
 // ---------------------------------------------------------
@@ -1431,8 +1431,9 @@ function openNewLogModal() {
   document.getElementById('log-date-input').value = toDatetimeLocalValue(new Date());
   document.getElementById('log-modal-error').classList.add('hidden');
   renderDraftBlocksList();
+  checkAndShowDraftBanner('new');
+  startDraftAutosave();
   document.getElementById('log-modal').classList.remove('hidden');
-  initLogDraft('new');
 }
 
 function openEditLogModal(logId) {
@@ -1457,8 +1458,9 @@ function openEditLogModal(logId) {
   document.getElementById('log-date-input').value = toDatetimeLocalValue(log.created_at);
   document.getElementById('log-modal-error').classList.add('hidden');
   renderDraftBlocksList();
+  checkAndShowDraftBanner(logId);
+  startDraftAutosave();
   document.getElementById('log-modal').classList.remove('hidden');
-  initLogDraft(logId);
 }
 
 async function submitLog() {
@@ -1520,15 +1522,11 @@ async function submitLog() {
   }
 
   if (result.error) { errorBox.textContent = 'Error: ' + result.error.message; errorBox.classList.remove('hidden'); return; }
-
-  // Borrar el borrador al publicar con éxito
-  if (state.logDraft) {
-    await state.logDraft.teardown({ discard: true });
-    state.logDraft = null;
-  }
-
+  const publishedId = state.editingLogId;
+  clearDraft(publishedId || 'new');
+  stopDraftAutosave();
   document.getElementById('log-modal').classList.add('hidden');
-  showToast(state.editingLogId ? 'Log actualizado' : 'Log publicado', 'success');
+  showToast(publishedId ? 'Log actualizado' : 'Log publicado', 'success');
   await loadLogs();
 }
 
@@ -1792,7 +1790,6 @@ function openTierItemModal(itemId = null) {
   }
   document.getElementById('tier-item-modal-error').classList.add('hidden');
   document.getElementById('tier-item-modal').classList.remove('hidden');
-  initTierItemDraft(itemId || 'new');
 }
 
 async function submitTierItem() {
@@ -1817,12 +1814,6 @@ async function submitTierItem() {
   });
 
   if (error) { console.error(error); errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
-
-  // Borrar el borrador al guardar con éxito
-  if (state.tierItemDraft) {
-    await state.tierItemDraft.teardown({ discard: true });
-    state.tierItemDraft = null;
-  }
 
   document.getElementById('tier-item-modal').classList.add('hidden');
   showToast(state.editingTierItemId ? 'Elemento actualizado' : 'Elemento creado', 'success');
@@ -1909,11 +1900,8 @@ function initModals() {
   document.getElementById('admin-code-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAdminCode(); });
 
   document.getElementById('open-new-log-btn').addEventListener('click', openNewLogModal);
-  document.getElementById('close-log-modal').addEventListener('click', async () => {
-    if (state.logDraft) {
-      await state.logDraft.teardown({ discard: false });
-      state.logDraft = null;
-    }
+  document.getElementById('close-log-modal').addEventListener('click', () => {
+    stopDraftAutosave();
     document.getElementById('log-modal').classList.add('hidden');
   });
   document.getElementById('submit-log-btn').addEventListener('click', submitLog);
@@ -1956,13 +1944,7 @@ function initModals() {
   document.getElementById('submit-tier-row-btn').addEventListener('click', submitTierRow);
 
   document.getElementById('open-new-tier-item-btn').addEventListener('click', () => openTierItemModal(null));
-  document.getElementById('close-tier-item-modal').addEventListener('click', async () => {
-    if (state.tierItemDraft) {
-      await state.tierItemDraft.teardown({ discard: false });
-      state.tierItemDraft = null;
-    }
-    document.getElementById('tier-item-modal').classList.add('hidden');
-  });
+  document.getElementById('close-tier-item-modal').addEventListener('click', () => document.getElementById('tier-item-modal').classList.add('hidden'));
   document.getElementById('submit-tier-item-btn').addEventListener('click', submitTierItem);
   document.getElementById('tier-item-image-input').addEventListener('input', (e) => updateAssetPreview('tier-item', e.target.value.trim()));
 
@@ -1974,19 +1956,7 @@ function initModals() {
   document.getElementById('comment-reply-cancel').addEventListener('click', cancelReply);
 
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
-    overlay.addEventListener('click', async (e) => {
-      if (e.target !== overlay) return;
-      // Teardown de drafts si se cierra el modal de log o tieritem haciendo clic fuera
-      if (overlay.id === 'log-modal' && state.logDraft) {
-        await state.logDraft.teardown({ discard: false });
-        state.logDraft = null;
-      }
-      if (overlay.id === 'tier-item-modal' && state.tierItemDraft) {
-        await state.tierItemDraft.teardown({ discard: false });
-        state.tierItemDraft = null;
-      }
-      overlay.classList.add('hidden');
-    });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.add('hidden'); });
   });
 
   // ---------------------------------------------------------
@@ -2013,285 +1983,6 @@ function initModals() {
   });
 }
 
-// =========================================================
-// INTEGRACIÓN DE DRAFTS
-// =========================================================
-// Funciones que conectan DraftManager con cada editor concreto.
-// Patrón uniforme para log y tierlist_item — extensible a
-// cualquier entidad futura con la misma estructura.
-// =========================================================
-
-// ---------------------------------------------------------
-// HELPERS DE UI COMPARTIDOS
-// ---------------------------------------------------------
-
-// Actualiza la barra de estado de draft de un modal dado.
-// prefix: 'log' | 'tieritem'
-function updateDraftStatusBar(prefix, isDirty, lastSavedText) {
-  const bar      = document.getElementById(`${prefix}-draft-status-bar`);
-  const dot      = bar ? bar.querySelector('.draft-status-dot') : null;
-  const textEl   = document.getElementById(`${prefix}-draft-status-text`);
-  const saveBtn  = document.getElementById(`${prefix}-draft-save-btn`);
-  if (!bar || !textEl) return;
-
-  bar.classList.remove('is-dirty', 'is-saved');
-
-  if (isDirty) {
-    bar.classList.add('is-dirty');
-    textEl.textContent = '● Cambios sin guardar';
-    if (saveBtn) saveBtn.disabled = false;
-  } else if (lastSavedText) {
-    bar.classList.add('is-saved');
-    textEl.textContent = `✓ Borrador guardado ${lastSavedText}`;
-    if (saveBtn) saveBtn.disabled = false;
-  } else {
-    textEl.textContent = 'Sin cambios';
-    if (saveBtn) saveBtn.disabled = true;
-  }
-}
-
-// Muestra el banner de restauración con la fecha del borrador.
-function showDraftRestoreBanner(prefix, savedAt) {
-  const banner = document.getElementById(`${prefix}-draft-restore-banner`);
-  const timeEl = document.getElementById(`${prefix}-draft-restore-time`);
-  if (!banner || !timeEl) return;
-  timeEl.textContent = DraftManager.timeAgo(savedAt) || 'hace un momento';
-  banner.classList.remove('hidden');
-}
-
-function hideDraftRestoreBanner(prefix) {
-  const banner = document.getElementById(`${prefix}-draft-restore-banner`);
-  if (banner) banner.classList.add('hidden');
-}
-
-// Pulso visual corto cuando el autosave completa silenciosamente.
-function showAutosaveFlash() {
-  const existing = document.querySelector('.draft-autosave-flash');
-  if (existing) existing.remove();
-  const el = document.createElement('div');
-  el.className = 'draft-autosave-flash';
-  el.textContent = '✓ Borrador guardado';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1900);
-}
-
-// ---------------------------------------------------------
-// SERIALIZAR / DESERIALIZAR EL FORMULARIO DE LOG
-// Estas funciones leen y escriben el estado completo del
-// modal de log — incluye campos de texto, mobs, items y libres.
-// ---------------------------------------------------------
-
-function collectLogFormData() {
-  return {
-    title:       document.getElementById('log-title-input').value,
-    description: document.getElementById('log-desc-input').value,
-    category:    document.getElementById('log-category-input').value,
-    relevance:   document.getElementById('log-relevance-input').value,
-    dateValue:   document.getElementById('log-date-input').value,
-    draftMobs:   JSON.parse(JSON.stringify(state.draftMobs)),
-    draftItems:  JSON.parse(JSON.stringify(state.draftItems)),
-    draftLibres: JSON.parse(JSON.stringify(state.draftLibres)),
-  };
-}
-
-function applyLogFormData(payload) {
-  if (!payload) return;
-  document.getElementById('log-title-input').value       = payload.title       || '';
-  document.getElementById('log-desc-input').value        = payload.description || '';
-  document.getElementById('log-date-input').value        = payload.dateValue   || toDatetimeLocalValue(new Date());
-
-  // Categoría — puede que haya categorías que ya no existen; silencia el error
-  renderCategorySelectOptions();
-  const catSelect = document.getElementById('log-category-input');
-  if (payload.category && catSelect.querySelector(`option[value="${CSS.escape(payload.category)}"]`)) {
-    catSelect.value = payload.category;
-  }
-
-  const relSelect = document.getElementById('log-relevance-input');
-  if (payload.relevance) relSelect.value = payload.relevance;
-
-  state.draftMobs   = payload.draftMobs   || [];
-  state.draftItems  = payload.draftItems  || [];
-  state.draftLibres = payload.draftLibres || [];
-  renderDraftBlocksList();
-}
-
-// ---------------------------------------------------------
-// INICIALIZAR DRAFT DEL MODAL DE LOG
-// Se llama desde openNewLogModal y openEditLogModal.
-// ---------------------------------------------------------
-async function initLogDraft(entityId) {
-  // Destruir instancia previa si quedó colgada
-  if (state.logDraft) {
-    await state.logDraft.teardown({ discard: false });
-    state.logDraft = null;
-  }
-
-  hideDraftRestoreBanner('log');
-  updateDraftStatusBar('log', false, null);
-
-  // Registrar listeners de markDirty en todos los campos del formulario
-  const logModal = document.getElementById('log-modal');
-  const markDirtyOnInput = () => { if (state.logDraft) state.logDraft.markDirty(); };
-
-  ['log-title-input', 'log-desc-input', 'log-category-input',
-   'log-relevance-input', 'log-date-input'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      // Clonar para limpiar listeners anteriores sin romper otros bindings
-      el.removeEventListener('input',  markDirtyOnInput);
-      el.removeEventListener('change', markDirtyOnInput);
-      el.addEventListener('input',  markDirtyOnInput);
-      el.addEventListener('change', markDirtyOnInput);
-    }
-  });
-
-  // Crear instancia del DraftManager para este log
-  const draft = DraftManager.init({
-    entityType: 'log',
-    entityId,
-    adminCode:  state.adminCode,
-    getPayload: collectLogFormData,
-    onRestore:  applyLogFormData,
-    onDirtyChange: (isDirty, lastSavedAt) => {
-      updateDraftStatusBar('log', isDirty, DraftManager.timeAgo(lastSavedAt));
-      if (!isDirty && lastSavedAt) showAutosaveFlash();
-    },
-  });
-
-  state.logDraft = draft;
-  draft.startAutosave();
-
-  // Botón guardar borrador manual
-  const saveBtn = document.getElementById('log-draft-save-btn');
-  if (saveBtn) {
-    saveBtn.onclick = async () => {
-      saveBtn.disabled = true;
-      await draft.saveNow({ silent: false });
-      updateDraftStatusBar('log', false, draft.getLastSavedText());
-    };
-  }
-
-  // Comprobar si existe borrador previo (async — no bloquea la apertura del modal)
-  const existing = await draft.checkForExistingDraft();
-  if (!existing) return;
-
-  // Hay borrador: mostrar banner
-  showDraftRestoreBanner('log', existing.savedAt);
-
-  document.getElementById('log-draft-btn-restore').onclick = () => {
-    draft.restore(existing.payload);
-    hideDraftRestoreBanner('log');
-    updateDraftStatusBar('log', false, DraftManager.timeAgo(existing.savedAt));
-    showToast('Borrador restaurado', 'success');
-  };
-
-  document.getElementById('log-draft-btn-discard').onclick = async () => {
-    await draft.discardDraft();
-    hideDraftRestoreBanner('log');
-    updateDraftStatusBar('log', false, null);
-    showToast('Borrador descartado', 'default');
-  };
-
-  document.getElementById('log-draft-btn-ignore').onclick = () => {
-    hideDraftRestoreBanner('log');
-    // El borrador sigue existiendo pero no se restaura — el admin edita desde cero
-  };
-}
-
-// ---------------------------------------------------------
-// SERIALIZAR / DESERIALIZAR EL FORMULARIO DE TIER ITEM
-// ---------------------------------------------------------
-
-function collectTierItemFormData() {
-  return {
-    name:      document.getElementById('tier-item-name-input').value,
-    columnKey: document.getElementById('tier-item-column-input').value,
-    imageUrl:  document.getElementById('tier-item-image-input').value,
-  };
-}
-
-function applyTierItemFormData(payload) {
-  if (!payload) return;
-  document.getElementById('tier-item-name-input').value   = payload.name      || '';
-  document.getElementById('tier-item-column-input').value = payload.columnKey || 'weapon';
-  const imageUrl = payload.imageUrl || '';
-  document.getElementById('tier-item-image-input').value  = imageUrl;
-  updateAssetPreview('tier-item', imageUrl);
-}
-
-// ---------------------------------------------------------
-// INICIALIZAR DRAFT DEL MODAL DE TIER ITEM
-// ---------------------------------------------------------
-async function initTierItemDraft(entityId) {
-  if (state.tierItemDraft) {
-    await state.tierItemDraft.teardown({ discard: false });
-    state.tierItemDraft = null;
-  }
-
-  hideDraftRestoreBanner('tieritem');
-  updateDraftStatusBar('tieritem', false, null);
-
-  const markDirtyOnInput = () => { if (state.tierItemDraft) state.tierItemDraft.markDirty(); };
-
-  ['tier-item-name-input', 'tier-item-column-input', 'tier-item-image-input'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.removeEventListener('input',  markDirtyOnInput);
-      el.removeEventListener('change', markDirtyOnInput);
-      el.addEventListener('input',  markDirtyOnInput);
-      el.addEventListener('change', markDirtyOnInput);
-    }
-  });
-
-  const draft = DraftManager.init({
-    entityType: 'tierlist_item',
-    entityId,
-    adminCode:  state.adminCode,
-    getPayload: collectTierItemFormData,
-    onRestore:  applyTierItemFormData,
-    onDirtyChange: (isDirty, lastSavedAt) => {
-      updateDraftStatusBar('tieritem', isDirty, DraftManager.timeAgo(lastSavedAt));
-      if (!isDirty && lastSavedAt) showAutosaveFlash();
-    },
-  });
-
-  state.tierItemDraft = draft;
-  draft.startAutosave();
-
-  const saveBtn = document.getElementById('tieritem-draft-save-btn');
-  if (saveBtn) {
-    saveBtn.onclick = async () => {
-      saveBtn.disabled = true;
-      await draft.saveNow({ silent: false });
-      updateDraftStatusBar('tieritem', false, draft.getLastSavedText());
-    };
-  }
-
-  const existing = await draft.checkForExistingDraft();
-  if (!existing) return;
-
-  showDraftRestoreBanner('tieritem', existing.savedAt);
-
-  document.getElementById('tieritem-draft-btn-restore').onclick = () => {
-    draft.restore(existing.payload);
-    hideDraftRestoreBanner('tieritem');
-    updateDraftStatusBar('tieritem', false, DraftManager.timeAgo(existing.savedAt));
-    showToast('Borrador restaurado', 'success');
-  };
-
-  document.getElementById('tieritem-draft-btn-discard').onclick = async () => {
-    await draft.discardDraft();
-    hideDraftRestoreBanner('tieritem');
-    updateDraftStatusBar('tieritem', false, null);
-    showToast('Borrador descartado', 'default');
-  };
-
-  document.getElementById('tieritem-draft-btn-ignore').onclick = () => {
-    hideDraftRestoreBanner('tieritem');
-  };
-}
-
 // ---------------------------------------------------------
 // INIT
 // ---------------------------------------------------------
@@ -2299,6 +1990,7 @@ async function init() {
   initTabs();
   initModals();
   initSortControl();
+  initAdminPanel();
   updateAdminUI();
   await loadCategories();
   await loadAppSettings();
@@ -2307,3 +1999,540 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// =========================================================
+// SISTEMA DE BORRADORES (Drafts)
+// Almacenamiento: localStorage
+// Claves: culones_draft_log_new | culones_draft_log_{id}
+// =========================================================
+
+const DRAFT_AUTOSAVE_INTERVAL = 30000; // 30 segundos
+let _draftAutosaveTimer = null;
+let _draftHasUnsaved = false;
+
+function draftKey(logId) {
+  return logId === 'new' ? 'culones_draft_log_new' : `culones_draft_log_${logId}`;
+}
+
+/** Captura el estado actual del form de log en un objeto serializable */
+function captureDraftData() {
+  return {
+    title: document.getElementById('log-title-input')?.value || '',
+    description: document.getElementById('log-desc-input')?.value || '',
+    category: document.getElementById('log-category-input')?.value || '',
+    relevance: document.getElementById('log-relevance-input')?.value || 'normal',
+    date: document.getElementById('log-date-input')?.value || '',
+    mobs: JSON.parse(JSON.stringify(state.draftMobs)),
+    items: JSON.parse(JSON.stringify(state.draftItems)),
+    libres: JSON.parse(JSON.stringify(state.draftLibres)),
+  };
+}
+
+/** Guarda el borrador en localStorage */
+function saveDraft(logId, isManual = false) {
+  if (!isAdmin()) return;
+  const key = draftKey(logId || 'new');
+  const data = captureDraftData();
+  // No guardar si está completamente vacío
+  if (!data.title && !data.description && data.mobs.length === 0 && data.items.length === 0 && data.libres.length === 0) return;
+  const draft = {
+    savedAt: new Date().toISOString(),
+    isLocal: !logId, // true si nunca fue publicado
+    logId: logId || null,
+    data,
+  };
+  try {
+    localStorage.setItem(key, JSON.stringify(draft));
+    _draftHasUnsaved = false;
+    updateDraftAutosaveStatus('saved', draft.savedAt);
+    if (isManual) showToast('Borrador guardado', 'success');
+  } catch(e) {
+    showToast('No se pudo guardar el borrador (localStorage lleno?)', 'error');
+  }
+}
+
+/** Lee un borrador de localStorage */
+function loadDraftFromStorage(logId) {
+  const key = draftKey(logId || 'new');
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+/** Elimina un borrador */
+function clearDraft(logId) {
+  localStorage.removeItem(draftKey(logId || 'new'));
+  renderDraftsList();
+}
+
+/** Restaura los datos de un borrador al form */
+function restoreDraft(draft) {
+  const d = draft.data;
+  document.getElementById('log-title-input').value = d.title || '';
+  document.getElementById('log-desc-input').value = d.description || '';
+  if (d.category) document.getElementById('log-category-input').value = d.category;
+  document.getElementById('log-relevance-input').value = d.relevance || 'normal';
+  if (d.date) document.getElementById('log-date-input').value = d.date;
+  state.draftMobs = d.mobs || [];
+  state.draftItems = d.items || [];
+  state.draftLibres = d.libres || [];
+  renderDraftBlocksList();
+  hideDraftBanner();
+  showToast('Borrador restaurado', 'success');
+}
+
+/** Muestra el banner de borrador disponible si existe uno */
+function checkAndShowDraftBanner(logId) {
+  const banner = document.getElementById('log-draft-banner');
+  const timeEl = document.getElementById('log-draft-banner-time');
+  if (!banner) return;
+  const draft = loadDraftFromStorage(logId || 'new');
+  if (!draft) { banner.classList.add('hidden'); return; }
+  const when = new Date(draft.savedAt);
+  timeEl.textContent = `Guardado el ${formatDate(draft.savedAt)}`;
+  banner.classList.remove('hidden');
+
+  document.getElementById('log-draft-restore-btn').onclick = () => restoreDraft(draft);
+  document.getElementById('log-draft-discard-btn').onclick = () => {
+    clearDraft(logId || 'new');
+    hideDraftBanner();
+    showToast('Borrador descartado');
+  };
+}
+
+function hideDraftBanner() {
+  const banner = document.getElementById('log-draft-banner');
+  if (banner) banner.classList.add('hidden');
+}
+
+/** Arranca el autoguardado cada 30s mientras el modal está abierto */
+function startDraftAutosave() {
+  stopDraftAutosave();
+  _draftHasUnsaved = false;
+  updateDraftAutosaveStatus('idle');
+
+  // Marcar como "hay cambios" cuando el admin escribe
+  const fields = ['log-title-input', 'log-desc-input', 'log-category-input', 'log-relevance-input', 'log-date-input'];
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', markDraftDirty);
+  });
+
+  _draftAutosaveTimer = setInterval(() => {
+    if (_draftHasUnsaved) {
+      saveDraft(state.editingLogId || 'new');
+    }
+  }, DRAFT_AUTOSAVE_INTERVAL);
+}
+
+function stopDraftAutosave() {
+  if (_draftAutosaveTimer) { clearInterval(_draftAutosaveTimer); _draftAutosaveTimer = null; }
+  // Remove listeners
+  const fields = ['log-title-input', 'log-desc-input', 'log-category-input', 'log-relevance-input', 'log-date-input'];
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.removeEventListener('input', markDraftDirty);
+  });
+}
+
+function markDraftDirty() {
+  _draftHasUnsaved = true;
+  updateDraftAutosaveStatus('unsaved');
+}
+
+function updateDraftAutosaveStatus(state, savedAt = null) {
+  const el = document.getElementById('draft-autosave-status');
+  if (!el) return;
+  switch(state) {
+    case 'saved': el.textContent = `✅ Guardado ${savedAt ? formatDate(savedAt) : ''}`; el.className = 'draft-autosave-status is-saved'; break;
+    case 'unsaved': el.textContent = '● Cambios sin guardar'; el.className = 'draft-autosave-status is-dirty'; break;
+    default: el.textContent = ''; el.className = 'draft-autosave-status'; break;
+  }
+}
+
+/** Aviso antes de cerrar la página si hay cambios sin guardar */
+function initBeforeUnload() {
+  window.addEventListener('beforeunload', (e) => {
+    if (_draftHasUnsaved && document.getElementById('log-modal') && !document.getElementById('log-modal').classList.contains('hidden')) {
+      // Guardar automáticamente al cerrar
+      saveDraft(state.editingLogId || 'new');
+    }
+  });
+}
+
+// ---------------------------------------------------------
+// LISTA DE TODOS LOS BORRADORES (pestaña herramientas)
+// ---------------------------------------------------------
+function getAllDrafts() {
+  const drafts = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key.startsWith('culones_draft_')) continue;
+    try {
+      const draft = JSON.parse(localStorage.getItem(key));
+      if (draft && draft.savedAt) drafts.push({ key, ...draft });
+    } catch(e) {}
+  }
+  return drafts.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+}
+
+function renderDraftsList() {
+  const container = document.getElementById('drafts-list');
+  if (!container) return;
+  const drafts = getAllDrafts();
+  if (drafts.length === 0) {
+    container.innerHTML = '<p class="admin-empty">No hay borradores guardados.</p>';
+    return;
+  }
+  container.innerHTML = drafts.map(d => {
+    const title = d.data?.title || '(Sin título)';
+    const localTag = d.isLocal ? '<span class="draft-local-tag">[local]</span>' : '';
+    const blocksCount = (d.data?.mobs?.length || 0) + (d.data?.items?.length || 0) + (d.data?.libres?.length || 0);
+    const blocksHint = blocksCount > 0 ? `· ${blocksCount} bloque${blocksCount > 1 ? 's' : ''}` : '';
+    return `
+      <div class="draft-list-row">
+        <div class="draft-list-info">
+          <span class="draft-list-title">📝 ${escapeHtml(title)} ${localTag}</span>
+          <span class="draft-list-meta">${formatDate(d.savedAt)} ${blocksHint}</span>
+        </div>
+        <div class="draft-list-actions">
+          <button type="button" class="btn-secondary-admin draft-open-btn" data-draft-key="${d.key}" data-log-id="${d.logId || ''}">Abrir</button>
+          <button type="button" class="btn-secondary-admin danger draft-delete-btn" data-draft-key="${d.key}">🗑</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  container.querySelectorAll('.draft-open-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const draft = JSON.parse(localStorage.getItem(btn.dataset.draftKey));
+      if (!draft) return;
+      const logId = btn.dataset.logId || null;
+      if (logId) openEditLogModal(logId);
+      else openNewLogModal();
+      // Restaurar después de que el modal se abra
+      setTimeout(() => restoreDraft(draft), 50);
+    });
+  });
+  container.querySelectorAll('.draft-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      localStorage.removeItem(btn.dataset.draftKey);
+      renderDraftsList();
+      showToast('Borrador eliminado');
+    });
+  });
+}
+
+// ---------------------------------------------------------
+// EXPORT / IMPORT
+// ---------------------------------------------------------
+
+/** Descarga un objeto como archivo */
+function downloadFile(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function timestamp() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function exportData(type, format) {
+  showToast('Preparando exportación...', 'default');
+
+  if (type === 'logs' && format === 'json') {
+    // Logs con sus mobs e items
+    const logsWithBlocks = state.logs.map(log => ({
+      ...log,
+      mobs: state.mobsByLog[log.id] || [],
+      items: state.itemsByLog[log.id] || [],
+    }));
+    downloadFile(JSON.stringify({ version: 1, type: 'logs', exported_at: new Date().toISOString(), data: logsWithBlocks }, null, 2),
+      `culones-logs-${timestamp()}.json`, 'application/json');
+    showToast(`${logsWithBlocks.length} logs exportados`, 'success');
+
+  } else if (type === 'logs' && format === 'csv') {
+    // CSV plano (solo campos del log, sin bloques anidados)
+    const headers = ['id', 'title', 'description', 'category', 'relevance', 'likes', 'created_at'];
+    const rows = state.logs.map(log =>
+      headers.map(h => `"${String(log[h] ?? '').replace(/"/g, '""')}"`).join(',')
+    );
+    downloadFile([headers.join(','), ...rows].join('\n'),
+      `culones-logs-${timestamp()}.csv`, 'text/csv;charset=utf-8');
+    showToast(`${state.logs.length} logs exportados en CSV`, 'success');
+
+  } else if (type === 'tierlist' && format === 'json') {
+    // Asegurar que la tierlist esté cargada
+    if (!state.tierlistLoaded) await loadTierlist();
+    downloadFile(JSON.stringify({ version: 1, type: 'tierlist', exported_at: new Date().toISOString(), rows: state.tierRows, items: state.tierItems }, null, 2),
+      `culones-tierlist-${timestamp()}.json`, 'application/json');
+    showToast('Tierlist exportada', 'success');
+
+  } else if (type === 'all' && format === 'json') {
+    if (!state.tierlistLoaded) await loadTierlist();
+    const logsWithBlocks = state.logs.map(log => ({
+      ...log,
+      mobs: state.mobsByLog[log.id] || [],
+      items: state.itemsByLog[log.id] || [],
+    }));
+    const backup = {
+      version: 1,
+      type: 'full_backup',
+      exported_at: new Date().toISOString(),
+      logs: logsWithBlocks,
+      categories: state.categories,
+      tierlist: { rows: state.tierRows, items: state.tierItems },
+      field_config: state.fieldConfig,
+    };
+    downloadFile(JSON.stringify(backup, null, 2),
+      `culones-backup-${timestamp()}.json`, 'application/json');
+    showToast('Backup completo exportado', 'success');
+  }
+}
+
+// ---- Import ----
+let _importPayload = null; // datos del archivo leído
+let _importConflicts = []; // [{item, resolution: 'overwrite'|'skip'}]
+
+async function handleImportFile(file) {
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext !== 'json') { showToast('Solo se soportan archivos JSON por ahora', 'error'); return; }
+
+  showToast('Leyendo archivo...', 'default');
+  const text = await file.text();
+  let parsed;
+  try { parsed = JSON.parse(text); } catch(e) { showToast('El archivo no es un JSON válido', 'error'); return; }
+
+  _importPayload = parsed;
+  await analyzeAndShowImportConflicts(parsed);
+}
+
+async function analyzeAndShowImportConflicts(payload) {
+  const type = payload.type;
+  const allConflicts = [];
+
+  if (type === 'logs' || type === 'full_backup') {
+    const existingIds = new Set(state.logs.map(l => l.id));
+    const importLogs = payload.data || payload.logs || [];
+    importLogs.forEach(log => {
+      allConflicts.push({
+        kind: 'log',
+        id: log.id,
+        name: log.title,
+        isConflict: existingIds.has(log.id),
+        item: log,
+        resolution: existingIds.has(log.id) ? 'skip' : 'import',
+      });
+    });
+  }
+
+  if (type === 'tierlist' || type === 'full_backup') {
+    const existingRowIds = new Set(state.tierRows.map(r => r.id));
+    const importRows = payload.rows || payload.tierlist?.rows || [];
+    importRows.forEach(row => {
+      allConflicts.push({
+        kind: 'tier_row',
+        id: row.id,
+        name: `[Fila] ${row.name}`,
+        isConflict: existingRowIds.has(row.id),
+        item: row,
+        resolution: existingRowIds.has(row.id) ? 'skip' : 'import',
+      });
+    });
+    const existingItemIds = new Set(state.tierItems.map(i => i.id));
+    const importItems = payload.items || payload.tierlist?.items || [];
+    importItems.forEach(item => {
+      allConflicts.push({
+        kind: 'tier_item',
+        id: item.id,
+        name: `[Item] ${item.name}`,
+        isConflict: existingItemIds.has(item.id),
+        item,
+        resolution: existingItemIds.has(item.id) ? 'skip' : 'import',
+      });
+    });
+  }
+
+  _importConflicts = allConflicts;
+  showImportConflictModal(allConflicts);
+}
+
+function showImportConflictModal(conflicts) {
+  const modal = document.getElementById('import-conflict-modal');
+  const summaryEl = document.getElementById('import-conflict-summary');
+  const listEl = document.getElementById('import-conflict-list');
+
+  const conflictCount = conflicts.filter(c => c.isConflict).length;
+  const newCount = conflicts.filter(c => !c.isConflict).length;
+
+  summaryEl.textContent = `${conflicts.length} elemento(s) encontrados: ${newCount} nuevos, ${conflictCount} con conflicto de ID.`;
+
+  listEl.innerHTML = conflicts.map((c, idx) => `
+    <div class="import-conflict-row ${c.isConflict ? 'is-conflict' : 'is-new'}">
+      <span class="import-conflict-name">${c.isConflict ? '⚠️' : '✅'} ${escapeHtml(c.name)}</span>
+      <div class="import-conflict-toggle">
+        <label class="import-radio-label">
+          <input type="radio" name="conflict-${idx}" value="import" ${c.resolution !== 'skip' ? 'checked' : ''} data-idx="${idx}" />
+          ${c.isConflict ? 'Sobrescribir' : 'Importar'}
+        </label>
+        <label class="import-radio-label">
+          <input type="radio" name="conflict-${idx}" value="skip" ${c.resolution === 'skip' ? 'checked' : ''} data-idx="${idx}" />
+          Saltar
+        </label>
+      </div>
+    </div>`).join('');
+
+  listEl.querySelectorAll('input[type="radio"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      _importConflicts[Number(radio.dataset.idx)].resolution = radio.value;
+    });
+  });
+
+  modal.classList.remove('hidden');
+}
+
+async function confirmImport() {
+  const errorBox = document.getElementById('import-conflict-error');
+  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+
+  const toImport = _importConflicts.filter(c => c.resolution !== 'skip');
+  if (toImport.length === 0) { showToast('Nada que importar'); document.getElementById('import-conflict-modal').classList.add('hidden'); return; }
+
+  showToast(`Importando ${toImport.length} elemento(s)...`, 'default');
+  let imported = 0;
+  let errors = 0;
+
+  for (const conflict of toImport) {
+    try {
+      if (conflict.kind === 'log') {
+        const log = conflict.item;
+        const mobsPayload = (log.mobs || []).map(({ name, health, damage, armor, equipment, location, description, extra_fields, image_url }) => ({
+          name, health, damage, armor, equipment, location, description: description || null,
+          extra_fields: asArray(extra_fields), image_url: image_url || null,
+        }));
+        const itemsPayload = (log.items || []).map(({ name, tier, item_type, obtained_from, damage, enchantments, description, extra_fields, image_url }) => ({
+          name, tier, item_type, obtained_from, damage: damage ?? null,
+          enchantments: asArray(enchantments), description: description || null,
+          extra_fields: asArray(extra_fields), image_url: image_url || null,
+        }));
+
+        if (conflict.isConflict) {
+          // Sobrescribir: update_log
+          await supabaseClient.rpc('update_log', {
+            input_code: state.adminCode, input_id: log.id,
+            input_title: log.title, input_description: log.description,
+            input_category: log.category, input_relevance: log.relevance,
+            input_created_at: log.created_at, input_mobs: mobsPayload, input_items: itemsPayload,
+          });
+        } else {
+          // Nuevo: create_log
+          await supabaseClient.rpc('create_log', {
+            input_code: state.adminCode,
+            input_title: log.title, input_description: log.description,
+            input_category: log.category, input_relevance: log.relevance,
+            input_created_at: log.created_at, input_mobs: mobsPayload, input_items: itemsPayload,
+          });
+        }
+        imported++;
+      } else if (conflict.kind === 'tier_row') {
+        const row = conflict.item;
+        if (conflict.isConflict) {
+          await supabaseClient.rpc('update_tierlist_row', { input_code: state.adminCode, input_id: row.id, input_name: row.name, input_color: row.color });
+        } else {
+          await supabaseClient.rpc('create_tierlist_row', { input_code: state.adminCode, input_name: row.name, input_color: row.color });
+        }
+        imported++;
+      } else if (conflict.kind === 'tier_item') {
+        const item = conflict.item;
+        await supabaseClient.rpc('upsert_tierlist_item', {
+          input_code: state.adminCode, input_id: conflict.isConflict ? item.id : null,
+          input_name: item.name, input_image_url: item.image_url || null,
+          input_column_key: item.column_key, input_row_id: item.row_id || null,
+          input_extra_fields: asArray(item.extra_fields),
+        });
+        imported++;
+      }
+    } catch(e) {
+      console.error('Import error:', e);
+      errors++;
+    }
+  }
+
+  document.getElementById('import-conflict-modal').classList.add('hidden');
+  document.getElementById('import-file-input').value = '';
+  showToast(`Importación completa: ${imported} ok${errors > 0 ? `, ${errors} error(es)` : ''}`, errors > 0 ? 'error' : 'success');
+  await loadLogs();
+  if (state.tierlistLoaded) await loadTierlist();
+}
+
+function initAdminPanel() {
+  // Export buttons
+  document.querySelectorAll('.btn-export').forEach(btn => {
+    btn.addEventListener('click', () => exportData(btn.dataset.export, btn.dataset.format));
+  });
+
+  // Import: file input
+  document.getElementById('import-file-input').addEventListener('change', (e) => {
+    if (e.target.files[0]) handleImportFile(e.target.files[0]);
+  });
+
+  // Import: drag & drop
+  const dropZone = document.getElementById('import-drop-zone');
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('is-drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('is-drag-over'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('is-drag-over');
+    if (e.dataTransfer.files[0]) handleImportFile(e.dataTransfer.files[0]);
+  });
+
+  // Import conflict modal
+  document.getElementById('close-import-conflict-modal').addEventListener('click', () => {
+    document.getElementById('import-conflict-modal').classList.add('hidden');
+  });
+  document.getElementById('import-conflict-cancel-btn').addEventListener('click', () => {
+    document.getElementById('import-conflict-modal').classList.add('hidden');
+  });
+  document.getElementById('import-conflict-confirm-btn').addEventListener('click', confirmImport);
+  document.getElementById('import-conflict-all-overwrite').addEventListener('click', () => {
+    _importConflicts.forEach((c, idx) => {
+      c.resolution = 'import';
+      document.querySelectorAll(`input[name="conflict-${idx}"][value="import"]`).forEach(r => r.checked = true);
+    });
+  });
+  document.getElementById('import-conflict-all-skip').addEventListener('click', () => {
+    _importConflicts.forEach((c, idx) => {
+      c.resolution = 'skip';
+      document.querySelectorAll(`input[name="conflict-${idx}"][value="skip"]`).forEach(r => r.checked = true);
+    });
+  });
+
+  // Draft manual save
+  document.getElementById('draft-manual-save-btn')?.addEventListener('click', () => {
+    saveDraft(state.editingLogId || 'new', true);
+  });
+
+  // Clear all drafts
+  document.getElementById('drafts-clear-all-btn')?.addEventListener('click', () => {
+    if (!confirm('¿Eliminar TODOS los borradores? Esta acción no se puede deshacer.')) return;
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k.startsWith('culones_draft_')) keys.push(k);
+    }
+    keys.forEach(k => localStorage.removeItem(k));
+    renderDraftsList();
+    showToast('Todos los borradores eliminados');
+  });
+
+  initBeforeUnload();
+}
