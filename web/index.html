@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>culones-rpg · Centro de Logs</title>
+<meta name="description" content="Plataforma central de logs del servidor Minecraft RPG/Gacha culones-rpg" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ============ FONDO DE PARTÍCULAS / SCANLINES ============ -->
+<div class="crt-overlay" aria-hidden="true"></div>
+<div class="bg-grid" aria-hidden="true"></div>
+
+<!-- ============ HUD SUPERIOR FIJO ============ -->
+<header class="hud-top">
+  <div class="hud-brand">
+    <div class="hud-logo">⛏</div>
+    <div class="hud-titles">
+      <span class="hud-title">CULONES<span class="accent">-RPG</span></span>
+      <span class="hud-subtitle">CENTRO DE LOGS · SERVIDOR EN VIVO</span>
+    </div>
+  </div>
+
+  <div class="hud-spacer"></div>
+
+  <button id="admin-toggle-btn" class="btn-admin-toggle" type="button">
+    <span class="dot-offline" id="admin-dot"></span> ADMIN
+  </button>
+</header>
+
+<!-- ============ NAV TIPO PESTAÑAS DE NAVEGADOR ============ -->
+<nav class="browser-tabs" role="tablist" aria-label="Secciones">
+  <button class="tab-item is-active" data-tab="logs" role="tab" aria-selected="true">
+    <span class="tab-icon">📜</span> Logs
+  </button>
+  <button class="tab-item" data-tab="weapons" role="tab" aria-selected="false">
+    <span class="tab-icon">⚔️</span> Guías de Armas
+  </button>
+  <button class="tab-item" data-tab="stats" role="tab" aria-selected="false">
+    <span class="tab-icon">📊</span> Estadísticas
+  </button>
+  <button class="tab-item" data-tab="about" role="tab" aria-selected="false">
+    <span class="tab-icon">🎮</span> Acerca del Server
+  </button>
+  <div class="tab-spacer"></div>
+  <div class="tab-fake-url">culones-rpg.gg/<span id="active-tab-path">logs</span></div>
+</nav>
+
+<!-- ============ CONTENIDO PRINCIPAL ============ -->
+<main class="app-main">
+
+  <!-- ---------- PANEL: LOGS ---------- -->
+  <section class="tab-panel is-active" id="panel-logs">
+
+    <div class="logs-toolbar">
+      <div class="filter-pills" id="category-filters">
+        <button class="pill is-active" data-filter="all">Todos</button>
+        <!-- Las categorías dinámicas se inyectan aquí desde app.js -->
+      </div>
+
+      <div class="toolbar-right">
+        <div class="sort-control">
+          <label for="sort-select" class="sort-label">Ordenar por</label>
+          <select id="sort-select" class="modal-select sort-select">
+            <option value="date_desc">Fecha (recientes primero)</option>
+            <option value="date_asc">Fecha (antiguos primero)</option>
+            <option value="relevance_desc">Relevancia (mayor primero)</option>
+            <option value="relevance_asc">Relevancia (menor primero)</option>
+          </select>
+        </div>
+
+        <button class="btn-secondary-admin hidden" id="open-field-config-btn" type="button">
+          ⚙ Configurar fichas
+        </button>
+        <button class="btn-new-log hidden" id="open-new-log-btn" type="button">
+          + Nuevo Log
+        </button>
+      </div>
+    </div>
+
+    <div class="logs-grid" id="logs-grid">
+      <!-- Las tarjetas de logs se inyectan aquí desde app.js -->
+      <div class="logs-empty" id="logs-empty">
+        <div class="spinner"></div>
+        <p>Cargando registros del servidor...</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- PANEL: GUÍAS DE ARMAS (placeholder expandible) ---------- -->
+  <section class="tab-panel" id="panel-weapons">
+    <div class="placeholder-panel">
+      <div class="placeholder-icon">⚔️</div>
+      <h2>Guías de Armas</h2>
+      <p>Próximamente: catálogo completo de armas gacha, estadísticas de daño y builds recomendadas.</p>
+    </div>
+  </section>
+
+  <!-- ---------- PANEL: ESTADÍSTICAS (placeholder expandible) ---------- -->
+  <section class="tab-panel" id="panel-stats">
+    <div class="placeholder-panel">
+      <div class="placeholder-icon">📊</div>
+      <h2>Estadísticas del Servidor</h2>
+      <p>Próximamente: rankings de jugadores, economía del server y métricas en vivo.</p>
+    </div>
+  </section>
+
+  <!-- ---------- PANEL: ACERCA DEL SERVER ---------- -->
+  <section class="tab-panel" id="panel-about">
+    <div class="placeholder-panel">
+      <div class="placeholder-icon">🎮</div>
+      <h2>Acerca de culones-rpg</h2>
+      <p>Servidor de Minecraft con sistema RPG y gacha. Esta web sincroniza en tiempo real con nuestro Discord — cada evento importante del servidor queda registrado aquí como un log público.</p>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ MODAL: LOGIN DE ADMIN ============ -->
+<div class="modal-overlay hidden" id="admin-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-admin-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title">🔐 ACCESO DE ADMINISTRADOR</h3>
+    <p class="modal-hint">Solicita el código de 24h al bot de Discord con <code>/admincode</code> e ingrésalo aquí.</p>
+    <input type="text" id="admin-code-input" class="modal-input" placeholder="CÓDIGO-DE-6-DÍGITOS" maxlength="32" autocomplete="off" />
+    <div class="modal-error hidden" id="admin-modal-error"></div>
+    <button class="btn-primary" id="submit-admin-code">Validar código</button>
+  </div>
+</div>
+
+<!-- ============ MODAL: NUEVO / EDITAR LOG ============ -->
+<div class="modal-overlay hidden" id="log-modal">
+  <div class="modal-box modal-box-wide">
+    <button class="modal-close" id="close-log-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title" id="log-modal-title">📜 NUEVO LOG</h3>
+
+    <label class="field-label">Título</label>
+    <input type="text" id="log-title-input" class="modal-input" maxlength="120" placeholder="Ej: Nuevo jefe añadido al Nether" />
+
+    <label class="field-label">Descripción</label>
+    <textarea id="log-desc-input" class="modal-textarea" maxlength="1000" rows="5" placeholder="Detalla qué cambió, cómo afecta a los jugadores..."></textarea>
+
+    <div class="blocks-section">
+      <div class="blocks-toolbar">
+        <button type="button" class="btn-block-add btn-block-mob" id="open-add-mob-btn">👾 + Agregar Mob</button>
+        <button type="button" class="btn-block-add btn-block-item" id="open-add-item-btn">🗡 + Agregar Item</button>
+        <button type="button" class="btn-block-add btn-block-libre" id="open-add-libre-btn">📋 + Libre</button>
+      </div>
+      <p class="field-hint">Opcional. Agrega fichas de mobs o ítems con sus propios datos (vida, daño, rango...) en vez de escribirlos sueltos en la descripción.</p>
+      <div class="draft-blocks-list" id="draft-blocks-list"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field-col">
+        <label class="field-label">Categoría</label>
+        <select id="log-category-input" class="modal-select">
+          <!-- Las opciones se inyectan dinámicamente desde app.js -->
+        </select>
+        <button type="button" class="link-btn" id="open-new-category-btn">+ Crear categoría nueva</button>
+      </div>
+      <div class="field-col">
+        <label class="field-label">Relevancia</label>
+        <select id="log-relevance-input" class="modal-select">
+          <option value="low">Baja</option>
+          <option value="normal" selected>Normal</option>
+          <option value="high">Alta</option>
+          <option value="critical">Crítica</option>
+        </select>
+      </div>
+    </div>
+
+    <label class="field-label">Fecha de publicación</label>
+    <input type="datetime-local" id="log-date-input" class="modal-input" />
+    <p class="field-hint">Por defecto es la fecha y hora actual. Cámbiala si estás registrando un log de algo que pasó antes.</p>
+
+    <div class="modal-error hidden" id="log-modal-error"></div>
+    <button class="btn-primary" id="submit-log-btn">Publicar log</button>
+  </div>
+</div>
+
+<!-- ============ MODAL: NUEVA CATEGORÍA ============ -->
+<div class="modal-overlay hidden" id="category-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-category-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title">🏷 NUEVA CATEGORÍA</h3>
+
+    <label class="field-label">Nombre visible</label>
+    <input type="text" id="category-label-input" class="modal-input" maxlength="40" placeholder="Ej: NPC, Remodelado, Versión..." />
+
+    <div class="field-row">
+      <div class="field-col">
+        <label class="field-label">Emoji</label>
+        <input type="text" id="category-emoji-input" class="modal-input" maxlength="4" placeholder="📦" value="📦" />
+      </div>
+      <div class="field-col">
+        <label class="field-label">Color</label>
+        <input type="color" id="category-color-input" class="modal-color-input" value="#4dd4e8" />
+      </div>
+    </div>
+
+    <div class="modal-error hidden" id="category-modal-error"></div>
+    <button class="btn-primary" id="submit-category-btn">Crear categoría</button>
+
+    <hr class="modal-divider" />
+    <h4 class="manage-list-heading">Categorías existentes</h4>
+    <p class="field-hint">Solo se puede borrar una categoría si ningún log la está usando.</p>
+    <div class="category-manage-list" id="category-manage-list"></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: CONFIGURAR FICHAS (campos fijos de mob/item) ============ -->
+<div class="modal-overlay hidden" id="field-config-modal">
+  <div class="modal-box modal-box-wide">
+    <button class="modal-close" id="close-field-config-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title">⚙ CONFIGURAR FICHAS</h3>
+    <p class="modal-hint">Activa, desactiva o reordena los campos fijos que aparecen en las fichas de Mob e Item. Los campos personalizados ("Algo más") que agregues en cada ficha siempre se muestran al final, aparte de esta lista.</p>
+
+    <h4 class="manage-list-heading">👾 Campos de Mob</h4>
+    <div class="fieldcfg-list" id="fieldcfg-mob-list"></div>
+
+    <h4 class="manage-list-heading">🗡 Campos de Item</h4>
+    <div class="fieldcfg-list" id="fieldcfg-item-list"></div>
+
+    <div class="modal-error hidden" id="field-config-modal-error"></div>
+    <button class="btn-primary" id="fieldcfg-save-btn">Guardar configuración</button>
+  </div>
+</div>
+
+<!-- ============ MINI-MODAL: AGREGAR/EDITAR MOB ============ -->
+<div class="modal-overlay modal-overlay-nested hidden" id="mob-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-mob-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title">👾 FICHA DE MOB</h3>
+
+    <label class="field-label">Nombre</label>
+    <input type="text" id="mob-name-input" class="modal-input" maxlength="80" placeholder="Ej: Wither Cumpleañero" />
+
+    <div class="field-row">
+      <div class="field-col">
+        <label class="field-label">❤️ Vida</label>
+        <input type="number" id="mob-health-input" class="modal-input" min="0" placeholder="200" />
+      </div>
+      <div class="field-col">
+        <label class="field-label">⚔️ Daño</label>
+        <input type="number" id="mob-damage-input" class="modal-input" min="0" placeholder="40" />
+      </div>
+      <div class="field-col">
+        <label class="field-label">🛡 Armor <span class="optional-tag">(opcional)</span></label>
+        <input type="number" id="mob-armor-input" class="modal-input" min="0" placeholder="—" />
+      </div>
+    </div>
+
+    <label class="field-label">Equipamiento <span class="optional-tag">(opcional)</span></label>
+    <div id="mob-equipment-list" class="equip-editor-list"></div>
+    <button type="button" class="link-btn" id="mob-add-equipment-btn">⚙ + Pieza de equipamiento</button>
+
+    <label class="field-label" style="margin-top:10px;">Dónde aparece <span class="optional-tag">(opcional)</span></label>
+    <input type="text" id="mob-location-input" class="modal-input" maxlength="120" placeholder="Ej: Aparece en el Nether" />
+
+    <label class="field-label" style="margin-top:10px;">Descripción <span class="optional-tag">(opcional)</span></label>
+    <textarea id="mob-desc-input" class="modal-textarea" maxlength="600" rows="3" placeholder="Notas adicionales sobre este mob..."></textarea>
+
+    <label class="field-label" style="margin-top:10px;">Imagen de referencia <span class="optional-tag">(opcional)</span></label>
+    <input type="url" id="mob-image-input" class="modal-input" maxlength="500" placeholder="https://..." />
+    <div class="asset-preview hidden" id="mob-image-preview-wrap">
+      <img id="mob-image-preview" alt="Vista previa" />
+      <button type="button" class="link-btn" id="mob-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+    </div>
+
+    <label class="field-label" style="margin-top:10px;">Algo más <span class="optional-tag">(opcional, campos libres)</span></label>
+    <div id="mob-extra-fields-list" class="equip-editor-list"></div>
+    <button type="button" class="link-btn" id="mob-add-extra-btn">+ Campo</button>
+
+    <div class="modal-error hidden" id="mob-modal-error"></div>
+    <button class="btn-primary" id="submit-mob-btn">Guardar mob</button>
+  </div>
+</div>
+
+<!-- ============ MINI-MODAL: AGREGAR/EDITAR ITEM ============ -->
+<div class="modal-overlay modal-overlay-nested hidden" id="item-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-item-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title">🗡 FICHA DE ITEM</h3>
+
+    <label class="field-label">Nombre</label>
+    <input type="text" id="item-name-input" class="modal-input" maxlength="80" placeholder="Ej: Filo del Vacío" />
+
+    <div class="field-row">
+      <div class="field-col">
+        <label class="field-label">Rango/Tier <span class="optional-tag">(opcional)</span></label>
+        <input type="text" id="item-tier-input" class="modal-input" maxlength="20" placeholder="Ej: S, Z, MK-3" />
+      </div>
+      <div class="field-col">
+        <label class="field-label">Tipo <span class="optional-tag">(opcional)</span></label>
+        <input type="text" id="item-type-input" class="modal-input" maxlength="40" placeholder="Ej: Arma, Accesorio" />
+      </div>
+    </div>
+
+    <label class="field-label">Dónde se obtiene <span class="optional-tag">(opcional)</span></label>
+    <input type="text" id="item-obtained-input" class="modal-input" maxlength="120" placeholder="Ej: Máquina de Armas, dropeado por X" />
+
+    <label class="field-label" style="margin-top:10px;">⚔️ Daño <span class="optional-tag">(opcional)</span></label>
+    <input type="number" id="item-damage-input" class="modal-input" min="0" placeholder="Ej: 45" />
+
+    <label class="field-label" style="margin-top:10px;">Encantamientos <span class="optional-tag">(opcional)</span></label>
+    <div id="item-enchant-list" class="enchant-rows" style="margin-left:0;"></div>
+    <button type="button" class="link-btn" id="item-add-enchant-btn">✨ + Encantamiento</button>
+
+    <label class="field-label" style="margin-top:10px;">Descripción <span class="optional-tag">(opcional)</span></label>
+    <textarea id="item-desc-input" class="modal-textarea" maxlength="600" rows="3" placeholder="Notas adicionales sobre este item..."></textarea>
+
+    <label class="field-label" style="margin-top:10px;">Imagen de referencia <span class="optional-tag">(opcional)</span></label>
+    <input type="url" id="item-image-input" class="modal-input" maxlength="500" placeholder="https://..." />
+    <div class="asset-preview hidden" id="item-image-preview-wrap">
+      <img id="item-image-preview" alt="Vista previa" />
+      <button type="button" class="link-btn" id="item-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+    </div>
+
+    <label class="field-label" style="margin-top:10px;">Algo más <span class="optional-tag">(opcional, campos libres)</span></label>
+    <div id="item-extra-fields-list" class="equip-editor-list"></div>
+    <button type="button" class="link-btn" id="item-add-extra-btn">+ Campo</button>
+
+    <div class="modal-error hidden" id="item-modal-error"></div>
+    <button class="btn-primary" id="submit-item-btn">Guardar item</button>
+  </div>
+</div>
+
+<!-- ============ MODAL: DETALLE DE LOG + COMENTARIOS ============ -->
+<div class="modal-overlay hidden" id="detail-modal">
+  <div class="modal-box modal-box-wide modal-box-tall">
+    <button class="modal-close" id="close-detail-modal" aria-label="Cerrar">✕</button>
+
+    <div id="detail-content"></div>
+
+    <hr class="modal-divider" />
+
+    <h4 class="comments-heading">💬 Comentarios</h4>
+    <div class="comments-list" id="comments-list"></div>
+
+    <div class="comment-form">
+      <div class="comment-reply-banner hidden" id="comment-reply-banner">
+        Respondiendo a <span id="comment-reply-target"></span>
+        <button type="button" id="comment-reply-cancel">✕ Cancelar</button>
+      </div>
+      <input type="text" id="comment-username-input" class="modal-input" placeholder="Tu alias (opcional)" maxlength="40" />
+      <textarea id="comment-text-input" class="modal-textarea" maxlength="500" rows="2" placeholder="Escribe un comentario..."></textarea>
+      <button class="btn-primary" id="submit-comment-btn">Enviar comentario</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MINI-MODAL: AGREGAR/EDITAR BLOQUE LIBRE ============ -->
+<div class="modal-overlay modal-overlay-nested hidden" id="libre-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-libre-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title">📋 BLOQUE LIBRE</h3>
+    <p class="modal-hint">Define el nombre del bloque y luego agrega los campos que quieras — cada uno con su nombre y valor. Podés añadir sub-campos dentro de cada campo.</p>
+
+    <label class="field-label">Nombre del bloque</label>
+    <input type="text" id="libre-name-input" class="modal-input" maxlength="80" placeholder="Ej: NPC, Bloque especial, Estructura..." />
+
+    <label class="field-label" style="margin-top:12px;">Campos</label>
+    <div id="libre-fields-list" class="equip-editor-list"></div>
+    <button type="button" class="link-btn" id="libre-add-field-btn" style="margin-top:6px;">+ Campo</button>
+
+    <label class="field-label" style="margin-top:10px;">Descripción <span class="optional-tag">(opcional)</span></label>
+    <textarea id="libre-desc-input" class="modal-textarea" maxlength="600" rows="3" placeholder="Notas adicionales sobre este bloque..."></textarea>
+
+    <label class="field-label" style="margin-top:10px;">Imagen de referencia <span class="optional-tag">(opcional)</span></label>
+    <input type="url" id="libre-image-input" class="modal-input" maxlength="500" placeholder="https://..." />
+    <div class="asset-preview hidden" id="libre-image-preview-wrap">
+      <img id="libre-image-preview" alt="Vista previa" />
+      <button type="button" class="link-btn" id="libre-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+    </div>
+
+    <div class="modal-error hidden" id="libre-modal-error"></div>
+    <button class="btn-primary" id="submit-libre-btn">Guardar bloque</button>
+  </div>
+</div>
+
+<!-- ============ TOASTS ============ -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
