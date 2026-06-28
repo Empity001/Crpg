@@ -185,7 +185,7 @@ function renderBlockAssetHtml(url, title) {
   const titleAttr = escapeHtml(title || '');
   return `
     <div class="block-asset">
-      <img src="${safeAttr}" alt="${titleAttr}" class="js-open-asset" data-asset-src="${safeAttr}" data-asset-title="${titleAttr}" />
+      <img src="${safeAttr}" alt="${titleAttr}" class="js-open-asset pixel-art" data-asset-src="${safeAttr}" data-asset-title="${titleAttr}" />
       <button type="button" class="btn-fullscreen-asset js-open-asset" data-asset-src="${safeAttr}" data-asset-title="${titleAttr}">⛶ Ver en pantalla completa</button>
     </div>`;
 }
@@ -1557,7 +1557,7 @@ function itemsFor(rowId, columnKey) {
 function renderTierItemChip(item) {
   const safe = safeUrl(item.image_url);
   const thumb = safe
-    ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(item.name)}" class="js-open-asset" data-asset-src="${escapeHtml(safe)}" data-asset-title="${escapeHtml(item.name)}" />`
+    ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(item.name)}" class="js-open-asset pixel-art" data-asset-src="${escapeHtml(safe)}" data-asset-title="${escapeHtml(item.name)}" />`
     : `<span class="tier-chip-initials">${escapeHtml(initialsOf(item.name))}</span>`;
 
   return `
@@ -1565,14 +1565,17 @@ function renderTierItemChip(item) {
          draggable="${isAdmin() ? 'true' : 'false'}"
          data-item-id="${item.id}"
          title="${escapeHtml(item.name)}">
-      ${thumb}
-      ${isAdmin() ? `
-        <div class="tier-chip-admin-overlay">
-          <button type="button" class="tier-chip-mini-btn" data-action="move-tier-item" data-item-id="${item.id}" title="Mover">↕</button>
-          <button type="button" class="tier-chip-mini-btn" data-action="edit-tier-item" data-item-id="${item.id}" title="Editar">✏️</button>
-          <button type="button" class="tier-chip-mini-btn danger" data-action="delete-tier-item" data-item-id="${item.id}" title="Eliminar">🗑️</button>
-        </div>
-      ` : ''}
+      <div class="tier-chip-thumb">
+        ${thumb}
+        ${isAdmin() ? `
+          <div class="tier-chip-admin-overlay">
+            <button type="button" class="tier-chip-mini-btn" data-action="move-tier-item" data-item-id="${item.id}" title="Mover">↕</button>
+            <button type="button" class="tier-chip-mini-btn" data-action="edit-tier-item" data-item-id="${item.id}" title="Editar">✏️</button>
+            <button type="button" class="tier-chip-mini-btn danger" data-action="delete-tier-item" data-item-id="${item.id}" title="Eliminar">🗑️</button>
+          </div>
+        ` : ''}
+      </div>
+      <span class="tier-chip-name">${escapeHtml(item.name)}</span>
     </div>
   `;
 }

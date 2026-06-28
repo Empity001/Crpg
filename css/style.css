@@ -59,6 +59,19 @@
 
 * { box-sizing: border-box; }
 
+/* =========================================================
+   PIXEL ART: renderizado nítido sin antialiasing.
+   Se aplica a toda imagen de "ítem de juego" (mobs, items,
+   tierlist) — pensadas para subirse en baja resolución
+   (16x16, 32x32...) tipo sprite de Minecraft, donde el
+   suavizado del navegador las vuelve borrosas.
+   ========================================================= */
+.pixel-art {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -1486,7 +1499,7 @@ button:not(:disabled) {
   gap: 6px;
   border-radius: var(--radius-md);
   padding: 12px 8px;
-  min-height: 84px;
+  min-height: 96px;
   box-shadow: var(--shadow-card);
 }
 
@@ -1524,9 +1537,10 @@ button:not(:disabled) {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
   padding: 10px;
-  min-height: 84px;
+  min-height: 96px;
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 8px;
   align-content: flex-start;
   transition: border-color 0.15s ease, background 0.15s ease;
@@ -1538,6 +1552,19 @@ button:not(:disabled) {
 }
 
 .tier-item-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 56px;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.tier-item-chip[draggable="true"] { cursor: grab; }
+.tier-item-chip[draggable="true"]:active { cursor: grabbing; }
+
+.tier-chip-thumb {
   position: relative;
   width: 56px;
   height: 56px;
@@ -1546,11 +1573,7 @@ button:not(:disabled) {
   background: var(--bg-panel);
   border: 1px solid var(--border-soft);
   flex-shrink: 0;
-  cursor: default;
 }
-
-.tier-item-chip[draggable="true"] { cursor: grab; }
-.tier-item-chip[draggable="true"]:active { cursor: grabbing; }
 
 .tier-item-chip img {
   width: 100%;
@@ -1558,6 +1581,19 @@ button:not(:disabled) {
   object-fit: cover;
   display: block;
   cursor: pointer;
+}
+
+.tier-chip-name {
+  font-size: 10px;
+  line-height: 1.25;
+  color: var(--ink-300);
+  text-align: center;
+  width: 100%;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .tier-chip-initials {
@@ -1637,7 +1673,7 @@ button:not(:disabled) {
 }
 
 .tier-bench-cell {
-  min-height: 70px;
+  min-height: 84px;
 }
 
 /* ---------- Responsive ---------- */

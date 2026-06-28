@@ -101,7 +101,7 @@ Los campos personalizados ("Algo más") no se ven afectados por esta configuraci
 
 ## 🏆 Tierlist
 
-Tabla de personajes organizada en **filas dinámicas** (tiers: TZ, TS, TA... el nombre y color lo define el admin) cruzadas con **3 columnas fijas que no se pueden eliminar**: Arma, Sub-arma y Accesorio.
+Tabla de personajes organizada en **filas dinámicas** (tiers: SSS, SS, S, A... el nombre y color lo define el admin) cruzadas con **3 columnas fijas que no se pueden eliminar**: Arma, Sub-arma y Accesorio.
 
 - **Visitantes**: solo pueden ver la tierlist. Sin botones de edición.
 - **Banco "Sin clasificar"**: debajo de la tabla, agrupado también por columna — ahí caen los elementos nuevos hasta que un admin los asigna a una fila.

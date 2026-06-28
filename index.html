@@ -109,6 +109,7 @@
   <!-- ---------- PANEL: TIERLIST ---------- -->
   <section class="tab-panel" id="panel-tierlist">
     <div class="tierlist-toolbar">
+      <p class="tierlist-toolbar-hint">Tierlist de personajes por rol. Arrastra (PC) o usa "Mover a..." (móvil) para clasificar.</p>
       <button class="btn-new-log hidden" id="open-new-tier-row-btn" type="button">+ Nueva fila</button>
     </div>
 
@@ -144,7 +145,7 @@
   <div class="modal-box">
     <button class="modal-close" id="close-admin-modal" aria-label="Cerrar">✕</button>
     <h3 class="modal-title">🔐 ACCESO DE ADMINISTRADOR</h3>
-    <p class="modal-hint">Solicita el código de 24h al bot de Discord con <code>/getcode</code> e ingrésalo aquí.</p>
+    <p class="modal-hint">Solicita el código de 24h al bot de Discord con <code>/admincode</code> e ingrésalo aquí.</p>
     <input type="text" id="admin-code-input" class="modal-input" placeholder="CÓDIGO-DE-6-DÍGITOS" maxlength="32" autocomplete="off" />
     <div class="modal-error hidden" id="admin-modal-error"></div>
     <button class="btn-primary" id="submit-admin-code">Validar código</button>
@@ -305,7 +306,7 @@
     <label class="field-label" style="margin-top:10px;">Imagen de referencia <span class="optional-tag">(opcional)</span></label>
     <input type="url" id="mob-image-input" class="modal-input" maxlength="500" placeholder="https://..." />
     <div class="asset-preview hidden" id="mob-image-preview-wrap">
-      <img id="mob-image-preview" alt="Vista previa" />
+      <img id="mob-image-preview" alt="Vista previa" class="pixel-art" />
       <button type="button" class="link-btn" id="mob-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
     </div>
 
@@ -354,7 +355,7 @@
     <label class="field-label" style="margin-top:10px;">Imagen de referencia <span class="optional-tag">(opcional)</span></label>
     <input type="url" id="item-image-input" class="modal-input" maxlength="500" placeholder="https://..." />
     <div class="asset-preview hidden" id="item-image-preview-wrap">
-      <img id="item-image-preview" alt="Vista previa" />
+      <img id="item-image-preview" alt="Vista previa" class="pixel-art" />
       <button type="button" class="link-btn" id="item-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
     </div>
 
@@ -403,7 +404,7 @@
     <label class="field-label">Imagen <span class="optional-tag">(opcional, URL)</span></label>
     <input type="url" id="tier-item-image-input" class="modal-input" maxlength="500" placeholder="https://..." />
     <div class="asset-preview hidden" id="tier-item-image-preview-wrap">
-      <img id="tier-item-image-preview" alt="Vista previa" />
+      <img id="tier-item-image-preview" alt="Vista previa" class="pixel-art" />
       <button type="button" class="link-btn js-open-asset" id="tier-item-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
     </div>
 
@@ -480,7 +481,7 @@
     <label class="field-label" style="margin-top:10px;">Imagen de referencia <span class="optional-tag">(opcional)</span></label>
     <input type="url" id="libre-image-input" class="modal-input" maxlength="500" placeholder="https://..." />
     <div class="asset-preview hidden" id="libre-image-preview-wrap">
-      <img id="libre-image-preview" alt="Vista previa" />
+      <img id="libre-image-preview" alt="Vista previa" class="pixel-art" />
       <button type="button" class="link-btn" id="libre-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
     </div>
 
