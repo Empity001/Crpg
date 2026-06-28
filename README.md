@@ -12,7 +12,7 @@ La barra superior tiene 4 pestañas, estilo navegador:
 
 - **📜 Logs** — el contenido principal, explicado abajo.
 - **⚔️ Guías de Armas** — sección reservada para el futuro catálogo de armas gacha y builds recomendadas. Todavía no tiene contenido.
-- **📊 Estadísticas** — sección reservada para rankings de jugadores, economía y métricas en vivo del servidor. Todavía no tiene contenido.
+- **🏆 Tierlist** — tabla de personajes por tier (fila) y rol (columna: Arma / Sub-arma / Accesorio). Explicada más abajo.
 - **🎮 Acerca del Server** — texto fijo de presentación del servidor.
 
 Arriba a la derecha está el botón **ADMIN**, con un punto que indica si hay una sesión de administrador activa (ver más abajo).
@@ -99,6 +99,18 @@ Los campos personalizados ("Algo más") no se ven afectados por esta configuraci
 
 ---
 
+## 🏆 Tierlist
+
+Tabla de personajes organizada en **filas dinámicas** (tiers: SSS, SS, S, A... el nombre y color lo define el admin) cruzadas con **3 columnas fijas que no se pueden eliminar**: Arma, Sub-arma y Accesorio.
+
+- **Visitantes**: solo pueden ver la tierlist. Sin botones de edición.
+- **Banco "Sin clasificar"**: debajo de la tabla, agrupado también por columna — ahí caen los elementos nuevos hasta que un admin los asigna a una fila.
+- **Mover un elemento**: en computadora, **arrastra y suelta** el elemento a la celda destino (otra fila, otra columna, o el banco). En el celular, donde no hay arrastre, cada elemento tiene un botón **↕ Mover** que abre un selector de fila + columna.
+- **Admin puede**: crear/renombrar/cambiar color/reordenar/borrar filas (al borrar una fila, sus elementos vuelven al banco, no se pierden); crear/editar/borrar elementos con nombre + imagen (URL externa, igual que en los mobs/items de los logs).
+- Pensado para crecer: cada elemento tiene un campo `extra_fields` libre en la base de datos por si en el futuro quieres agregarle más datos (rareza, nota, etc.) sin tener que migrar de nuevo.
+
+---
+
 ## 💬 Comentarios
 
 Cada log tiene su propia sección de comentarios, abajo del detalle:
@@ -119,6 +131,7 @@ En modo admin aparecen:
 - **+ Nuevo Log** y, en cada tarjeta, **✏️ Editar** / **🗑️ Borrar**.
 - **+ Crear categoría nueva** y poder borrar categorías existentes.
 - **⚙ Configurar fichas**.
+- Herramientas completas de gestión en **🏆 Tierlist**: filas y elementos.
 - Botones de moderación en los comentarios.
 - **🕒 Acciones realizadas** (ver siguiente sección).
 
