@@ -30,7 +30,6 @@ const state = {
   // Configuración de fichas (campos fijos activables/reordenables)
   fieldConfig: { mob: [], item: [] },
   fieldConfigDraft: { mob: [], item: [] },
-  backgroundConfig: { image_url: '', mode: 'fixed', tabs: [] },
   // Comentarios: cache plano del log abierto + likes + respuesta activa
   commentsFlat: [],
   likedCommentIds: new Set(JSON.parse(localStorage.getItem('culones_liked_comments') || '[]')),
@@ -252,7 +251,6 @@ function initTabs() {
       document.getElementById(`panel-${target}`).classList.add('is-active');
       document.getElementById('active-tab-path').textContent = target;
       state.activeTab = target;
-      applyCustomBackground();
 
       if (target === 'tierlist' && !state.tierlistLoaded) {
         state.tierlistLoaded = true;
@@ -374,17 +372,6 @@ async function loadAppSettings() {
   const itemRow = data.find(r => r.key === 'item_fields');
   if (mobRow && Array.isArray(mobRow.value) && mobRow.value.length > 0) state.fieldConfig.mob = mobRow.value;
   if (itemRow && Array.isArray(itemRow.value) && itemRow.value.length > 0) state.fieldConfig.item = itemRow.value;
-
-  const bgRow = data.find(r => r.key === 'background_config');
-  if (bgRow && bgRow.value && typeof bgRow.value === 'object') {
-    state.backgroundConfig = {
-      image_url: bgRow.value.image_url || '',
-      mode: ['fixed', 'continuous', 'contain'].includes(bgRow.value.mode) ? bgRow.value.mode : 'fixed',
-      tabs: Array.isArray(bgRow.value.tabs) ? bgRow.value.tabs : [],
-    };
-  }
-  populateBackgroundForm();
-  applyCustomBackground();
 }
 
 function openFieldConfigModal() {
@@ -446,145 +433,6 @@ async function saveFieldConfig() {
   showToast('Configuración de fichas guardada', 'success');
   renderLogs();
 }
-
-// ---------------------------------------------------------
-// FONDO PERSONALIZADO (app_settings: background_config)
-// Reemplaza el fondo oscuro por una imagen propia. Vive en una
-// capa fija/absoluta detrás de bg-grid/crt-overlay y de todo el
-// contenido (z-index: -1), así que no requiere tocar el resto
-// de la UI. Tres modos: fixed (POV), continuous (un solo lienzo
-// a lo largo de toda la página) y contain (imagen entera, sin
-// recortes, con relleno difuminado en los bordes).
-// ---------------------------------------------------------
-function populateBackgroundForm() {
-  const cfg = state.backgroundConfig;
-  const urlInput = document.getElementById('bg-image-url-input');
-  if (!urlInput) return; // el form vive en Herramientas, puede no existir aún
-  urlInput.value = cfg.image_url || '';
-  const modeRadio = document.querySelector(`input[name="bg-mode"][value="${cfg.mode || 'fixed'}"]`);
-  if (modeRadio) modeRadio.checked = true;
-  document.querySelectorAll('#bg-tabs-options input[type="checkbox"]').forEach(cb => {
-    cb.checked = cfg.tabs.includes(cb.value);
-  });
-}
-
-function readBackgroundForm() {
-  const url = document.getElementById('bg-image-url-input').value.trim();
-  const modeInput = document.querySelector('input[name="bg-mode"]:checked');
-  const mode = modeInput ? modeInput.value : 'fixed';
-  const tabs = Array.from(document.querySelectorAll('#bg-tabs-options input[type="checkbox"]:checked')).map(cb => cb.value);
-  return { image_url: url, mode, tabs };
-}
-
-function previewBackgroundFromForm() {
-  applyCustomBackground(readBackgroundForm());
-}
-
-/** Aplica (o quita) el fondo personalizado en la página actual. */
-function applyCustomBackground(config) {
-  const cfg = config || state.backgroundConfig;
-  const layer = document.getElementById('custom-bg-layer');
-  const mainEl = document.getElementById('custom-bg-main');
-  const blurEl = document.getElementById('custom-bg-blur');
-  if (!layer || !mainEl || !blurEl) return;
-
-  const validUrl = !!cfg.image_url && /^https?:\/\//i.test(cfg.image_url);
-  const shouldShow = validUrl && (cfg.tabs || []).includes(state.activeTab || 'logs');
-
-  if (!shouldShow) {
-    layer.classList.add('hidden');
-    layer.classList.remove('is-continuous');
-    return;
-  }
-
-  const safeUrl = cfg.image_url.replace(/["\\]/g, '');
-  mainEl.style.backgroundImage = `url("${safeUrl}")`;
-  blurEl.style.backgroundImage = `url("${safeUrl}")`;
-
-  layer.classList.remove('mode-fixed', 'mode-continuous', 'mode-contain');
-  layer.classList.remove('hidden');
-
-  if (cfg.mode === 'continuous') {
-    layer.classList.add('mode-continuous', 'is-continuous');
-    syncContinuousBgHeight();
-  } else if (cfg.mode === 'contain') {
-    layer.classList.remove('is-continuous');
-    layer.classList.add('mode-contain');
-  } else {
-    layer.classList.remove('is-continuous');
-    layer.classList.add('mode-fixed');
-  }
-}
-
-/** Recalcula el alto de la capa "continua" para que cubra toda la página actual. */
-function syncContinuousBgHeight() {
-  const layer = document.getElementById('custom-bg-layer');
-  if (!layer || !layer.classList.contains('is-continuous')) return;
-  const h = Math.max(document.documentElement.scrollHeight, window.innerHeight);
-  layer.style.height = h + 'px';
-}
-
-let _bgHeightSyncTimer = null;
-function scheduleBgHeightSync() {
-  if (_bgHeightSyncTimer) return;
-  _bgHeightSyncTimer = setTimeout(() => { _bgHeightSyncTimer = null; syncContinuousBgHeight(); }, 150);
-}
-
-/** Observa cambios de contenido (logs cargando, tabs, etc.) para
- *  mantener el alto de la capa "continua" siempre actualizado. */
-function initContinuousBgObserver() {
-  const observer = new MutationObserver(scheduleBgHeightSync);
-  observer.observe(document.body, { childList: true, subtree: true });
-  window.addEventListener('resize', scheduleBgHeightSync);
-}
-
-async function saveBackgroundConfig() {
-  const errorBox = document.getElementById('bg-config-error');
-  errorBox.classList.add('hidden');
-  const value = readBackgroundForm();
-
-  if (value.image_url && !/^https?:\/\//i.test(value.image_url)) {
-    errorBox.textContent = 'La URL de la imagen debe empezar con http:// o https://';
-    errorBox.classList.remove('hidden');
-    return;
-  }
-  if (!state.adminCode) {
-    errorBox.textContent = 'Tu sesión de administrador expiró.';
-    errorBox.classList.remove('hidden');
-    return;
-  }
-
-  const { error } = await supabaseClient.rpc('update_app_setting', {
-    input_code: state.adminCode, input_key: 'background_config', input_value: value,
-  });
-
-  if (error) {
-    errorBox.textContent = 'Error: ' + error.message;
-    errorBox.classList.remove('hidden');
-    return;
-  }
-
-  state.backgroundConfig = value;
-  applyCustomBackground();
-  showToast(value.image_url ? 'Fondo de la página guardado para todos' : 'Fondo de la página quitado', 'success');
-}
-
-async function clearBackgroundConfig() {
-  if (!confirm('¿Quitar el fondo personalizado de la página para todos los visitantes?')) return;
-  document.getElementById('bg-image-url-input').value = '';
-  await saveBackgroundConfig();
-  if (!document.getElementById('bg-config-error').classList.contains('hidden')) return;
-  populateBackgroundForm();
-}
-
-function initBackgroundTool() {
-  document.getElementById('bg-image-url-input').addEventListener('input', previewBackgroundFromForm);
-  document.querySelectorAll('input[name="bg-mode"]').forEach(r => r.addEventListener('change', previewBackgroundFromForm));
-  document.querySelectorAll('#bg-tabs-options input[type="checkbox"]').forEach(cb => cb.addEventListener('change', previewBackgroundFromForm));
-  document.getElementById('bg-save-btn').addEventListener('click', saveBackgroundConfig);
-  document.getElementById('bg-clear-btn').addEventListener('click', clearBackgroundConfig);
-}
-
 
 // ---------------------------------------------------------
 // BITÁCORA DE ACCIONES ("Acciones realizadas") — solo admin.
@@ -3195,7 +3043,6 @@ async function init() {
   initWeaponModals();
   initSortControl();
   initAdminPanel();
-  initContinuousBgObserver();
   updateAdminUI();
   await loadCategories();
   await loadAppSettings();
@@ -3856,6 +3703,5 @@ function initAdminPanel() {
     showToast('Todos los borradores eliminados');
   });
 
-  initBackgroundTool();
   initBeforeUnload();
 }
