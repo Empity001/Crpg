@@ -1936,14 +1936,22 @@ async function loadWeaponMeta() {
     supabaseClient.from('weapon_categories').select('*').order('sort_order', { ascending: true }),
     supabaseClient.from('weapon_types').select('*').order('sort_order', { ascending: true }),
   ]);
-  if (!catsRes.error) state.weaponCategories = catsRes.data;
-  if (!typesRes.error) state.weaponTypes = typesRes.data;
+  if (catsRes.error) {
+    console.error('[Weapons] weapon_categories error:', catsRes.error.message);
+    // Las tablas aún no existen en Supabase — mostrar mensaje claro
+    const grid = document.getElementById('weapons-grid');
+    if (grid) grid.innerHTML = `<div class="logs-empty"><p>⚠️ El catálogo de armas no está configurado aún.<br>Ejecuta <code>migration_008_weapons.sql</code> en Supabase.</p></div>`;
+    return false;
+  }
+  if (!catsRes.error) state.weaponCategories = catsRes.data || [];
+  if (!typesRes.error) state.weaponTypes = typesRes.data || [];
   renderWeaponCategoryFilters();
   renderWeaponTypeFilters();
   renderWeaponCategorySelectOptions();
   renderWeaponTypeSelectOptions();
   renderWeaponCategoryManageList();
   renderWeaponTypeManageList();
+  return true;
 }
 
 async function reloadWeaponData() {
@@ -1968,7 +1976,8 @@ async function reloadWeaponData() {
 }
 
 async function loadWeaponsCatalog() {
-  await loadWeaponMeta();
+  const ok = await loadWeaponMeta();
+  if (ok === false) return; // tablas no existen aún
   await reloadWeaponData();
 }
 

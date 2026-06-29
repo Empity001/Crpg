@@ -1710,20 +1710,22 @@ button:not(:disabled) {
   margin-bottom: 8px;
 }
 .admin-section-title {
-  font-family: var(--font-pixel);
-  font-size: 11px;
-  color: var(--cyan);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-100);
   margin: 0;
+  letter-spacing: 0.01em;
 }
 .admin-section-hint {
-  font-size: 12px;
-  color: var(--ink-600);
+  font-size: 13px;
+  color: var(--ink-400);
   margin-bottom: 16px;
   line-height: 1.6;
 }
 .admin-empty {
-  font-size: 12px;
-  color: var(--ink-600);
+  font-size: 13px;
+  color: var(--ink-400);
   font-style: italic;
   text-align: center;
   padding: 20px 0;
@@ -1736,15 +1738,16 @@ button:not(:disabled) {
   gap: 16px;
 }
 .export-option-group {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--border-dim);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
   border-radius: var(--radius-sm);
-  padding: 14px;
+  padding: 16px;
 }
 .export-option-title {
-  font-size: 12px;
-  font-family: var(--font-pixel);
-  color: var(--ink-200);
+  font-size: 13px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  color: var(--ink-100);
   margin: 0 0 10px;
 }
 .export-option-hint {
@@ -1778,8 +1781,8 @@ button:not(:disabled) {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  color: var(--ink-600);
-  font-size: 13px;
+  color: var(--ink-400);
+  font-size: 14px;
   transition: border-color 0.15s, background 0.15s;
   cursor: default;
 }
@@ -1819,7 +1822,7 @@ button:not(:disabled) {
 }
 .import-conflict-row.is-conflict { border-color: rgba(245,197,66,0.4); }
 .import-conflict-row.is-new { border-color: rgba(77,212,232,0.3); }
-.import-conflict-name { font-size: 12px; color: var(--ink-200); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.import-conflict-name { font-size: 13px; color: var(--ink-100); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .import-conflict-toggle { display: flex; gap: 12px; flex-shrink: 0; }
 .import-radio-label { font-size: 11px; color: var(--ink-600); display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .import-radio-label:hover { color: var(--ink-200); }
@@ -1847,16 +1850,17 @@ button:not(:disabled) {
   min-width: 0;
 }
 .draft-banner-icon { font-size: 18px; flex-shrink: 0; }
-.draft-banner-info strong { display: block; font-size: 12px; color: var(--cyan); }
+.draft-banner-info strong { display: block; font-size: 13px; color: var(--cyan); font-family: var(--font-body); font-weight: 700; }
 .draft-banner-time { font-size: 11px; color: var(--ink-600); }
 .draft-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .btn-draft-restore {
   background: var(--cyan);
   color: var(--bg);
   border: none;
-  font-family: var(--font-pixel);
-  font-size: 9px;
-  padding: 6px 12px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 14px;
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
@@ -1880,16 +1884,16 @@ button:not(:disabled) {
   margin-bottom: 10px;
   min-height: 24px;
 }
-.draft-autosave-status { font-size: 11px; color: var(--ink-600); }
+.draft-autosave-status { font-size: 12px; color: var(--ink-400); font-family: var(--font-body); }
 .draft-autosave-status.is-dirty { color: #f5c542; }
 .draft-autosave-status.is-saved { color: #4ade80; }
 .btn-draft-save-manual {
   background: transparent;
   border: 1px solid var(--border-dim);
   color: var(--ink-400);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  padding: 4px 10px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  padding: 5px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
@@ -1908,8 +1912,8 @@ button:not(:disabled) {
   gap: 12px;
 }
 .draft-list-info { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
-.draft-list-title { font-size: 12px; color: var(--ink-200); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.draft-list-meta { font-size: 11px; color: var(--ink-600); }
+.draft-list-title { font-size: 13px; color: var(--ink-100); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draft-list-meta { font-size: 12px; color: var(--ink-400); }
 .draft-list-actions { display: flex; gap: 6px; flex-shrink: 0; }
 .draft-local-tag {
   display: inline-block;
@@ -2223,4 +2227,17 @@ button:not(:disabled) {
   .weapons-search-input { max-width: none; width: 100%; }
   .weapon-detail-header { flex-direction: column; align-items: center; text-align: center; }
   .weapon-recipe-trade { justify-content: center; }
+}
+
+/* ─── Mensaje de error cuando faltan tablas (armas) ─── */
+.logs-empty code {
+  background: rgba(77,212,232,0.1);
+  border: 1px solid rgba(77,212,232,0.3);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-top: 6px;
 }
