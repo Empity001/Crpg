@@ -37,18 +37,23 @@
   --cyan: #4dd4e8;
 
   --ink-100: #f4f1fb;
+  --ink-200: #ddd6f0;
   --ink-300: #c9c0e8;
   --ink-400: #9a92b8;
   --ink-600: #5b5478;
 
   --border-soft: rgba(243, 183, 58, 0.18);
+  --border-dim: rgba(243, 183, 58, 0.12);
   --border-strong: rgba(243, 183, 58, 0.45);
 
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
+  --radius: 10px;
+  --surface: #15111f;
 
   --font-display: 'Press Start 2P', monospace;
+  --font-pixel: 'Press Start 2P', monospace;
   --font-body: 'Space Grotesk', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
@@ -66,7 +71,8 @@
    (16x16, 32x32...) tipo sprite de Minecraft, donde el
    suavizado del navegador las vuelve borrosas.
    ========================================================= */
-.pixel-art {
+.pixel-art,
+img {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
@@ -80,6 +86,7 @@ html, body {
   font-family: var(--font-body);
   min-height: 100vh;
   overflow-x: hidden;
+  position: relative;
 }
 
 button, input, textarea, select {
@@ -97,6 +104,52 @@ button:not(:disabled) {
 ::-webkit-scrollbar-track { background: var(--bg-panel); }
 ::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 8px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+/* =========================================================
+   FONDO PERSONALIZADO (Herramientas → Fondo de la página)
+   Capa detrás de bg-grid/crt-overlay y de todo el contenido.
+   Tres modos:
+   - mode-fixed: cubre el viewport, anclada a la pantalla (POV).
+   - mode-continuous: se estira por TODA la altura de la página
+     (alto fijado dinámicamente desde JS) y se mueve con el scroll.
+   - mode-contain: muestra la imagen completa sin recortarla,
+     con una copia difuminada de sí misma rellenando los bordes.
+   ========================================================= */
+.custom-bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.custom-bg-layer.is-continuous {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  /* height se fija por JS para cubrir toda la altura de la página */
+}
+.custom-bg-blur,
+.custom-bg-main {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+.custom-bg-blur {
+  display: none;
+  filter: blur(60px) brightness(0.5) saturate(1.2);
+  transform: scale(1.18);
+}
+.custom-bg-layer.mode-contain .custom-bg-blur { display: block; }
+.custom-bg-layer.mode-contain .custom-bg-main { background-size: contain; }
+.custom-bg-layer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8,6,16,0.5), rgba(8,6,16,0.72));
+}
 
 /* =========================================================
    FONDO AMBIENTAL: grid sutil + scanlines CRT
@@ -1741,6 +1794,12 @@ button:not(:disabled) {
   color: var(--ink-200);
   margin: 0 0 10px;
 }
+.export-option-hint {
+  font-size: 11px;
+  color: var(--ink-600);
+  line-height: 1.5;
+  margin: 8px 0 0;
+}
 .export-btns { display: flex; flex-direction: column; gap: 6px; }
 .btn-export {
   background: rgba(77,212,232,0.08);
@@ -1915,3 +1974,346 @@ button:not(:disabled) {
 /* btn-secondary-admin.danger */
 .btn-secondary-admin.danger { border-color: var(--magenta); color: var(--magenta); }
 .btn-secondary-admin.danger:hover { background: var(--magenta); color: var(--bg); }
+
+/* =========================================================
+   GUÍA DE ARMAS — catálogo (buscador + filtros dinámicos + grid)
+   ========================================================= */
+.weapons-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.weapons-search-input { max-width: 320px; }
+.weapons-toolbar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.weapon-filter-row { margin-bottom: 10px; }
+
+.weapons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.weapon-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 14px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.weapon-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-card), var(--glow-gold);
+}
+.weapon-card.is-unpublished { opacity: 0.6; border-style: dashed; }
+
+.weapon-card-thumb {
+  width: 84px; height: 84px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.weapon-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.weapon-card-thumb .tier-chip-initials { font-size: 22px; }
+
+.weapon-card-name {
+  font-size: 12.5px;
+  color: var(--ink-100);
+  text-align: center;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.weapon-card-badges { display: flex; align-items: center; gap: 6px; }
+.weapon-cat-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.weapon-card-type {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--ink-600);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.weapon-unpublished-tag {
+  position: absolute;
+  top: 6px; right: 6px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.5px;
+  color: var(--magenta);
+  border: 1px solid var(--magenta);
+  background: rgba(255,61,142,0.1);
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.weapons-empty { grid-column: 1 / -1; text-align: center; padding: 50px 0; color: var(--ink-400); }
+
+/* ---------- Vista de detalle ---------- */
+.weapon-back-btn { display: inline-block; margin-bottom: 16px; font-size: 13px; }
+
+.weapon-detail-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.weapon-detail-image {
+  width: 96px; height: 96px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
+  background: var(--bg-panel);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.weapon-detail-headinfo { flex: 1; min-width: 180px; }
+.weapon-detail-name { font-size: 20px; color: var(--ink-100); margin: 0 0 8px; }
+.weapon-detail-badges { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.weapon-cat-badge, .weapon-type-badge {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+}
+.weapon-type-badge { color: var(--ink-300); background: rgba(255,255,255,0.05); }
+
+.weapon-detail-admin-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-dim);
+}
+
+/* ---------- Selector de rangos ---------- */
+.weapon-rank-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.weapon-rank-pill-wrap { display: flex; align-items: center; gap: 2px; }
+.weapon-rank-admin-mini {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-soft);
+  color: var(--ink-600);
+  font-size: 9px;
+  width: 18px; height: 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: 1;
+}
+.weapon-rank-admin-mini:hover { border-color: var(--gold); color: var(--gold); }
+.weapon-rank-admin-mini.danger:hover { border-color: var(--magenta); color: var(--magenta); }
+
+/* ---------- Cuerpo del rango ---------- */
+.weapon-section-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.weapon-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.weapon-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-100);
+  margin: 0;
+}
+.weapon-section-admin-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.weapon-rank-desc { white-space: pre-line; }
+
+/* Estadísticas — reusa el lenguaje visual de barras de mob/item,
+   con un color propio para no confundir con vida/daño/armor. */
+.bar-fill.bar-stat { background: linear-gradient(90deg, var(--gold-dim), var(--gold)); }
+.bar-fill.bar-level { background: linear-gradient(90deg, var(--magenta-dim), var(--cyan)); }
+.weapon-stats-grid .stat-row-label { width: auto; max-width: 180px; flex-shrink: 0; }
+
+/* ---------- Habilidades ---------- */
+.weapon-abilities-list { display: flex; flex-direction: column; gap: 14px; }
+.weapon-ability-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+.weapon-ability-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.weapon-ability-name { font-size: 13.5px; font-weight: 700; color: var(--ink-100); margin: 0; }
+.weapon-ability-tag {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--cyan);
+  border: 1px solid var(--cyan);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.weapon-ability-admin-actions { margin-left: auto; display: flex; gap: 6px; }
+.weapon-ability-desc { font-size: 12.5px; color: var(--ink-300); line-height: 1.5; margin: 0 0 10px; white-space: pre-line; }
+.weapon-ability-level-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.weapon-ability-level-label { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-400); flex-shrink: 0; }
+.weapon-ability-stats-grid { display: flex; flex-direction: column; gap: 4px; }
+.weapon-ability-stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.weapon-ability-stat-row .stat-label { color: var(--ink-400); }
+.weapon-ability-stat-row .stat-value { color: var(--ink-200); font-family: var(--font-mono); }
+
+/* ---------- Receta de mejora (trade) ---------- */
+.weapon-recipe-trade {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.weapon-recipe-materials { display: flex; gap: 10px; flex-wrap: wrap; }
+.weapon-recipe-material { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 64px; }
+.weapon-recipe-material-thumb {
+  width: 56px; height: 56px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  background: var(--bg-panel);
+  position: relative;
+  overflow: hidden;
+}
+.weapon-recipe-material-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.weapon-recipe-material-qty {
+  position: absolute;
+  bottom: 1px; right: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-100);
+  background: rgba(0,0,0,0.65);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+.weapon-recipe-material-name { font-size: 9.5px; color: var(--ink-400); text-align: center; line-height: 1.2; }
+.weapon-recipe-arrow { font-size: 22px; color: var(--gold); flex-shrink: 0; }
+.weapon-recipe-result { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 72px; }
+.weapon-recipe-result-thumb {
+  width: 64px; height: 64px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gold);
+  box-shadow: var(--glow-gold);
+  background: var(--bg-panel);
+}
+.weapon-recipe-result-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm); }
+.weapon-recipe-result-name { font-size: 10.5px; color: var(--gold); font-weight: 700; text-align: center; }
+
+/* ---------- Editor de materiales (modal admin) ---------- */
+.weapon-material-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.weapon-material-row .modal-input { font-size: 12px; padding: 5px 8px; }
+.weapon-material-row .wm-name { flex: 2; min-width: 100px; }
+.weapon-material-row .wm-image { flex: 2; min-width: 100px; }
+.weapon-material-row .wm-qty { flex: 0 0 60px; }
+
+/* ---------- Secciones extra (texto libre o clave/valor) ---------- */
+.weapon-extra-text { font-size: 13px; color: var(--ink-300); line-height: 1.6; white-space: pre-line; margin: 0; }
+
+@media (max-width: 720px) {
+  .weapons-search-input { max-width: none; width: 100%; }
+  .weapon-detail-header { flex-direction: column; align-items: center; text-align: center; }
+  .weapon-recipe-trade { justify-content: center; }
+}
+
+/* ── Fondo de la página (formulario en Herramientas) ── */
+.bg-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+.bg-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.bg-mode-option:hover { border-color: var(--border-strong); }
+.bg-mode-option input[type="radio"] { accent-color: var(--gold); margin-top: 3px; flex-shrink: 0; }
+.bg-mode-option:has(input:checked) { border-color: var(--gold); background: rgba(243,183,58,0.06); }
+.bg-mode-option strong { display: block; font-size: 12.5px; color: var(--ink-100); margin-bottom: 2px; }
+.bg-mode-option span { font-size: 11.5px; color: var(--ink-600); line-height: 1.5; }
+
+.bg-tabs-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+.bg-tab-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-dim);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--ink-300);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.bg-tab-checkbox input[type="checkbox"] { accent-color: var(--gold); }
+.bg-tab-checkbox:has(input:checked) { border-color: var(--gold); color: var(--ink-100); }

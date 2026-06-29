@@ -30,6 +30,7 @@ const state = {
   // Configuración de fichas (campos fijos activables/reordenables)
   fieldConfig: { mob: [], item: [] },
   fieldConfigDraft: { mob: [], item: [] },
+  backgroundConfig: { image_url: '', mode: 'fixed', tabs: [] },
   // Comentarios: cache plano del log abierto + likes + respuesta activa
   commentsFlat: [],
   likedCommentIds: new Set(JSON.parse(localStorage.getItem('culones_liked_comments') || '[]')),
@@ -43,6 +44,28 @@ const state = {
   movingTierItemId: null,
   draggedTierItemId: null, // id del elemento que se está arrastrando (drag&drop PC)
   activeTab: 'logs',
+
+  // ---------- Guía de Armas ----------
+  weaponsLoaded: false,
+  weaponCategories: [],   // [{id, label, color, sort_order}, ...]
+  weaponTypes: [],        // [{id, label, sort_order}, ...]
+  weapons: [],            // [{id, name, image_url, category_id, type_id, published, ...}, ...]
+  weaponRanksByWeapon: {},// weapon_id -> [rank, ...]
+  weaponSearchTerm: '',
+  weaponActiveCategoryFilter: 'all',
+  weaponActiveTypeFilter: 'all',
+  currentWeaponId: null,
+  currentWeaponRankId: null,
+  editingWeaponId: null,
+  editingWeaponCategoryId: null,
+  editingWeaponTypeId: null,
+  editingWeaponRankId: null,
+  editingAbilityIndex: null,
+  editingSectionIndex: null,
+  weaponStatsDraft: [],
+  weaponAbilityStatsDraft: [],
+  weaponRecipeMaterialsDraft: [],
+  weaponSectionFieldsDraft: [],
 };
 
 const RELEVANCE_ORDER = { low: 0, normal: 1, high: 2, critical: 3 };
@@ -229,10 +252,15 @@ function initTabs() {
       document.getElementById(`panel-${target}`).classList.add('is-active');
       document.getElementById('active-tab-path').textContent = target;
       state.activeTab = target;
+      applyCustomBackground();
 
       if (target === 'tierlist' && !state.tierlistLoaded) {
         state.tierlistLoaded = true;
         loadTierlist();
+      }
+      if (target === 'weapons' && !state.weaponsLoaded) {
+        state.weaponsLoaded = true;
+        loadWeaponsCatalog();
       }
       if (target === 'admin' && isAdmin()) {
         renderDraftsList();
@@ -346,6 +374,17 @@ async function loadAppSettings() {
   const itemRow = data.find(r => r.key === 'item_fields');
   if (mobRow && Array.isArray(mobRow.value) && mobRow.value.length > 0) state.fieldConfig.mob = mobRow.value;
   if (itemRow && Array.isArray(itemRow.value) && itemRow.value.length > 0) state.fieldConfig.item = itemRow.value;
+
+  const bgRow = data.find(r => r.key === 'background_config');
+  if (bgRow && bgRow.value && typeof bgRow.value === 'object') {
+    state.backgroundConfig = {
+      image_url: bgRow.value.image_url || '',
+      mode: ['fixed', 'continuous', 'contain'].includes(bgRow.value.mode) ? bgRow.value.mode : 'fixed',
+      tabs: Array.isArray(bgRow.value.tabs) ? bgRow.value.tabs : [],
+    };
+  }
+  populateBackgroundForm();
+  applyCustomBackground();
 }
 
 function openFieldConfigModal() {
@@ -407,6 +446,145 @@ async function saveFieldConfig() {
   showToast('Configuración de fichas guardada', 'success');
   renderLogs();
 }
+
+// ---------------------------------------------------------
+// FONDO PERSONALIZADO (app_settings: background_config)
+// Reemplaza el fondo oscuro por una imagen propia. Vive en una
+// capa fija/absoluta detrás de bg-grid/crt-overlay y de todo el
+// contenido (z-index: -1), así que no requiere tocar el resto
+// de la UI. Tres modos: fixed (POV), continuous (un solo lienzo
+// a lo largo de toda la página) y contain (imagen entera, sin
+// recortes, con relleno difuminado en los bordes).
+// ---------------------------------------------------------
+function populateBackgroundForm() {
+  const cfg = state.backgroundConfig;
+  const urlInput = document.getElementById('bg-image-url-input');
+  if (!urlInput) return; // el form vive en Herramientas, puede no existir aún
+  urlInput.value = cfg.image_url || '';
+  const modeRadio = document.querySelector(`input[name="bg-mode"][value="${cfg.mode || 'fixed'}"]`);
+  if (modeRadio) modeRadio.checked = true;
+  document.querySelectorAll('#bg-tabs-options input[type="checkbox"]').forEach(cb => {
+    cb.checked = cfg.tabs.includes(cb.value);
+  });
+}
+
+function readBackgroundForm() {
+  const url = document.getElementById('bg-image-url-input').value.trim();
+  const modeInput = document.querySelector('input[name="bg-mode"]:checked');
+  const mode = modeInput ? modeInput.value : 'fixed';
+  const tabs = Array.from(document.querySelectorAll('#bg-tabs-options input[type="checkbox"]:checked')).map(cb => cb.value);
+  return { image_url: url, mode, tabs };
+}
+
+function previewBackgroundFromForm() {
+  applyCustomBackground(readBackgroundForm());
+}
+
+/** Aplica (o quita) el fondo personalizado en la página actual. */
+function applyCustomBackground(config) {
+  const cfg = config || state.backgroundConfig;
+  const layer = document.getElementById('custom-bg-layer');
+  const mainEl = document.getElementById('custom-bg-main');
+  const blurEl = document.getElementById('custom-bg-blur');
+  if (!layer || !mainEl || !blurEl) return;
+
+  const validUrl = !!cfg.image_url && /^https?:\/\//i.test(cfg.image_url);
+  const shouldShow = validUrl && (cfg.tabs || []).includes(state.activeTab || 'logs');
+
+  if (!shouldShow) {
+    layer.classList.add('hidden');
+    layer.classList.remove('is-continuous');
+    return;
+  }
+
+  const safeUrl = cfg.image_url.replace(/["\\]/g, '');
+  mainEl.style.backgroundImage = `url("${safeUrl}")`;
+  blurEl.style.backgroundImage = `url("${safeUrl}")`;
+
+  layer.classList.remove('mode-fixed', 'mode-continuous', 'mode-contain');
+  layer.classList.remove('hidden');
+
+  if (cfg.mode === 'continuous') {
+    layer.classList.add('mode-continuous', 'is-continuous');
+    syncContinuousBgHeight();
+  } else if (cfg.mode === 'contain') {
+    layer.classList.remove('is-continuous');
+    layer.classList.add('mode-contain');
+  } else {
+    layer.classList.remove('is-continuous');
+    layer.classList.add('mode-fixed');
+  }
+}
+
+/** Recalcula el alto de la capa "continua" para que cubra toda la página actual. */
+function syncContinuousBgHeight() {
+  const layer = document.getElementById('custom-bg-layer');
+  if (!layer || !layer.classList.contains('is-continuous')) return;
+  const h = Math.max(document.documentElement.scrollHeight, window.innerHeight);
+  layer.style.height = h + 'px';
+}
+
+let _bgHeightSyncTimer = null;
+function scheduleBgHeightSync() {
+  if (_bgHeightSyncTimer) return;
+  _bgHeightSyncTimer = setTimeout(() => { _bgHeightSyncTimer = null; syncContinuousBgHeight(); }, 150);
+}
+
+/** Observa cambios de contenido (logs cargando, tabs, etc.) para
+ *  mantener el alto de la capa "continua" siempre actualizado. */
+function initContinuousBgObserver() {
+  const observer = new MutationObserver(scheduleBgHeightSync);
+  observer.observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('resize', scheduleBgHeightSync);
+}
+
+async function saveBackgroundConfig() {
+  const errorBox = document.getElementById('bg-config-error');
+  errorBox.classList.add('hidden');
+  const value = readBackgroundForm();
+
+  if (value.image_url && !/^https?:\/\//i.test(value.image_url)) {
+    errorBox.textContent = 'La URL de la imagen debe empezar con http:// o https://';
+    errorBox.classList.remove('hidden');
+    return;
+  }
+  if (!state.adminCode) {
+    errorBox.textContent = 'Tu sesión de administrador expiró.';
+    errorBox.classList.remove('hidden');
+    return;
+  }
+
+  const { error } = await supabaseClient.rpc('update_app_setting', {
+    input_code: state.adminCode, input_key: 'background_config', input_value: value,
+  });
+
+  if (error) {
+    errorBox.textContent = 'Error: ' + error.message;
+    errorBox.classList.remove('hidden');
+    return;
+  }
+
+  state.backgroundConfig = value;
+  applyCustomBackground();
+  showToast(value.image_url ? 'Fondo de la página guardado para todos' : 'Fondo de la página quitado', 'success');
+}
+
+async function clearBackgroundConfig() {
+  if (!confirm('¿Quitar el fondo personalizado de la página para todos los visitantes?')) return;
+  document.getElementById('bg-image-url-input').value = '';
+  await saveBackgroundConfig();
+  if (!document.getElementById('bg-config-error').classList.contains('hidden')) return;
+  populateBackgroundForm();
+}
+
+function initBackgroundTool() {
+  document.getElementById('bg-image-url-input').addEventListener('input', previewBackgroundFromForm);
+  document.querySelectorAll('input[name="bg-mode"]').forEach(r => r.addEventListener('change', previewBackgroundFromForm));
+  document.querySelectorAll('#bg-tabs-options input[type="checkbox"]').forEach(cb => cb.addEventListener('change', previewBackgroundFromForm));
+  document.getElementById('bg-save-btn').addEventListener('click', saveBackgroundConfig);
+  document.getElementById('bg-clear-btn').addEventListener('click', clearBackgroundConfig);
+}
+
 
 // ---------------------------------------------------------
 // BITÁCORA DE ACCIONES ("Acciones realizadas") — solo admin.
@@ -952,6 +1130,9 @@ function updateAdminUI() {
   const newTierRowBtn = document.getElementById('open-new-tier-row-btn');
   const newTierItemBtn = document.getElementById('open-new-tier-item-btn');
   const adminTab = document.getElementById('admin-panel-tab');
+  const newWeaponBtn = document.getElementById('open-new-weapon-btn');
+  const weaponCatBtn = document.getElementById('open-weapon-category-manage-btn');
+  const weaponTypeBtn = document.getElementById('open-weapon-type-manage-btn');
   if (isAdmin()) {
     dot.className = 'dot-online';
     newLogBtn.classList.remove('hidden');
@@ -959,6 +1140,9 @@ function updateAdminUI() {
     actionLogBtn.classList.remove('hidden');
     newTierRowBtn.classList.remove('hidden');
     newTierItemBtn.classList.remove('hidden');
+    newWeaponBtn.classList.remove('hidden');
+    weaponCatBtn.classList.remove('hidden');
+    weaponTypeBtn.classList.remove('hidden');
     if (adminTab) adminTab.classList.remove('hidden');
   } else {
     dot.className = 'dot-offline';
@@ -967,6 +1151,9 @@ function updateAdminUI() {
     actionLogBtn.classList.add('hidden');
     newTierRowBtn.classList.add('hidden');
     newTierItemBtn.classList.add('hidden');
+    newWeaponBtn.classList.add('hidden');
+    weaponCatBtn.classList.add('hidden');
+    weaponTypeBtn.classList.add('hidden');
     if (adminTab) adminTab.classList.add('hidden');
     // Si estaba en la pestaña admin, volver a logs
     if (state.activeTab === 'admin') {
@@ -975,6 +1162,10 @@ function updateAdminUI() {
   }
   renderLogs();
   if (state.tierlistLoaded) renderTierlist();
+  if (state.weaponsLoaded) {
+    renderWeaponsGrid();
+    if (state.currentWeaponId) renderWeaponDetail();
+  }
 }
 
 async function submitAdminCode() {
@@ -1864,6 +2055,1003 @@ async function submitTierMove() {
   document.getElementById('tier-move-modal').classList.add('hidden');
 }
 
+// =========================================================
+// GUÍA DE ARMAS
+// =========================================================
+// Catálogo con buscador + filtros 100% dinámicos (categorías y
+// tipos los crea el admin, nunca están escritos en el código).
+// Cada arma tiene rangos ilimitados (MK1, MK2...) con sus
+// propias estadísticas, habilidades, receta de mejora (estilo
+// "trade": materiales → resultado) y secciones libres extra
+// para crecer a futuro sin tener que migrar de nuevo.
+// Oculta para visitantes hasta que el admin la publica — mismo
+// patrón que los comentarios ocultos: se filtra en el cliente,
+// no en RLS, porque no hay sesión real de Supabase Auth.
+// ---------------------------------------------------------
+
+function isWeaponVisible(w) { return isAdmin() || !!w.published; }
+
+function getWeaponCategory(id) { return state.weaponCategories.find(c => c.id === id) || null; }
+function getWeaponType(id) { return state.weaponTypes.find(t => t.id === id) || null; }
+
+function getWeaponRanks(weaponId) {
+  return (state.weaponRanksByWeapon[weaponId] || []).slice().sort((a, b) => a.sort_order - b.sort_order);
+}
+
+function getCurrentWeapon() { return state.weapons.find(w => w.id === state.currentWeaponId) || null; }
+
+// ---------------------------------------------------------
+// CARGA
+// ---------------------------------------------------------
+async function loadWeaponMeta() {
+  const [catsRes, typesRes] = await Promise.all([
+    supabaseClient.from('weapon_categories').select('*').order('sort_order', { ascending: true }),
+    supabaseClient.from('weapon_types').select('*').order('sort_order', { ascending: true }),
+  ]);
+  if (!catsRes.error) state.weaponCategories = catsRes.data;
+  if (!typesRes.error) state.weaponTypes = typesRes.data;
+  renderWeaponCategoryFilters();
+  renderWeaponTypeFilters();
+  renderWeaponCategorySelectOptions();
+  renderWeaponTypeSelectOptions();
+  renderWeaponCategoryManageList();
+  renderWeaponTypeManageList();
+}
+
+async function reloadWeaponData() {
+  const grid = document.getElementById('weapons-grid');
+  const [weaponsRes, ranksRes] = await Promise.all([
+    supabaseClient.from('weapons').select('*'),
+    supabaseClient.from('weapon_ranks').select('*').order('sort_order', { ascending: true }),
+  ]);
+  if (weaponsRes.error || ranksRes.error) {
+    console.error(weaponsRes.error || ranksRes.error);
+    if (grid) grid.innerHTML = `<div class="logs-empty"><p>No se pudo cargar el catálogo de armas.</p></div>`;
+    return;
+  }
+  state.weapons = weaponsRes.data;
+  state.weaponRanksByWeapon = {};
+  (ranksRes.data || []).forEach(r => {
+    if (!state.weaponRanksByWeapon[r.weapon_id]) state.weaponRanksByWeapon[r.weapon_id] = [];
+    state.weaponRanksByWeapon[r.weapon_id].push(r);
+  });
+  renderWeaponsGrid();
+  if (state.currentWeaponId) renderWeaponDetail();
+}
+
+async function loadWeaponsCatalog() {
+  await loadWeaponMeta();
+  await reloadWeaponData();
+}
+
+// ---------------------------------------------------------
+// FILTROS + BÚSQUEDA
+// ---------------------------------------------------------
+function weaponMatchesFilters(w) {
+  if (!isWeaponVisible(w)) return false;
+  if (state.weaponActiveCategoryFilter !== 'all' && (w.category_id || '') !== state.weaponActiveCategoryFilter) return false;
+  if (state.weaponActiveTypeFilter !== 'all' && (w.type_id || '') !== state.weaponActiveTypeFilter) return false;
+  if (state.weaponSearchTerm) {
+    if (!w.name.toLowerCase().includes(state.weaponSearchTerm.toLowerCase())) return false;
+  }
+  return true;
+}
+
+function renderWeaponCategoryFilters() {
+  const container = document.getElementById('weapon-category-filters');
+  const allPill = container.querySelector('[data-wcat="all"]');
+  container.innerHTML = '';
+  container.appendChild(allPill);
+  state.weaponCategories.forEach(cat => {
+    const pill = document.createElement('button');
+    const active = state.weaponActiveCategoryFilter === cat.id;
+    pill.className = 'pill' + (active ? ' is-active' : '');
+    pill.dataset.wcat = cat.id;
+    pill.style.borderColor = cat.color;
+    if (active) { pill.style.background = cat.color; pill.style.color = '#0c0a14'; }
+    else { pill.style.color = cat.color; }
+    pill.textContent = cat.label;
+    container.appendChild(pill);
+  });
+  allPill.classList.toggle('is-active', state.weaponActiveCategoryFilter === 'all');
+  container.querySelectorAll('.pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      state.weaponActiveCategoryFilter = pill.dataset.wcat;
+      renderWeaponCategoryFilters();
+      renderWeaponsGrid();
+    });
+  });
+}
+
+function renderWeaponTypeFilters() {
+  const container = document.getElementById('weapon-type-filters');
+  const allPill = container.querySelector('[data-wtype="all"]');
+  container.innerHTML = '';
+  container.appendChild(allPill);
+  state.weaponTypes.forEach(t => {
+    const pill = document.createElement('button');
+    pill.className = 'pill' + (state.weaponActiveTypeFilter === t.id ? ' is-active' : '');
+    pill.dataset.wtype = t.id;
+    pill.textContent = t.label;
+    container.appendChild(pill);
+  });
+  allPill.classList.toggle('is-active', state.weaponActiveTypeFilter === 'all');
+  container.querySelectorAll('.pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      state.weaponActiveTypeFilter = pill.dataset.wtype;
+      renderWeaponTypeFilters();
+      renderWeaponsGrid();
+    });
+  });
+}
+
+// ---------------------------------------------------------
+// GRID DE CATÁLOGO
+// ---------------------------------------------------------
+function renderWeaponsGrid() {
+  const grid = document.getElementById('weapons-grid');
+  if (!grid) return;
+  const list = state.weapons.filter(weaponMatchesFilters).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+
+  if (list.length === 0) {
+    grid.innerHTML = `<div class="weapons-empty"><p>No hay armas que coincidan con la búsqueda/filtros.${isAdmin() ? ' Crea la primera con "+ Nueva arma".' : ''}</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(w => {
+    const cat = getWeaponCategory(w.category_id);
+    const safe = safeUrl(w.image_url);
+    const type = getWeaponType(w.type_id);
+    const thumb = safe
+      ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(w.name)}" class="pixel-art" />`
+      : `<span class="tier-chip-initials">${escapeHtml(initialsOf(w.name))}</span>`;
+    return `
+      <div class="weapon-card ${!w.published ? 'is-unpublished' : ''}" data-weapon-id="${w.id}">
+        ${!w.published ? '<span class="weapon-unpublished-tag">Oculta</span>' : ''}
+        <div class="weapon-card-thumb">${thumb}</div>
+        <p class="weapon-card-name">${escapeHtml(w.name)}</p>
+        <div class="weapon-card-badges">
+          ${cat ? `<span class="weapon-cat-dot" style="background:${cat.color};"></span>` : ''}
+          ${type ? `<span class="weapon-card-type">${escapeHtml(type.label)}</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.weapon-card').forEach(card => {
+    card.addEventListener('click', () => openWeaponDetail(card.dataset.weaponId));
+  });
+}
+
+// ---------------------------------------------------------
+// VISTA DE DETALLE
+// ---------------------------------------------------------
+function openWeaponDetail(weaponId) {
+  state.currentWeaponId = weaponId;
+  const ranks = getWeaponRanks(weaponId);
+  state.currentWeaponRankId = ranks[0] ? ranks[0].id : null;
+  document.getElementById('weapons-catalog-view').classList.add('hidden');
+  document.getElementById('weapon-detail-view').classList.remove('hidden');
+  renderWeaponDetail();
+}
+
+function closeWeaponDetail() {
+  document.getElementById('weapon-detail-view').classList.add('hidden');
+  document.getElementById('weapons-catalog-view').classList.remove('hidden');
+  state.currentWeaponId = null;
+  state.currentWeaponRankId = null;
+}
+
+function renderWeaponDetail() {
+  const weapon = getCurrentWeapon();
+  const container = document.getElementById('weapon-detail-content');
+  if (!weapon) {
+    container.innerHTML = `<p class="comments-empty">Esta arma ya no existe.</p>`;
+    return;
+  }
+
+  const ranks = getWeaponRanks(weapon.id);
+  if (!state.currentWeaponRankId || !ranks.some(r => r.id === state.currentWeaponRankId)) {
+    state.currentWeaponRankId = ranks[0] ? ranks[0].id : null;
+  }
+  const rank = ranks.find(r => r.id === state.currentWeaponRankId) || null;
+
+  const cat = getWeaponCategory(weapon.category_id);
+  const type = getWeaponType(weapon.type_id);
+  const safeImg = safeUrl((rank && rank.image_url) || weapon.image_url);
+  const admin = isAdmin();
+
+  const headerHtml = `
+    <div class="weapon-detail-header">
+      ${safeImg
+        ? `<img src="${escapeHtml(safeImg)}" alt="${escapeHtml(weapon.name)}" class="weapon-detail-image pixel-art js-open-asset" data-asset-src="${escapeHtml(safeImg)}" data-asset-title="${escapeHtml(weapon.name)}" />`
+        : `<div class="weapon-detail-image"></div>`}
+      <div class="weapon-detail-headinfo">
+        <h2 class="weapon-detail-name">${escapeHtml(weapon.name)}</h2>
+        <div class="weapon-detail-badges">
+          ${!weapon.published ? '<span class="weapon-unpublished-tag" style="position:static;">Oculta</span>' : ''}
+          ${cat ? `<span class="weapon-cat-badge" style="border-color:${cat.color};color:${cat.color};">${escapeHtml(cat.label)}</span>` : ''}
+          ${type ? `<span class="weapon-type-badge">${escapeHtml(type.label)}</span>` : ''}
+        </div>
+      </div>
+      ${admin ? `
+        <div class="weapon-detail-admin-actions">
+          <button type="button" class="btn-secondary-admin" data-action="edit-weapon-info">✏️ Editar info</button>
+          <button type="button" class="btn-secondary-admin" data-action="toggle-weapon-published">${weapon.published ? '🙈 Despublicar' : '👁 Publicar'}</button>
+          <button type="button" class="btn-secondary-admin danger" data-action="delete-weapon">🗑 Borrar arma</button>
+        </div>` : ''}
+    </div>`;
+
+  const rankSelectorHtml = `
+    <div class="weapon-rank-selector">
+      ${ranks.map(r => `
+        <div class="weapon-rank-pill-wrap">
+          <button type="button" class="pill ${rank && r.id === rank.id ? 'is-active' : ''}" data-action="select-rank" data-rank-id="${r.id}">${escapeHtml(r.name)}</button>
+          ${admin ? `<button type="button" class="weapon-rank-admin-mini danger" data-action="delete-rank" data-rank-id="${r.id}" title="Borrar rango">✕</button>` : ''}
+        </div>`).join('')}
+      ${admin ? `<button type="button" class="pill" data-action="add-rank">+ Rango</button>` : ''}
+    </div>`;
+
+  const bodyHtml = rank
+    ? renderWeaponRankBody(weapon, rank, admin)
+    : `<p class="comments-empty">${admin ? 'Esta arma no tiene rangos todavía. Agrega el primero con "+ Rango".' : 'Esta arma no tiene información todavía.'}</p>`;
+
+  container.innerHTML = headerHtml + rankSelectorHtml + bodyHtml;
+  bindWeaponDetailEvents(container);
+}
+
+function renderWeaponRankBody(weapon, rank, admin) {
+  let html = '';
+
+  // ---- Descripción del rango ----
+  html += `
+    <div class="weapon-section-block">
+      <div class="weapon-section-head">
+        <h3 class="weapon-section-title">📈 ${escapeHtml(rank.name)}</h3>
+        ${admin ? `<div class="weapon-section-admin-actions"><button type="button" class="btn-secondary-admin" data-action="edit-rank-info" data-rank-id="${rank.id}">✏️ Editar rango</button></div>` : ''}
+      </div>
+      ${rank.description ? `<p class="weapon-rank-desc">${escapeHtml(rank.description)}</p>` : (admin ? '<p class="comments-empty">Sin descripción todavía.</p>' : '')}
+    </div>`;
+
+  // ---- Estadísticas ----
+  const stats = asArray(rank.stats);
+  if (stats.length > 0 || admin) {
+    html += `
+      <div class="weapon-section-block">
+        <div class="weapon-section-head">
+          <h3 class="weapon-section-title">📊 Estadísticas</h3>
+          ${admin ? `<div class="weapon-section-admin-actions"><button type="button" class="btn-secondary-admin" data-action="edit-stats" data-rank-id="${rank.id}">✏️ Editar</button></div>` : ''}
+        </div>
+        ${stats.length > 0 ? `<div class="weapon-stats-grid">${stats.map(s => `
+          <div class="stat-row">
+            <span class="stat-row-label">${escapeHtml(s.key)}</span>
+            <div class="bar-track"><div class="bar-fill bar-stat" style="width:100%"></div></div>
+            <span class="stat-row-value" style="width:auto;">${escapeHtml(String(s.value ?? ''))}</span>
+          </div>`).join('')}</div>` : '<p class="comments-empty">Sin estadísticas todavía.</p>'}
+      </div>`;
+  }
+
+  // ---- Habilidades ----
+  const abilities = asArray(rank.abilities);
+  if (abilities.length > 0 || admin) {
+    html += `
+      <div class="weapon-section-block">
+        <div class="weapon-section-head">
+          <h3 class="weapon-section-title">✨ Habilidades</h3>
+          ${admin ? `<div class="weapon-section-admin-actions"><button type="button" class="btn-secondary-admin" data-action="add-ability" data-rank-id="${rank.id}">+ Habilidad</button></div>` : ''}
+        </div>
+        ${abilities.length > 0
+          ? `<div class="weapon-abilities-list">${abilities.map((ab, idx) => renderAbilityCard(ab, idx, rank.id, admin)).join('')}</div>`
+          : '<p class="comments-empty">Sin habilidades todavía.</p>'}
+      </div>`;
+  }
+
+  // ---- Receta de mejora ----
+  const recipe = rank.upgrade_recipe;
+  if (recipe || admin) {
+    html += `
+      <div class="weapon-section-block">
+        <div class="weapon-section-head">
+          <h3 class="weapon-section-title">🔁 Mejora</h3>
+          ${admin ? `<div class="weapon-section-admin-actions"><button type="button" class="btn-secondary-admin" data-action="edit-recipe" data-rank-id="${rank.id}">✏️ Editar receta</button></div>` : ''}
+        </div>
+        ${recipe ? renderRecipeTrade(recipe) : '<p class="comments-empty">Este rango no tiene receta de mejora configurada.</p>'}
+      </div>`;
+  }
+
+  // ---- Secciones extra (futuro: curiosidades, notas, builds...) ----
+  const sections = asArray(rank.extra_sections);
+  sections.forEach((sec, idx) => {
+    html += `
+      <div class="weapon-section-block">
+        <div class="weapon-section-head">
+          <h3 class="weapon-section-title">${escapeHtml(sec.title)}</h3>
+          ${admin ? `<div class="weapon-section-admin-actions">
+            <button type="button" class="btn-secondary-admin" data-action="edit-section" data-rank-id="${rank.id}" data-section-idx="${idx}">✏️</button>
+            <button type="button" class="btn-secondary-admin danger" data-action="delete-section" data-rank-id="${rank.id}" data-section-idx="${idx}">🗑</button>
+          </div>` : ''}
+        </div>
+        ${sec.kind === 'keyvalue'
+          ? `<div class="item-detail-grid">${renderKeyValueRows(asArray(sec.fields))}</div>`
+          : `<p class="weapon-extra-text">${escapeHtml(sec.text || '')}</p>`}
+      </div>`;
+  });
+
+  if (admin) {
+    html += `<button type="button" class="link-btn" data-action="add-section" data-rank-id="${rank.id}">+ Agregar sección</button>`;
+  }
+
+  return html;
+}
+
+function renderAbilityCard(ab, idx, rankId, admin) {
+  const level = ab.level ?? 0;
+  const levelMax = ab.level_max ?? 10;
+  const pct = levelMax > 0 ? Math.min(100, Math.max(0, Math.round((level / levelMax) * 100))) : 0;
+  const statsHtml = asArray(ab.stats).map(s => `
+    <div class="weapon-ability-stat-row"><span class="stat-label">${escapeHtml(s.key)}</span><span class="stat-value">${escapeHtml(String(s.value ?? ''))}</span></div>`).join('');
+  return `
+    <div class="weapon-ability-card">
+      <div class="weapon-ability-head">
+        <p class="weapon-ability-name">${escapeHtml(ab.name || 'Habilidad')}</p>
+        ${ab.tag ? `<span class="weapon-ability-tag">${escapeHtml(ab.tag)}</span>` : ''}
+        ${admin ? `<div class="weapon-ability-admin-actions">
+          <button type="button" class="btn-secondary-admin" data-action="edit-ability" data-rank-id="${rankId}" data-ability-idx="${idx}">✏️</button>
+          <button type="button" class="btn-secondary-admin danger" data-action="delete-ability" data-rank-id="${rankId}" data-ability-idx="${idx}">🗑</button>
+        </div>` : ''}
+      </div>
+      ${ab.description ? `<p class="weapon-ability-desc">${escapeHtml(ab.description)}</p>` : ''}
+      <div class="weapon-ability-level-row">
+        <span class="weapon-ability-level-label">Nivel: ${escapeHtml(String(level))}${levelMax ? ' / ' + escapeHtml(String(levelMax)) : ''}</span>
+        <div class="bar-track"><div class="bar-fill bar-level" style="width:${pct}%"></div></div>
+      </div>
+      ${statsHtml ? `<div class="weapon-ability-stats-grid">${statsHtml}</div>` : ''}
+    </div>`;
+}
+
+function renderRecipeTrade(recipe) {
+  const materials = asArray(recipe.materials);
+  const result = recipe.result || {};
+  const matsHtml = materials.map(m => {
+    const safe = safeUrl(m.image_url);
+    return `
+      <div class="weapon-recipe-material">
+        <div class="weapon-recipe-material-thumb">
+          ${safe ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(m.name || '')}" class="js-open-asset" data-asset-src="${escapeHtml(safe)}" data-asset-title="${escapeHtml(m.name || '')}" />` : ''}
+          <span class="weapon-recipe-material-qty">×${escapeHtml(String(m.qty ?? 1))}</span>
+        </div>
+        <span class="weapon-recipe-material-name">${escapeHtml(m.name || '')}</span>
+      </div>`;
+  }).join('');
+  const safeResult = safeUrl(result.image_url);
+  return `
+    <div class="weapon-recipe-trade">
+      <div class="weapon-recipe-materials">${matsHtml || '<p class="comments-empty">Sin materiales.</p>'}</div>
+      <span class="weapon-recipe-arrow">→</span>
+      <div class="weapon-recipe-result">
+        <div class="weapon-recipe-result-thumb">${safeResult ? `<img src="${escapeHtml(safeResult)}" alt="${escapeHtml(result.name || '')}" class="js-open-asset" data-asset-src="${escapeHtml(safeResult)}" data-asset-title="${escapeHtml(result.name || '')}" />` : ''}</div>
+        <span class="weapon-recipe-result-name">${escapeHtml(result.name || '')}</span>
+      </div>
+    </div>`;
+}
+
+function bindWeaponDetailEvents(container) {
+  container.querySelectorAll('[data-action="select-rank"]').forEach(btn =>
+    btn.addEventListener('click', () => { state.currentWeaponRankId = btn.dataset.rankId; renderWeaponDetail(); }));
+  container.querySelectorAll('[data-action="add-rank"]').forEach(btn =>
+    btn.addEventListener('click', () => openWeaponRankModal(null)));
+  container.querySelectorAll('[data-action="delete-rank"]').forEach(btn =>
+    btn.addEventListener('click', (e) => { e.stopPropagation(); deleteWeaponRank(btn.dataset.rankId); }));
+  container.querySelectorAll('[data-action="edit-weapon-info"]').forEach(btn =>
+    btn.addEventListener('click', () => openWeaponModal(state.currentWeaponId)));
+  container.querySelectorAll('[data-action="toggle-weapon-published"]').forEach(btn =>
+    btn.addEventListener('click', () => toggleWeaponPublished(state.currentWeaponId)));
+  container.querySelectorAll('[data-action="delete-weapon"]').forEach(btn =>
+    btn.addEventListener('click', () => deleteWeaponAction(state.currentWeaponId)));
+  container.querySelectorAll('[data-action="edit-rank-info"]').forEach(btn =>
+    btn.addEventListener('click', () => openWeaponRankModal(btn.dataset.rankId)));
+  container.querySelectorAll('[data-action="edit-stats"]').forEach(btn =>
+    btn.addEventListener('click', () => openWeaponStatsModal(btn.dataset.rankId)));
+  container.querySelectorAll('[data-action="add-ability"]').forEach(btn =>
+    btn.addEventListener('click', () => openWeaponAbilityModal(btn.dataset.rankId, null)));
+  container.querySelectorAll('[data-action="edit-ability"]').forEach(btn =>
+    btn.addEventListener('click', () => openWeaponAbilityModal(btn.dataset.rankId, Number(btn.dataset.abilityIdx))));
+  container.querySelectorAll('[data-action="delete-ability"]').forEach(btn =>
+    btn.addEventListener('click', () => deleteAbility(btn.dataset.rankId, Number(btn.dataset.abilityIdx))));
+  container.querySelectorAll('[data-action="edit-recipe"]').forEach(btn =>
+    btn.addEventListener('click', () => openWeaponRecipeModal(btn.dataset.rankId)));
+  container.querySelectorAll('[data-action="add-section"]').forEach(btn =>
+    btn.addEventListener('click', () => openWeaponSectionModal(btn.dataset.rankId, null)));
+  container.querySelectorAll('[data-action="edit-section"]').forEach(btn =>
+    btn.addEventListener('click', () => openWeaponSectionModal(btn.dataset.rankId, Number(btn.dataset.sectionIdx))));
+  container.querySelectorAll('[data-action="delete-section"]').forEach(btn =>
+    btn.addEventListener('click', () => deleteSection(btn.dataset.rankId, Number(btn.dataset.sectionIdx))));
+}
+
+// Aplica un cambio parcial a un rango, conservando todo lo demás
+// tal cual está — upsert_weapon_rank siempre reemplaza el rango
+// completo (mismo patrón que update_log con mobs/items, o
+// set_field_config con la config entera).
+async function saveRankPatch(rankId, patch) {
+  const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
+  if (!rank) return { error: { message: 'Este rango ya no existe' } };
+  return supabaseClient.rpc('upsert_weapon_rank', {
+    input_code: state.adminCode,
+    input_id: rank.id,
+    input_weapon_id: rank.weapon_id,
+    input_name: rank.name,
+    input_description: rank.description,
+    input_image_url: rank.image_url,
+    input_stats: rank.stats,
+    input_abilities: rank.abilities,
+    input_extra_sections: rank.extra_sections,
+    input_upgrade_recipe: rank.upgrade_recipe,
+    ...patch,
+  });
+}
+
+// ---------------------------------------------------------
+// ADMIN — categorías de arma
+// ---------------------------------------------------------
+function renderWeaponCategorySelectOptions() {
+  const select = document.getElementById('weapon-category-input');
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = `<option value="">— Sin categoría —</option>` +
+    state.weaponCategories.map(c => `<option value="${c.id}">${escapeHtml(c.label)}</option>`).join('');
+  if (current) select.value = current;
+}
+
+function renderWeaponCategoryManageList() {
+  const container = document.getElementById('weapon-category-manage-list');
+  if (!container) return;
+  if (state.weaponCategories.length === 0) { container.innerHTML = `<p class="category-manage-empty">No hay categorías todavía.</p>`; return; }
+  container.innerHTML = state.weaponCategories.map(c => `
+    <div class="category-manage-row">
+      <span class="category-manage-label"><span class="weapon-cat-dot" style="background:${c.color};display:inline-block;margin-right:6px;"></span>${escapeHtml(c.label)}</span>
+      <button type="button" class="category-manage-delete" data-id="${c.id}">🗑 Borrar</button>
+    </div>`).join('');
+  container.querySelectorAll('.category-manage-delete').forEach(btn =>
+    btn.addEventListener('click', () => deleteWeaponCategory(btn.dataset.id)));
+}
+
+function openWeaponCategoryModal() {
+  document.getElementById('weapon-category-label-input').value = '';
+  document.getElementById('weapon-category-color-input').value = '#4dd4e8';
+  document.getElementById('weapon-category-modal-error').classList.add('hidden');
+  renderWeaponCategoryManageList();
+  document.getElementById('weapon-category-modal').classList.remove('hidden');
+}
+
+async function submitWeaponCategory() {
+  const errorBox = document.getElementById('weapon-category-modal-error');
+  const label = document.getElementById('weapon-category-label-input').value.trim();
+  const color = document.getElementById('weapon-category-color-input').value || '#4dd4e8';
+  if (!label) { errorBox.textContent = 'Ponle un nombre a la categoría.'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  const { data, error } = await supabaseClient.rpc('create_weapon_category', { input_code: state.adminCode, input_label: label, input_color: color });
+  if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
+  errorBox.classList.add('hidden');
+  document.getElementById('weapon-category-label-input').value = '';
+  showToast(`Categoría "${data.label}" creada`, 'success');
+  await loadWeaponMeta();
+  document.getElementById('weapon-category-input').value = data.id;
+}
+
+async function deleteWeaponCategory(id) {
+  const cat = getWeaponCategory(id);
+  if (!confirm(`¿Borrar la categoría "${cat ? cat.label : ''}"?`)) return;
+  if (!state.adminCode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
+  const { error } = await supabaseClient.rpc('delete_weapon_category', { input_code: state.adminCode, input_id: id });
+  if (error) { showToast(error.message.replace(/^.*?:\s*/, '') || 'No se pudo borrar', 'error'); return; }
+  showToast('Categoría eliminada', 'success');
+  if (state.weaponActiveCategoryFilter === id) state.weaponActiveCategoryFilter = 'all';
+  await loadWeaponMeta();
+  renderWeaponsGrid();
+}
+
+// ---------------------------------------------------------
+// ADMIN — tipos de arma
+// ---------------------------------------------------------
+function renderWeaponTypeSelectOptions() {
+  const select = document.getElementById('weapon-type-input');
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = `<option value="">— Sin tipo —</option>` +
+    state.weaponTypes.map(t => `<option value="${t.id}">${escapeHtml(t.label)}</option>`).join('');
+  if (current) select.value = current;
+}
+
+function renderWeaponTypeManageList() {
+  const container = document.getElementById('weapon-type-manage-list');
+  if (!container) return;
+  if (state.weaponTypes.length === 0) { container.innerHTML = `<p class="category-manage-empty">No hay tipos todavía.</p>`; return; }
+  container.innerHTML = state.weaponTypes.map(t => `
+    <div class="category-manage-row">
+      <span class="category-manage-label">${escapeHtml(t.label)}</span>
+      <button type="button" class="category-manage-delete" data-id="${t.id}">🗑 Borrar</button>
+    </div>`).join('');
+  container.querySelectorAll('.category-manage-delete').forEach(btn =>
+    btn.addEventListener('click', () => deleteWeaponType(btn.dataset.id)));
+}
+
+function openWeaponTypeModal() {
+  document.getElementById('weapon-type-label-input').value = '';
+  document.getElementById('weapon-type-modal-error').classList.add('hidden');
+  renderWeaponTypeManageList();
+  document.getElementById('weapon-type-modal').classList.remove('hidden');
+}
+
+async function submitWeaponType() {
+  const errorBox = document.getElementById('weapon-type-modal-error');
+  const label = document.getElementById('weapon-type-label-input').value.trim();
+  if (!label) { errorBox.textContent = 'Ponle un nombre al tipo.'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  const { data, error } = await supabaseClient.rpc('create_weapon_type', { input_code: state.adminCode, input_label: label });
+  if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
+  errorBox.classList.add('hidden');
+  document.getElementById('weapon-type-label-input').value = '';
+  showToast(`Tipo "${data.label}" creado`, 'success');
+  await loadWeaponMeta();
+  document.getElementById('weapon-type-input').value = data.id;
+}
+
+async function deleteWeaponType(id) {
+  const t = getWeaponType(id);
+  if (!confirm(`¿Borrar el tipo "${t ? t.label : ''}"?`)) return;
+  if (!state.adminCode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
+  const { error } = await supabaseClient.rpc('delete_weapon_type', { input_code: state.adminCode, input_id: id });
+  if (error) { showToast(error.message.replace(/^.*?:\s*/, '') || 'No se pudo borrar', 'error'); return; }
+  showToast('Tipo eliminado', 'success');
+  if (state.weaponActiveTypeFilter === id) state.weaponActiveTypeFilter = 'all';
+  await loadWeaponMeta();
+  renderWeaponsGrid();
+}
+
+// ---------------------------------------------------------
+// ADMIN — arma (crear/editar/publicar/borrar)
+// ---------------------------------------------------------
+function openWeaponModal(weaponId = null) {
+  state.editingWeaponId = weaponId;
+  const titleEl = document.getElementById('weapon-modal-title');
+  const initialRankRow = document.getElementById('weapon-initial-rank-row');
+  renderWeaponCategorySelectOptions();
+  renderWeaponTypeSelectOptions();
+  if (weaponId) {
+    const w = state.weapons.find(x => x.id === weaponId);
+    if (!w) return;
+    titleEl.textContent = '✏️ EDITAR ARMA';
+    document.getElementById('weapon-name-input').value = w.name;
+    document.getElementById('weapon-image-input').value = w.image_url || '';
+    updateAssetPreview('weapon', w.image_url || '');
+    document.getElementById('weapon-category-input').value = w.category_id || '';
+    document.getElementById('weapon-type-input').value = w.type_id || '';
+    initialRankRow.classList.add('hidden');
+  } else {
+    titleEl.textContent = '⚔️ NUEVA ARMA';
+    document.getElementById('weapon-name-input').value = '';
+    document.getElementById('weapon-image-input').value = '';
+    updateAssetPreview('weapon', '');
+    document.getElementById('weapon-category-input').value = state.weaponCategories[0] ? state.weaponCategories[0].id : '';
+    document.getElementById('weapon-type-input').value = state.weaponTypes[0] ? state.weaponTypes[0].id : '';
+    document.getElementById('weapon-initial-rank-input').value = 'MK1';
+    initialRankRow.classList.remove('hidden');
+  }
+  document.getElementById('weapon-modal-error').classList.add('hidden');
+  document.getElementById('weapon-modal').classList.remove('hidden');
+}
+
+async function submitWeapon() {
+  const errorBox = document.getElementById('weapon-modal-error');
+  const name = document.getElementById('weapon-name-input').value.trim();
+  const imageUrl = document.getElementById('weapon-image-input').value.trim();
+  const categoryId = document.getElementById('weapon-category-input').value || null;
+  const typeId = document.getElementById('weapon-type-input').value || null;
+  if (!name) { errorBox.textContent = 'Ponle un nombre al arma.'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+
+  let result;
+  if (state.editingWeaponId) {
+    result = await supabaseClient.rpc('update_weapon', {
+      input_code: state.adminCode, input_id: state.editingWeaponId, input_name: name,
+      input_image_url: imageUrl, input_category_id: categoryId, input_type_id: typeId,
+    });
+  } else {
+    const initialRank = document.getElementById('weapon-initial-rank-input').value.trim() || 'MK1';
+    result = await supabaseClient.rpc('create_weapon', {
+      input_code: state.adminCode, input_name: name, input_image_url: imageUrl,
+      input_category_id: categoryId, input_type_id: typeId, input_initial_rank_name: initialRank,
+    });
+  }
+  if (result.error) { errorBox.textContent = 'Error: ' + result.error.message; errorBox.classList.remove('hidden'); return; }
+
+  document.getElementById('weapon-modal').classList.add('hidden');
+  showToast(state.editingWeaponId ? 'Arma actualizada' : 'Arma creada (oculta hasta publicarla)', 'success');
+  const wasCreating = !state.editingWeaponId;
+  const newId = result.data ? result.data.id : null;
+  await reloadWeaponData();
+  if (wasCreating && newId) openWeaponDetail(newId);
+}
+
+async function toggleWeaponPublished(weaponId) {
+  const w = state.weapons.find(x => x.id === weaponId);
+  if (!w) return;
+  const { error } = await supabaseClient.rpc('set_weapon_published', { input_code: state.adminCode, input_id: weaponId, input_published: !w.published });
+  if (error) { showToast('No se pudo actualizar: ' + error.message, 'error'); return; }
+  showToast(!w.published ? 'Arma publicada' : 'Arma despublicada', 'success');
+  await reloadWeaponData();
+}
+
+async function deleteWeaponAction(weaponId) {
+  if (!confirm('¿Borrar esta arma? Se perderán todos sus rangos, estadísticas y habilidades.')) return;
+  const { error } = await supabaseClient.rpc('delete_weapon', { input_code: state.adminCode, input_id: weaponId });
+  if (error) { showToast('No se pudo borrar', 'error'); return; }
+  showToast('Arma eliminada', 'success');
+  closeWeaponDetail();
+  await reloadWeaponData();
+}
+
+// ---------------------------------------------------------
+// ADMIN — rangos (info básica)
+// ---------------------------------------------------------
+function openWeaponRankModal(rankId) {
+  state.editingWeaponRankId = rankId;
+  const titleEl = document.getElementById('weapon-rank-modal-title');
+  if (rankId) {
+    const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
+    if (!rank) return;
+    titleEl.textContent = '✏️ EDITAR RANGO';
+    document.getElementById('weapon-rank-name-input').value = rank.name;
+    document.getElementById('weapon-rank-desc-input').value = rank.description || '';
+    document.getElementById('weapon-rank-image-input').value = rank.image_url || '';
+    updateAssetPreview('weapon-rank', rank.image_url || '');
+  } else {
+    titleEl.textContent = '📈 NUEVO RANGO';
+    document.getElementById('weapon-rank-name-input').value = '';
+    document.getElementById('weapon-rank-desc-input').value = '';
+    document.getElementById('weapon-rank-image-input').value = '';
+    updateAssetPreview('weapon-rank', '');
+  }
+  document.getElementById('weapon-rank-modal-error').classList.add('hidden');
+  document.getElementById('weapon-rank-modal').classList.remove('hidden');
+}
+
+async function submitWeaponRank() {
+  const errorBox = document.getElementById('weapon-rank-modal-error');
+  const name = document.getElementById('weapon-rank-name-input').value.trim();
+  const description = document.getElementById('weapon-rank-desc-input').value.trim();
+  const imageUrl = document.getElementById('weapon-rank-image-input').value.trim();
+  if (!name) { errorBox.textContent = 'Ponle un nombre al rango.'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+
+  const existing = state.editingWeaponRankId ? getWeaponRanks(state.currentWeaponId).find(r => r.id === state.editingWeaponRankId) : null;
+
+  const { error } = await supabaseClient.rpc('upsert_weapon_rank', {
+    input_code: state.adminCode,
+    input_id: state.editingWeaponRankId,
+    input_weapon_id: state.currentWeaponId,
+    input_name: name,
+    input_description: description,
+    input_image_url: imageUrl,
+    input_stats: existing ? existing.stats : [],
+    input_abilities: existing ? existing.abilities : [],
+    input_extra_sections: existing ? existing.extra_sections : [],
+    input_upgrade_recipe: existing ? existing.upgrade_recipe : null,
+  });
+  if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
+  document.getElementById('weapon-rank-modal').classList.add('hidden');
+  showToast(state.editingWeaponRankId ? 'Rango actualizado' : 'Rango creado', 'success');
+  await reloadWeaponData();
+}
+
+async function deleteWeaponRank(rankId) {
+  const ranks = getWeaponRanks(state.currentWeaponId);
+  const msg = ranks.length <= 1
+    ? 'Este es el último rango del arma. ¿Borrarlo igual? El arma quedará sin rangos hasta que agregues otro.'
+    : '¿Borrar este rango? Se perderán sus estadísticas, habilidades y receta.';
+  if (!confirm(msg)) return;
+  const { error } = await supabaseClient.rpc('delete_weapon_rank', { input_code: state.adminCode, input_id: rankId });
+  if (error) { showToast('No se pudo borrar el rango', 'error'); return; }
+  showToast('Rango eliminado', 'success');
+  if (state.currentWeaponRankId === rankId) state.currentWeaponRankId = null;
+  await reloadWeaponData();
+}
+
+// ---------------------------------------------------------
+// ADMIN — estadísticas del rango
+// ---------------------------------------------------------
+function openWeaponStatsModal(rankId) {
+  state.editingWeaponRankId = rankId;
+  const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
+  if (!rank) return;
+  state.weaponStatsDraft = JSON.parse(JSON.stringify(asArray(rank.stats)));
+  renderExtraFieldsEditor('weapon-stats-list', () => state.weaponStatsDraft);
+  document.getElementById('weapon-stats-modal-error').classList.add('hidden');
+  document.getElementById('weapon-stats-modal').classList.remove('hidden');
+}
+
+async function submitWeaponStats() {
+  const errorBox = document.getElementById('weapon-stats-modal-error');
+  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  const cleanStats = state.weaponStatsDraft.filter(s => s.key && s.key.trim()).map(s => ({ key: s.key.trim(), value: s.value }));
+  const { error } = await saveRankPatch(state.editingWeaponRankId, { input_stats: cleanStats });
+  if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
+  document.getElementById('weapon-stats-modal').classList.add('hidden');
+  showToast('Estadísticas guardadas', 'success');
+  await reloadWeaponData();
+}
+
+// ---------------------------------------------------------
+// ADMIN — habilidades
+// ---------------------------------------------------------
+function openWeaponAbilityModal(rankId, abilityIdx) {
+  state.editingWeaponRankId = rankId;
+  state.editingAbilityIndex = abilityIdx;
+  const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
+  if (!rank) return;
+  const abilities = asArray(rank.abilities);
+  const titleEl = document.getElementById('weapon-ability-modal-title');
+  if (abilityIdx != null) {
+    const ab = abilities[abilityIdx] || {};
+    titleEl.textContent = '✏️ EDITAR HABILIDAD';
+    document.getElementById('weapon-ability-name-input').value = ab.name || '';
+    document.getElementById('weapon-ability-tag-input').value = ab.tag || '';
+    document.getElementById('weapon-ability-desc-input').value = ab.description || '';
+    document.getElementById('weapon-ability-level-input').value = ab.level ?? 1;
+    document.getElementById('weapon-ability-level-max-input').value = ab.level_max ?? 10;
+    state.weaponAbilityStatsDraft = JSON.parse(JSON.stringify(asArray(ab.stats)));
+  } else {
+    titleEl.textContent = '✨ NUEVA HABILIDAD';
+    document.getElementById('weapon-ability-name-input').value = '';
+    document.getElementById('weapon-ability-tag-input').value = '';
+    document.getElementById('weapon-ability-desc-input').value = '';
+    document.getElementById('weapon-ability-level-input').value = 1;
+    document.getElementById('weapon-ability-level-max-input').value = 10;
+    state.weaponAbilityStatsDraft = [];
+  }
+  renderExtraFieldsEditor('weapon-ability-stats-list', () => state.weaponAbilityStatsDraft);
+  document.getElementById('weapon-ability-modal-error').classList.add('hidden');
+  document.getElementById('weapon-ability-modal').classList.remove('hidden');
+}
+
+async function submitWeaponAbility() {
+  const errorBox = document.getElementById('weapon-ability-modal-error');
+  const name = document.getElementById('weapon-ability-name-input').value.trim();
+  if (!name) { errorBox.textContent = 'Ponle un nombre a la habilidad.'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === state.editingWeaponRankId);
+  if (!rank) return;
+
+  const newAbility = {
+    name,
+    tag: document.getElementById('weapon-ability-tag-input').value.trim(),
+    description: document.getElementById('weapon-ability-desc-input').value.trim(),
+    level: Number(document.getElementById('weapon-ability-level-input').value) || 0,
+    level_max: Number(document.getElementById('weapon-ability-level-max-input').value) || 1,
+    stats: state.weaponAbilityStatsDraft.filter(s => s.key && s.key.trim()).map(s => ({ key: s.key.trim(), value: s.value })),
+  };
+
+  const abilities = JSON.parse(JSON.stringify(asArray(rank.abilities)));
+  if (state.editingAbilityIndex != null) abilities[state.editingAbilityIndex] = newAbility;
+  else abilities.push(newAbility);
+
+  const { error } = await saveRankPatch(rank.id, { input_abilities: abilities });
+  if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
+  document.getElementById('weapon-ability-modal').classList.add('hidden');
+  showToast('Habilidad guardada', 'success');
+  await reloadWeaponData();
+}
+
+async function deleteAbility(rankId, idx) {
+  if (!confirm('¿Borrar esta habilidad?')) return;
+  const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
+  if (!rank) return;
+  const abilities = JSON.parse(JSON.stringify(asArray(rank.abilities)));
+  abilities.splice(idx, 1);
+  const { error } = await saveRankPatch(rankId, { input_abilities: abilities });
+  if (error) { showToast('No se pudo borrar', 'error'); return; }
+  showToast('Habilidad eliminada', 'success');
+  await reloadWeaponData();
+}
+
+// ---------------------------------------------------------
+// ADMIN — receta de mejora (estilo "trade")
+// ---------------------------------------------------------
+function renderRecipeMaterialsEditor() {
+  const container = document.getElementById('weapon-recipe-materials-list');
+  const list = state.weaponRecipeMaterialsDraft;
+  if (list.length === 0) {
+    container.innerHTML = `<p class="equip-empty-hint">Sin materiales. Usa "+ Material" para agregar (cualquier cantidad).</p>`;
+    return;
+  }
+  container.innerHTML = list.map((m, idx) => `
+    <div class="weapon-material-row">
+      <input type="text" class="modal-input wm-name" data-idx="${idx}" data-f="name" value="${escapeHtml(m.name || '')}" placeholder="Nombre del material" maxlength="60" />
+      <input type="url" class="modal-input wm-image" data-idx="${idx}" data-f="image_url" value="${escapeHtml(m.image_url || '')}" placeholder="URL de imagen" maxlength="500" />
+      <input type="number" class="modal-input wm-qty" data-idx="${idx}" data-f="qty" value="${m.qty ?? 1}" min="1" />
+      <button type="button" class="enchant-remove" data-idx="${idx}">🗑</button>
+    </div>`).join('');
+  container.querySelectorAll('input[data-f]').forEach(el => {
+    el.addEventListener('input', () => {
+      const idx = Number(el.dataset.idx);
+      const field = el.dataset.f;
+      list[idx][field] = field === 'qty' ? (Number(el.value) || 1) : el.value;
+    });
+  });
+  container.querySelectorAll('.enchant-remove').forEach(btn => {
+    btn.addEventListener('click', () => { list.splice(Number(btn.dataset.idx), 1); renderRecipeMaterialsEditor(); });
+  });
+}
+
+function openWeaponRecipeModal(rankId) {
+  state.editingWeaponRankId = rankId;
+  const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
+  if (!rank) return;
+  const recipe = rank.upgrade_recipe || { materials: [], result: { name: '', image_url: '' } };
+  state.weaponRecipeMaterialsDraft = JSON.parse(JSON.stringify(asArray(recipe.materials)));
+  document.getElementById('weapon-recipe-result-name-input').value = recipe.result ? (recipe.result.name || '') : '';
+  document.getElementById('weapon-recipe-result-image-input').value = recipe.result ? (recipe.result.image_url || '') : '';
+  renderRecipeMaterialsEditor();
+  document.getElementById('weapon-recipe-modal-error').classList.add('hidden');
+  document.getElementById('weapon-recipe-modal').classList.remove('hidden');
+}
+
+async function submitWeaponRecipe() {
+  const errorBox = document.getElementById('weapon-recipe-modal-error');
+  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  const resultName = document.getElementById('weapon-recipe-result-name-input').value.trim();
+  const resultImage = document.getElementById('weapon-recipe-result-image-input').value.trim();
+  const materials = state.weaponRecipeMaterialsDraft.filter(m => m.name && m.name.trim()).map(m => ({ name: m.name.trim(), image_url: m.image_url || '', qty: m.qty || 1 }));
+  if (materials.length === 0 && !resultName) { errorBox.textContent = 'Agrega al menos un material o un resultado.'; errorBox.classList.remove('hidden'); return; }
+  const recipe = { materials, result: { name: resultName, image_url: resultImage } };
+  const { error } = await saveRankPatch(state.editingWeaponRankId, { input_upgrade_recipe: recipe });
+  if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
+  document.getElementById('weapon-recipe-modal').classList.add('hidden');
+  showToast('Receta guardada', 'success');
+  await reloadWeaponData();
+}
+
+async function clearWeaponRecipe() {
+  if (!confirm('¿Quitar la receta de mejora de este rango?')) return;
+  const { error } = await saveRankPatch(state.editingWeaponRankId, { input_upgrade_recipe: null });
+  if (error) { showToast('No se pudo quitar la receta', 'error'); return; }
+  document.getElementById('weapon-recipe-modal').classList.add('hidden');
+  showToast('Receta eliminada', 'success');
+  await reloadWeaponData();
+}
+
+// ---------------------------------------------------------
+// ADMIN — secciones extra (libres, para crecer a futuro)
+// ---------------------------------------------------------
+function toggleWeaponSectionKindUI() {
+  const kind = document.getElementById('weapon-section-kind-input').value;
+  document.getElementById('weapon-section-text-wrap').classList.toggle('hidden', kind !== 'text');
+  document.getElementById('weapon-section-fields-wrap').classList.toggle('hidden', kind !== 'keyvalue');
+}
+
+function openWeaponSectionModal(rankId, sectionIdx) {
+  state.editingWeaponRankId = rankId;
+  state.editingSectionIndex = sectionIdx;
+  const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
+  if (!rank) return;
+  const sections = asArray(rank.extra_sections);
+  const titleEl = document.getElementById('weapon-section-modal-title');
+  const kindSelect = document.getElementById('weapon-section-kind-input');
+  if (sectionIdx != null) {
+    const sec = sections[sectionIdx] || {};
+    titleEl.textContent = '✏️ EDITAR SECCIÓN';
+    document.getElementById('weapon-section-title-input').value = sec.title || '';
+    kindSelect.value = sec.kind || 'text';
+    document.getElementById('weapon-section-text-input').value = sec.text || '';
+    state.weaponSectionFieldsDraft = JSON.parse(JSON.stringify(asArray(sec.fields)));
+  } else {
+    titleEl.textContent = '📑 NUEVA SECCIÓN';
+    document.getElementById('weapon-section-title-input').value = '';
+    kindSelect.value = 'text';
+    document.getElementById('weapon-section-text-input').value = '';
+    state.weaponSectionFieldsDraft = [];
+  }
+  toggleWeaponSectionKindUI();
+  renderExtraFieldsEditor('weapon-section-fields-list', () => state.weaponSectionFieldsDraft);
+  document.getElementById('weapon-section-modal-error').classList.add('hidden');
+  document.getElementById('weapon-section-modal').classList.remove('hidden');
+}
+
+async function submitWeaponSection() {
+  const errorBox = document.getElementById('weapon-section-modal-error');
+  const title = document.getElementById('weapon-section-title-input').value.trim();
+  if (!title) { errorBox.textContent = 'Ponle un título a la sección.'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === state.editingWeaponRankId);
+  if (!rank) return;
+  const kind = document.getElementById('weapon-section-kind-input').value;
+  const newSection = {
+    title,
+    kind,
+    text: kind === 'text' ? document.getElementById('weapon-section-text-input').value.trim() : '',
+    fields: kind === 'keyvalue' ? state.weaponSectionFieldsDraft.filter(f => f.key && f.key.trim()).map(f => ({ key: f.key.trim(), value: f.value || '' })) : [],
+  };
+  const sections = JSON.parse(JSON.stringify(asArray(rank.extra_sections)));
+  if (state.editingSectionIndex != null) sections[state.editingSectionIndex] = newSection;
+  else sections.push(newSection);
+  const { error } = await saveRankPatch(rank.id, { input_extra_sections: sections });
+  if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
+  document.getElementById('weapon-section-modal').classList.add('hidden');
+  showToast('Sección guardada', 'success');
+  await reloadWeaponData();
+}
+
+async function deleteSection(rankId, idx) {
+  if (!confirm('¿Borrar esta sección?')) return;
+  const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
+  if (!rank) return;
+  const sections = JSON.parse(JSON.stringify(asArray(rank.extra_sections)));
+  sections.splice(idx, 1);
+  const { error } = await saveRankPatch(rankId, { input_extra_sections: sections });
+  if (error) { showToast('No se pudo borrar', 'error'); return; }
+  showToast('Sección eliminada', 'success');
+  await reloadWeaponData();
+}
+
+// ---------------------------------------------------------
+// MODALES Y BOTONES — Guía de Armas
+// ---------------------------------------------------------
+function initWeaponModals() {
+  document.getElementById('weapon-search-input').addEventListener('input', (e) => {
+    state.weaponSearchTerm = e.target.value.trim();
+    renderWeaponsGrid();
+  });
+  document.getElementById('weapon-back-btn').addEventListener('click', closeWeaponDetail);
+
+  document.getElementById('open-new-weapon-btn').addEventListener('click', () => openWeaponModal(null));
+  document.getElementById('close-weapon-modal').addEventListener('click', () => document.getElementById('weapon-modal').classList.add('hidden'));
+  document.getElementById('submit-weapon-btn').addEventListener('click', submitWeapon);
+  document.getElementById('weapon-image-input').addEventListener('input', (e) => updateAssetPreview('weapon', e.target.value.trim()));
+
+  ['open-weapon-category-manage-btn', 'open-weapon-category-manage-btn-inline'].forEach(id =>
+    document.getElementById(id).addEventListener('click', openWeaponCategoryModal));
+  document.getElementById('close-weapon-category-modal').addEventListener('click', () => document.getElementById('weapon-category-modal').classList.add('hidden'));
+  document.getElementById('submit-weapon-category-btn').addEventListener('click', submitWeaponCategory);
+
+  ['open-weapon-type-manage-btn', 'open-weapon-type-manage-btn-inline'].forEach(id =>
+    document.getElementById(id).addEventListener('click', openWeaponTypeModal));
+  document.getElementById('close-weapon-type-modal').addEventListener('click', () => document.getElementById('weapon-type-modal').classList.add('hidden'));
+  document.getElementById('submit-weapon-type-btn').addEventListener('click', submitWeaponType);
+
+  document.getElementById('close-weapon-rank-modal').addEventListener('click', () => document.getElementById('weapon-rank-modal').classList.add('hidden'));
+  document.getElementById('submit-weapon-rank-btn').addEventListener('click', submitWeaponRank);
+  document.getElementById('weapon-rank-image-input').addEventListener('input', (e) => updateAssetPreview('weapon-rank', e.target.value.trim()));
+
+  document.getElementById('close-weapon-stats-modal').addEventListener('click', () => document.getElementById('weapon-stats-modal').classList.add('hidden'));
+  document.getElementById('weapon-stats-add-btn').addEventListener('click', () => {
+    state.weaponStatsDraft.push({ key: '', value: '' });
+    renderExtraFieldsEditor('weapon-stats-list', () => state.weaponStatsDraft);
+  });
+  document.getElementById('submit-weapon-stats-btn').addEventListener('click', submitWeaponStats);
+
+  document.getElementById('close-weapon-ability-modal').addEventListener('click', () => document.getElementById('weapon-ability-modal').classList.add('hidden'));
+  document.getElementById('weapon-ability-stats-add-btn').addEventListener('click', () => {
+    state.weaponAbilityStatsDraft.push({ key: '', value: '' });
+    renderExtraFieldsEditor('weapon-ability-stats-list', () => state.weaponAbilityStatsDraft);
+  });
+  document.getElementById('submit-weapon-ability-btn').addEventListener('click', submitWeaponAbility);
+
+  document.getElementById('close-weapon-recipe-modal').addEventListener('click', () => document.getElementById('weapon-recipe-modal').classList.add('hidden'));
+  document.getElementById('weapon-recipe-add-material-btn').addEventListener('click', () => {
+    state.weaponRecipeMaterialsDraft.push({ name: '', image_url: '', qty: 1 });
+    renderRecipeMaterialsEditor();
+  });
+  document.getElementById('submit-weapon-recipe-btn').addEventListener('click', submitWeaponRecipe);
+  document.getElementById('clear-weapon-recipe-btn').addEventListener('click', clearWeaponRecipe);
+
+  document.getElementById('close-weapon-section-modal').addEventListener('click', () => document.getElementById('weapon-section-modal').classList.add('hidden'));
+  document.getElementById('weapon-section-kind-input').addEventListener('change', toggleWeaponSectionKindUI);
+  document.getElementById('weapon-section-add-field-btn').addEventListener('click', () => {
+    state.weaponSectionFieldsDraft.push({ key: '', value: '' });
+    renderExtraFieldsEditor('weapon-section-fields-list', () => state.weaponSectionFieldsDraft);
+  });
+  document.getElementById('submit-weapon-section-btn').addEventListener('click', submitWeaponSection);
+}
+
 // ---------------------------------------------------------
 // REALTIME
 // ---------------------------------------------------------
@@ -1883,6 +3071,21 @@ function initRealtime() {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tierlist_items' }, () => {
       if (state.tierlistLoaded) loadTierlist();
+    })
+    .subscribe();
+
+  supabaseClient.channel('weapons-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'weapons' }, () => {
+      if (state.weaponsLoaded) reloadWeaponData();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'weapon_ranks' }, () => {
+      if (state.weaponsLoaded) reloadWeaponData();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'weapon_categories' }, () => {
+      if (state.weaponsLoaded) loadWeaponMeta();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'weapon_types' }, () => {
+      if (state.weaponsLoaded) loadWeaponMeta();
     })
     .subscribe();
 }
@@ -1989,8 +3192,10 @@ function initModals() {
 async function init() {
   initTabs();
   initModals();
+  initWeaponModals();
   initSortControl();
   initAdminPanel();
+  initContinuousBgObserver();
   updateAdminUI();
   await loadCategories();
   await loadAppSettings();
@@ -2229,6 +3434,130 @@ function renderDraftsList() {
 // ---------------------------------------------------------
 
 /** Descarga un objeto como archivo */
+// ---------------------------------------------------------
+// CSV: helpers para una exportación realmente estructurada —
+// una propiedad por columna, listas/datos anidados formateados
+// de forma legible (nunca JSON crudo), BOM UTF-8 para que Excel
+// detecte bien los acentos, y salto de línea \r\n por compatibilidad.
+// ---------------------------------------------------------
+function csvCell(value) {
+  const str = value == null ? '' : String(value);
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
+function csvRow(values) {
+  return values.map(csvCell).join(',');
+}
+
+function buildCsv(headers, rows) {
+  const lines = [csvRow(headers), ...rows.map(csvRow)];
+  return '\uFEFF' + lines.join('\r\n');
+}
+
+// "Pieza [Encantamiento1, Encantamiento2]; Pieza2 [Ench A]"
+function formatEquipmentForCsv(raw) {
+  const list = parseEquipment(raw);
+  if (!list.length) return '';
+  return list.map(eq => {
+    const ench = (eq.enchantments || []).map(e => e.name).filter(Boolean);
+    return ench.length ? `${eq.name} [${ench.join(', ')}]` : eq.name;
+  }).join('; ');
+}
+
+// "Encantamiento1, Encantamiento2"
+function formatEnchantmentsForCsv(arr) {
+  const list = asArray(arr).map(e => e.name).filter(Boolean);
+  return list.join(', ');
+}
+
+// "Clave1: Valor1; Clave2: Valor2"
+function formatExtraFieldsForCsv(arr) {
+  const list = asArray(arr);
+  if (!list.length) return '';
+  return list.map(f => `${f.key}: ${f.value ?? ''}`).join('; ');
+}
+
+// "Clave1: Valor1; Clave2 [Sub1: A, Sub2: B]"
+function formatLibreFieldsForCsv(fields) {
+  if (!fields || !fields.length) return '';
+  return fields.map(f => {
+    if (f.subfields && f.subfields.length) {
+      const subs = f.subfields.map(sf => `${sf.key}: ${sf.value ?? ''}`).join(', ');
+      return `${f.key} [${subs}]`;
+    }
+    return `${f.key}: ${f.value ?? ''}`;
+  }).join('; ');
+}
+
+// Dispara varias descargas en secuencia (con pequeño delay para
+// que el navegador no las bloquee como pop-ups múltiples).
+function downloadFilesStaggered(files) {
+  files.forEach((f, idx) => {
+    setTimeout(() => downloadFile(f.content, f.filename, f.mime), idx * 250);
+  });
+}
+
+// Exportación de Logs a CSV — en vez de un único archivo con
+// todo aplastado en columnas de texto plano, genera 4 archivos
+// relacionados (uno por tabla real), cada propiedad en su propia
+// columna y los datos anidados (equipamiento, encantamientos,
+// "algo más", campos libres) formateados de forma legible.
+function exportLogsCsv() {
+  const logsHeaders = ['ID', 'Título', 'Descripción', 'Categoría', 'Relevancia', 'Likes', 'Fecha de publicación', 'Fecha (ISO)', 'Cantidad de Mobs', 'Cantidad de Items', 'Cantidad de Bloques Libres'];
+  const logsRows = state.logs.map(log => {
+    const mobs = state.mobsByLog[log.id] || [];
+    const items = state.itemsByLog[log.id] || [];
+    const libres = items.filter(i => i.item_type === '_libre');
+    const normalItems = items.filter(i => i.item_type !== '_libre');
+    const cat = getCategory(log.category);
+    return [
+      log.id, log.title, log.description, cat.label, RELEVANCE_LABELS[log.relevance] || log.relevance,
+      log.likes, formatDate(log.created_at), log.created_at,
+      mobs.length, normalItems.length, libres.length,
+    ];
+  });
+
+  const mobsHeaders = ['ID Log', 'Título del Log', 'Nombre del Mob', 'Vida', 'Daño', 'Armor', 'Equipamiento', 'Dónde aparece', 'Descripción', 'Imagen (URL)', 'Algo más'];
+  const mobsRows = [];
+  const itemsHeaders = ['ID Log', 'Título del Log', 'Nombre del Item', 'Rango/Tier', 'Tipo', 'Dónde se obtiene', 'Daño', 'Encantamientos', 'Descripción', 'Imagen (URL)', 'Algo más'];
+  const itemsRows = [];
+  const libresHeaders = ['ID Log', 'Título del Log', 'Nombre del Bloque', 'Campos', 'Descripción', 'Imagen (URL)'];
+  const libresRows = [];
+
+  state.logs.forEach(log => {
+    (state.mobsByLog[log.id] || []).forEach(mob => {
+      mobsRows.push([
+        log.id, log.title, mob.name, mob.health ?? '', mob.damage ?? '', mob.armor ?? '',
+        formatEquipmentForCsv(mob.equipment), mob.location || '', mob.description || '',
+        mob.image_url || '', formatExtraFieldsForCsv(mob.extra_fields),
+      ]);
+    });
+    (state.itemsByLog[log.id] || []).forEach(item => {
+      if (item.item_type === '_libre') {
+        libresRows.push([
+          log.id, log.title, item.name, formatLibreFieldsForCsv(parseLibreFields(item)),
+          item.description || '', item.image_url || '',
+        ]);
+      } else {
+        itemsRows.push([
+          log.id, log.title, item.name, item.tier || '', item.item_type || '', item.obtained_from || '',
+          item.damage ?? '', formatEnchantmentsForCsv(item.enchantments), item.description || '',
+          item.image_url || '', formatExtraFieldsForCsv(item.extra_fields),
+        ]);
+      }
+    });
+  });
+
+  downloadFilesStaggered([
+    { content: buildCsv(logsHeaders, logsRows), filename: `culones-logs-${timestamp()}.csv`, mime: 'text/csv;charset=utf-8' },
+    { content: buildCsv(mobsHeaders, mobsRows), filename: `culones-logs-mobs-${timestamp()}.csv`, mime: 'text/csv;charset=utf-8' },
+    { content: buildCsv(itemsHeaders, itemsRows), filename: `culones-logs-items-${timestamp()}.csv`, mime: 'text/csv;charset=utf-8' },
+    { content: buildCsv(libresHeaders, libresRows), filename: `culones-logs-bloques-libres-${timestamp()}.csv`, mime: 'text/csv;charset=utf-8' },
+  ]);
+
+  showToast(`Exportados ${state.logs.length} logs en 4 CSV (logs, mobs, items, bloques libres)`, 'success');
+}
+
 function downloadFile(content, filename, mimeType) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -2260,14 +3589,7 @@ async function exportData(type, format) {
     showToast(`${logsWithBlocks.length} logs exportados`, 'success');
 
   } else if (type === 'logs' && format === 'csv') {
-    // CSV plano (solo campos del log, sin bloques anidados)
-    const headers = ['id', 'title', 'description', 'category', 'relevance', 'likes', 'created_at'];
-    const rows = state.logs.map(log =>
-      headers.map(h => `"${String(log[h] ?? '').replace(/"/g, '""')}"`).join(',')
-    );
-    downloadFile([headers.join(','), ...rows].join('\n'),
-      `culones-logs-${timestamp()}.csv`, 'text/csv;charset=utf-8');
-    showToast(`${state.logs.length} logs exportados en CSV`, 'success');
+    exportLogsCsv();
 
   } else if (type === 'tierlist' && format === 'json') {
     // Asegurar que la tierlist esté cargada
@@ -2534,5 +3856,6 @@ function initAdminPanel() {
     showToast('Todos los borradores eliminados');
   });
 
+  initBackgroundTool();
   initBeforeUnload();
 }

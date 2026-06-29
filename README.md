@@ -11,7 +11,7 @@ Este documento explica **qué hace cada parte de la web**, no cómo instalarla.
 La barra superior tiene 4 pestañas, estilo navegador:
 
 - **📜 Logs** — el contenido principal, explicado abajo.
-- **⚔️ Guías de Armas** — sección reservada para el futuro catálogo de armas gacha y builds recomendadas. Todavía no tiene contenido.
+- **⚔️ Guía de Armas** — catálogo de armas con buscador, filtros 100% dinámicos, rangos ilimitados, habilidades y recetas de mejora. Explicada más abajo.
 - **🏆 Tierlist** — tabla de personajes por tier (fila) y rol (columna: Arma / Sub-arma / Accesorio). Explicada más abajo.
 - **🎮 Acerca del Server** — texto fijo de presentación del servidor.
 
@@ -29,6 +29,8 @@ Un **log** es una entrada de "esto cambió en el servidor". Cada uno tiene:
 - **Fecha de publicación**, editable libremente por un admin (sirve para registrar algo que pasó antes y no se subió a tiempo).
 - **Likes**: cualquier visitante puede darle ❤️ a un log. Es anónimo (no hace falta cuenta), pero cada navegador solo puede dar un like por log — se recuerda con un identificador local, así que recargar la página no permite inflar el contador.
 - Opcionalmente, **fichas de Mob, Item y/o Bloque Libre** adjuntas (ver siguiente sección) — son las que le dan estructura a logs como "se agregó un mob nuevo con tales stats".
+
+Desde **Herramientas** (panel admin) se puede exportar todo. El CSV de logs genera **4 archivos relacionados** (logs, mobs, items, bloques libres) con una propiedad por columna — nada de texto plano con todo mezclado — y las listas (equipamiento, encantamientos, "algo más") quedan formateadas de forma legible para abrir directo en Excel/Sheets.
 
 ### Filtrar y ordenar
 
@@ -99,7 +101,34 @@ Los campos personalizados ("Algo más") no se ven afectados por esta configuraci
 
 ---
 
-## 🏆 Tierlist
+## ⚔️ Guía de Armas
+
+Catálogo de armas independiente del sistema de Logs, con su propia búsqueda y filtros.
+
+### Catálogo
+
+- **Buscador por nombre** en tiempo real.
+- **Filtro por categoría** (ej. "MK1", "Legendaria"...) — las categorías las crea el admin con nombre + color, igual que las filas de la Tierlist. No están escritas en el código: en cuanto el admin crea una, aparece como filtro para todos.
+- **Filtro por tipo** (ej. "Arma", "Accesorio") — mismo concepto, dinámico, sembrado con "Arma" y "Accesorio" pero ampliable sin tocar código.
+- Las armas sin publicar ("ocultas") solo las ve el admin, marcadas con una etiqueta — mismo patrón que los comentarios ocultos: se filtran en el navegador, no por permisos de base de datos.
+
+### Página de un arma
+
+Al hacer clic en una tarjeta se abre su página de detalle (dentro de la misma pestaña, sin recargar):
+
+- **Rangos ilimitados** (MK1, MK2, MK3... el nombre y la cantidad los decide el admin). Un selector tipo pastillas cambia de rango y actualiza automáticamente todo lo que sigue.
+- **Estadísticas** del rango activo, mostradas como barra — mismo lenguaje visual que ❤️Vida/⚔️Daño/🛡Armor de mobs e items.
+- **Habilidades**: tantas como el admin quiera, cada una con etiqueta, descripción, nivel (con barra) y sus propias estadísticas internas.
+- **Receta de mejora**: vista tipo "trade" — materiales (cualquier cantidad) → flecha → resultado. Cada material tiene nombre, imagen y cantidad.
+- **Secciones extra libres**: para curiosidades, notas de balance, builds, historia o cualquier apartado futuro, sin necesidad de migrar la base de datos de nuevo. Pueden ser texto libre o una lista de campos clave/valor.
+
+### Modo admin
+
+- **+ Nueva arma**: nombre, imagen, categoría, tipo y rango inicial. Queda **oculta** hasta publicarla desde su propia página.
+- Dentro de la página de un arma: editar info básica, publicar/despublicar, borrar arma, agregar/borrar rangos, y editar estadísticas/habilidades/receta/secciones de cada rango — todo con modales enfocados, sin tocar la base de datos a mano.
+- Gestión de categorías y tipos desde botones dedicados en la barra del catálogo.
+
+---
 
 Tabla de personajes organizada en **filas dinámicas** (tiers: SSS, SS, S, A... el nombre y color lo define el admin) cruzadas con **3 columnas fijas que no se pueden eliminar**: Arma, Sub-arma y Accesorio.
 
@@ -132,6 +161,7 @@ En modo admin aparecen:
 - **+ Crear categoría nueva** y poder borrar categorías existentes.
 - **⚙ Configurar fichas**.
 - Herramientas completas de gestión en **🏆 Tierlist**: filas y elementos.
+- Herramientas completas de gestión en **⚔️ Guía de Armas**: armas, rangos, categorías y tipos.
 - Botones de moderación en los comentarios.
 - **🕒 Acciones realizadas** (ver siguiente sección).
 
@@ -144,6 +174,7 @@ Botón de administrador que abre un registro de **todo lo que pasa en la web**, 
 - Logs creados, editados o borrados.
 - Cada mob, item o bloque libre agregado o quitado individualmente (no solo "el log cambió" — se ve exactamente qué ficha entró o salió).
 - Categorías creadas o borradas.
+- Armas, rangos, categorías y tipos de arma creados, editados, publicados/despublicados o borrados.
 - Comentarios publicados por cualquier visitante, ocultados, mostrados de nuevo o borrados.
 - Cambios guardados en "Configurar fichas".
 
@@ -153,7 +184,7 @@ Este registro es **solo visible para administradores** y es permanente — no de
 
 ## 🔄 Tiempo real
 
-Los logs, sus mobs/items, y los comentarios se sincronizan automáticamente entre navegadores: si un admin publica un log nuevo o alguien comenta, cualquier otra persona que tenga la página abierta lo ve aparecer sin necesidad de recargar.
+Los logs, sus mobs/items, los comentarios y el catálogo de la Guía de Armas se sincronizan automáticamente entre navegadores: si un admin publica un log o un arma nueva, o alguien comenta, cualquier otra persona que tenga la página abierta lo ve aparecer sin necesidad de recargar.
 
 ---
 
