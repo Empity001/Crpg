@@ -325,7 +325,7 @@ function initTabs() {
 // CATEGORÍAS
 // ---------------------------------------------------------
 async function loadCategories() {
-  const { data, error } = await supabaseClient.from('categories').select('id,slug,label,emoji,color,created_at').order('created_at', { ascending: true });
+  const { data, error } = await supabaseClient.from('categories').select('slug,label,emoji,color,created_at').order('created_at', { ascending: true });
   if (error) { console.error(error); showToast('No se pudieron cargar las categorías', 'error'); return; }
   state.categories = data;
   renderCategoryFilters();
@@ -395,7 +395,7 @@ async function submitCategory() {
   const color = document.getElementById('category-color-input').value || '#4dd4e8';
   if (!label) { errorBox.textContent = 'Ponle un nombre a la categoría.'; errorBox.classList.remove('hidden'); return; }
   if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
-  const { data, error } = await supabaseClient.rpc('create_category', { input_code: state.adminCode, input_slug: label, input_label: label, input_emoji: emoji, input_color: color });
+  const { data, error } = await supabaseClient.rpc('create_category', { input_code: state.adminCode, input_slug: '', input_label: label, input_emoji: emoji, input_color: color });
   if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
   errorBox.classList.add('hidden');
   document.getElementById('category-label-input').value = '';
