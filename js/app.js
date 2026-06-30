@@ -2066,7 +2066,7 @@ async function reloadWeaponData() {
   const grid = document.getElementById('weapons-grid');
   const [weaponsRes, ranksRes] = await Promise.all([
     supabaseClient.from('weapons').select('id,name,image_url,category_id,type_id,published,sort_order'),
-    supabaseClient.from('weapon_ranks').select('id,weapon_id,name,image_url,stats,abilities,recipe,sections,sort_order').order('sort_order', { ascending: true }),
+    supabaseClient.from('weapon_ranks').select('id,weapon_id,name,description,image_url,stats,abilities,upgrade_recipe,extra_sections,sort_order').order('sort_order', { ascending: true }),
   ]);
   if (weaponsRes.error || ranksRes.error) {
     console.error(weaponsRes.error || ranksRes.error);
@@ -2096,7 +2096,7 @@ async function fetchWeaponsDataForExport() {
     supabaseClient.from('weapon_categories').select('id,label,color,sort_order').order('sort_order', { ascending: true }),
     supabaseClient.from('weapon_types').select('id,label,sort_order').order('sort_order', { ascending: true }),
     supabaseClient.from('weapons').select('id,name,image_url,category_id,type_id,published,sort_order'),
-    supabaseClient.from('weapon_ranks').select('id,weapon_id,name,image_url,stats,abilities,recipe,sections,sort_order').order('sort_order', { ascending: true }),
+    supabaseClient.from('weapon_ranks').select('id,weapon_id,name,description,image_url,stats,abilities,upgrade_recipe,extra_sections,sort_order').order('sort_order', { ascending: true }),
   ]);
   const categories = (!catsRes.error && catsRes.data)   || [];
   const types      = (!typesRes.error && typesRes.data)  || [];
@@ -3840,7 +3840,7 @@ async function exportAllXlsx() {
     (weaponData.ranksByWeapon[w.id] || []).forEach(rank => {
       const statsText     = asArray(rank.stats).map(s => `${s.label}: ${s.value}`).join('; ');
       const abilitiesText = asArray(rank.abilities).map(a => a.name).filter(Boolean).join(', ');
-      const recipeText    = asArray(rank.recipe?.materials).map(m => `${m.name}×${m.qty}`).join(', ');
+      const recipeText    = asArray(rank.upgrade_recipe?.materials).map(m => `${m.name}×${m.qty}`).join(', ');
       rankRows.push([
         rank.id, w.id, w.name, rank.name || '',
         statsText, abilitiesText, recipeText, rank.sort_order ?? '',

@@ -8,12 +8,13 @@ Este documento explica **qué hace cada parte de la web**, no cómo instalarla.
 
 ## 🗂 Navegación
 
-La barra superior tiene 4 pestañas, estilo navegador:
+La barra superior tiene pestañas estilo navegador:
 
 - **📜 Logs** — el contenido principal, explicado abajo.
 - **⚔️ Guía de Armas** — catálogo de armas con buscador, filtros 100% dinámicos, rangos ilimitados, habilidades y recetas de mejora. Explicada más abajo.
 - **🏆 Tierlist** — tabla de personajes por tier (fila) y rol (columna: Arma / Sub-arma / Accesorio). Explicada más abajo.
 - **🎮 Acerca del Server** — texto fijo de presentación del servidor.
+- **🛠 Herramientas** — solo visible con sesión de administrador activa. Borradores, exportar/importar y la bitácora de acciones (ver "Modo Administrador" más abajo).
 
 Arriba a la derecha está el botón **ADMIN**, con un punto que indica si hay una sesión de administrador activa (ver más abajo).
 
@@ -30,7 +31,7 @@ Un **log** es una entrada de "esto cambió en el servidor". Cada uno tiene:
 - **Likes**: cualquier visitante puede darle ❤️ a un log. Es anónimo (no hace falta cuenta), pero cada navegador solo puede dar un like por log — se recuerda con un identificador local, así que recargar la página no permite inflar el contador.
 - Opcionalmente, **fichas de Mob, Item y/o Bloque Libre** adjuntas (ver siguiente sección) — son las que le dan estructura a logs como "se agregó un mob nuevo con tales stats".
 
-Desde **Herramientas** (panel admin) se puede exportar todo. El CSV de logs genera **4 archivos relacionados** (logs, mobs, items, bloques libres) con una propiedad por columna — nada de texto plano con todo mezclado — y las listas (equipamiento, encantamientos, "algo más") quedan formateadas de forma legible para abrir directo en Excel/Sheets.
+Desde **Herramientas** se puede exportar todo. El Excel de logs genera **4 hojas relacionadas** (Logs, Mobs, Items, Bloques Libres) con encabezados estilizados, colores, filtros automáticos y una propiedad por columna — nada de texto plano con todo mezclado. Las listas (equipamiento, encantamientos, "algo más") quedan formateadas de forma legible. También hay un export en JSON completo, pensado para backup/restauración más que para lectura humana.
 
 ### Filtrar y ordenar
 
@@ -163,13 +164,13 @@ En modo admin aparecen:
 - Herramientas completas de gestión en **🏆 Tierlist**: filas y elementos.
 - Herramientas completas de gestión en **⚔️ Guía de Armas**: armas, rangos, categorías y tipos.
 - Botones de moderación en los comentarios.
-- **🕒 Acciones realizadas** (ver siguiente sección).
+- En **🛠 Herramientas**: borradores, exportar/importar, y el botón discreto **🕒 Acciones** (ver siguiente sección).
 
 ---
 
 ## 🕒 Acciones realizadas (bitácora)
 
-Botón de administrador que abre un registro de **todo lo que pasa en la web**, en orden cronológico (más reciente primero):
+Botón discreto (**🕒 Acciones**) en la pestaña **🛠 Herramientas**, que abre un registro de **todo lo que pasa en la web**, en orden cronológico (más reciente primero):
 
 - Logs creados, editados o borrados.
 - Cada mob, item o bloque libre agregado o quitado individualmente (no solo "el log cambió" — se ve exactamente qué ficha entró o salió).

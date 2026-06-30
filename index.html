@@ -84,9 +84,6 @@
         <button class="btn-secondary-admin hidden" id="open-field-config-btn" type="button">
           ⚙ Configurar fichas
         </button>
-        <button class="btn-secondary-admin hidden" id="open-action-log-btn" type="button">
-          🕒 Acciones realizadas
-        </button>
         <button class="btn-new-log hidden" id="open-new-log-btn" type="button">
           + Nuevo Log
         </button>
@@ -175,6 +172,11 @@
   <!-- ---------- PANEL: HERRAMIENTAS (solo admin) ---------- -->
   <section class="tab-panel" id="panel-admin">
 
+    <div class="admin-panel-head">
+      <p class="admin-panel-eyebrow">Solo visible para administradores</p>
+      <button class="btn-secondary-admin hidden" id="open-action-log-btn" type="button">🕒 Acciones</button>
+    </div>
+
     <!-- Borradores -->
     <div class="admin-section">
       <div class="admin-section-head">
@@ -231,7 +233,7 @@
         <span>o</span>
         <label class="btn-secondary-admin import-file-label">
           Seleccionar archivo
-          <input type="file" id="import-file-input" accept=".json,.csv" class="hidden" />
+          <input type="file" id="import-file-input" accept=".json" class="hidden" />
         </label>
       </div>
     </div>
