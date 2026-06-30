@@ -340,6 +340,94 @@ async function uploadImageToStorage(file, folder, oldUrl = '') {
   return data.publicUrl;
 }
 
+// ---------------------------------------------------------
+// DROPZONE DE IMAGEN — Modal "Nuevo/Editar elemento Tierlist"
+// Maneja: click-para-elegir, drag-and-drop, botón "Quitar
+// imagen", y sincronización visual de estado (vacío / con imagen).
+// Reutiliza uploadImageToStorage y updateAssetPreview intactos.
+// ---------------------------------------------------------
+function syncTierDropzoneState(url) {
+  const zone  = document.getElementById('tier-item-dropzone');
+  const icon  = document.getElementById('tier-item-dropzone-icon');
+  const label = document.getElementById('tier-item-dropzone-label');
+  if (!zone) return;
+  if (url) {
+    zone.classList.add('has-image');
+    if (icon)  icon.textContent  = '✅';
+    if (label) label.textContent = 'Imagen lista — hacé click para reemplazarla';
+  } else {
+    zone.classList.remove('has-image');
+    if (icon)  icon.textContent  = '🖼';
+    if (label) label.textContent = 'Arrastrá una imagen aquí o hacé click para elegir';
+  }
+}
+
+function initTierItemDropzone() {
+  const zone      = document.getElementById('tier-item-dropzone');
+  const fileInput = document.getElementById('tier-item-image-file');
+  const urlInput  = document.getElementById('tier-item-image-input');
+  const progress  = document.getElementById('tier-item-upload-progress');
+  const clearBtn  = document.getElementById('tier-item-image-clear-btn');
+  if (!zone || !fileInput) return;
+
+  // ── Click en la dropzone → abre el selector de archivos ──
+  zone.addEventListener('click', () => fileInput.click());
+
+  // ── Drag-and-drop ──────────────────────────────────────
+  zone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    zone.classList.add('is-drag-over');
+  });
+  zone.addEventListener('dragleave', () => zone.classList.remove('is-drag-over'));
+  zone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    zone.classList.remove('is-drag-over');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) await handleTierImageFile(file);
+  });
+
+  // ── Selección por file input (también lo usa initImageUploader) ──
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    fileInput.value = '';
+    await handleTierImageFile(file);
+  });
+
+  // ── Botón "✕ Quitar imagen" ─────────────────────────────
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      if (urlInput) urlInput.value = '';
+      updateAssetPreview('tier-item', '');
+      syncTierDropzoneState('');
+    });
+  }
+
+  async function handleTierImageFile(file) {
+    // Feedback inmediato
+    if (progress) progress.classList.remove('hidden');
+    zone.style.pointerEvents = 'none';
+
+    const getOldUrl = () => {
+      const item = state.editingTierItemId ? state.tierItems.find(i => i.id === state.editingTierItemId) : null;
+      return item ? (item.image_url || '') : '';
+    };
+
+    try {
+      const publicUrl = await uploadImageToStorage(file, 'tierlist', getOldUrl());
+      if (urlInput) urlInput.value = publicUrl;
+      updateAssetPreview('tier-item', publicUrl);
+      syncTierDropzoneState(publicUrl);
+      showToast('Imagen subida correctamente', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      if (progress) progress.classList.add('hidden');
+      zone.style.pointerEvents = '';
+    }
+  }
+}
+
 // Conecta el botón 📁 de un modal al input URL existente.
 // prefix    : 'mob' | 'item' | 'libre' | 'tier-item' | 'weapon' | 'weapon-rank'
 // folder    : carpeta dentro del bucket ('mobs', 'items', 'tierlist', 'weapons', 'weapon-ranks')
@@ -2001,6 +2089,10 @@ async function reorderTierRow(rowId, direction) {
 function openTierItemModal(itemId = null) {
   state.editingTierItemId = itemId;
   const titleEl = document.getElementById('tier-item-modal-title');
+  // Colapsar la sección de URL externa al abrir (estado limpio)
+  const urlDetails = document.getElementById('tier-item-url-details');
+  if (urlDetails) urlDetails.removeAttribute('open');
+
   if (itemId) {
     const item = state.tierItems.find(it => it.id === itemId);
     if (!item) return;
@@ -2009,12 +2101,16 @@ function openTierItemModal(itemId = null) {
     document.getElementById('tier-item-column-input').value = item.column_key;
     document.getElementById('tier-item-image-input').value = item.image_url || '';
     updateAssetPreview('tier-item', item.image_url || '');
+    syncTierDropzoneState(item.image_url || '');
+    // Si ya tiene imagen, abre la sección de URL para que se vea la URL actual
+    if (item.image_url && urlDetails) urlDetails.setAttribute('open', '');
   } else {
     titleEl.textContent = '🎴 NUEVO ELEMENTO';
     document.getElementById('tier-item-name-input').value = '';
     document.getElementById('tier-item-column-input').value = 'weapon';
     document.getElementById('tier-item-image-input').value = '';
     updateAssetPreview('tier-item', '');
+    syncTierDropzoneState('');
   }
   document.getElementById('tier-item-modal-error').classList.add('hidden');
   document.getElementById('tier-item-modal').classList.remove('hidden');
@@ -3263,7 +3359,15 @@ function initModals() {
   document.getElementById('open-new-tier-item-btn').addEventListener('click', () => openTierItemModal(null));
   document.getElementById('close-tier-item-modal').addEventListener('click', () => document.getElementById('tier-item-modal').classList.add('hidden'));
   document.getElementById('submit-tier-item-btn').addEventListener('click', submitTierItem);
-  document.getElementById('tier-item-image-input').addEventListener('input', (e) => updateAssetPreview('tier-item', e.target.value.trim()));
+  document.getElementById('tier-item-image-input').addEventListener('input', (e) => {
+    updateAssetPreview('tier-item', e.target.value.trim());
+    syncTierDropzoneState(e.target.value.trim());
+  });
+
+  // El initImageUploader original sigue funcionando para el btn oculto
+  // (no se elimina — uploadImageToStorage lo llama a través del btn).
+  // El nuevo flujo de dropzone se maneja aquí directamente para no duplicar lógica.
+  initTierItemDropzone();
   initImageUploader('tier-item', 'tierlist', () => {
     const item = state.editingTierItemId ? state.tierItems.find(i => i.id === state.editingTierItemId) : null;
     return item ? (item.image_url || '') : '';

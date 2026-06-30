@@ -532,15 +532,35 @@
       <option value="accessory">Accesorio</option>
     </select>
 
-    <label class="field-label">Imagen <span class="optional-tag">(opcional)</span></label>
-    <div class="image-input-row">
-      <input type="url" id="tier-item-image-input" class="modal-input" maxlength="500" placeholder="https://... o sube un archivo →" />
-      <button type="button" class="btn-upload-img" id="tier-item-image-upload-btn" title="Subir imagen desde tu ordenador">Subir</button>
+    <label class="field-label">Imagen</label>
+
+    <!-- Zona principal: click o drag-and-drop para subir archivo -->
+    <div class="tier-img-dropzone" id="tier-item-dropzone">
       <input type="file" id="tier-item-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
+      <div class="tier-img-dropzone-icon" id="tier-item-dropzone-icon">🖼</div>
+      <p class="tier-img-dropzone-label" id="tier-item-dropzone-label">Arrastrá una imagen aquí o hacé click para elegir</p>
+      <p class="tier-img-dropzone-hint">PNG, JPG o WEBP · máx. 3 MB</p>
+      <div class="tier-img-uploading hidden" id="tier-item-upload-progress">
+        <span class="tier-img-spinner"></span> Subiendo…
+      </div>
     </div>
+
+    <!-- URL externa como alternativa opcional, colapsable -->
+    <details class="tier-img-url-details" id="tier-item-url-details">
+      <summary class="tier-img-url-toggle">🔗 O pegá una URL externa (opcional)</summary>
+      <div class="image-input-row" style="margin-top:8px;">
+        <input type="url" id="tier-item-image-input" class="modal-input" maxlength="500" placeholder="https://imgur.com/..." />
+        <!-- btn-upload-img oculto: initImageUploader lo bindea con el file input de arriba -->
+        <button type="button" class="btn-upload-img hidden" id="tier-item-image-upload-btn">Subir</button>
+      </div>
+    </details>
+
     <div class="asset-preview hidden" id="tier-item-image-preview-wrap">
       <img id="tier-item-image-preview" alt="Vista previa" class="pixel-art" />
-      <button type="button" class="link-btn js-open-asset" id="tier-item-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+      <div class="asset-preview-actions">
+        <button type="button" class="link-btn js-open-asset" id="tier-item-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+        <button type="button" class="link-btn tier-img-clear-btn" id="tier-item-image-clear-btn">✕ Quitar imagen</button>
+      </div>
     </div>
 
     <div class="modal-error hidden" id="tier-item-modal-error"></div>
