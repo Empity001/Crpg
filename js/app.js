@@ -2089,6 +2089,26 @@ async function loadWeaponsCatalog() {
   await reloadWeaponData();
 }
 
+// Obtiene datos de armas SOLO para exportación — sin tocar el DOM
+// ni los renders de la guía. Seguro de llamar desde cualquier contexto.
+async function fetchWeaponsDataForExport() {
+  const [catsRes, typesRes, weaponsRes, ranksRes] = await Promise.all([
+    supabaseClient.from('weapon_categories').select('id,label,color,sort_order').order('sort_order', { ascending: true }),
+    supabaseClient.from('weapon_types').select('id,label,sort_order').order('sort_order', { ascending: true }),
+    supabaseClient.from('weapons').select('id,name,image_url,category_id,type_id,published,sort_order'),
+    supabaseClient.from('weapon_ranks').select('id,weapon_id,name,image_url,stats,abilities,recipe,sections,sort_order').order('sort_order', { ascending: true }),
+  ]);
+  const categories = (!catsRes.error && catsRes.data)   || [];
+  const types      = (!typesRes.error && typesRes.data)  || [];
+  const weapons    = (!weaponsRes.error && weaponsRes.data) || [];
+  const ranksByWeapon = {};
+  ((!ranksRes.error && ranksRes.data) || []).forEach(r => {
+    if (!ranksByWeapon[r.weapon_id]) ranksByWeapon[r.weapon_id] = [];
+    ranksByWeapon[r.weapon_id].push(r);
+  });
+  return { categories, types, weapons, ranksByWeapon };
+}
+
 // ---------------------------------------------------------
 // FILTROS + BÚSQUEDA
 // ---------------------------------------------------------
@@ -3762,9 +3782,11 @@ function exportTierlistXlsx() {
 // Armas, Categorías de armas, Tipos de armas y Configuración.
 // ---------------------------------------------------------
 async function exportAllXlsx() {
-  // Asegurar datos cargados
+  // Asegurar tierlist cargada (solo datos, sin render extra)
   if (!state.tierlistLoaded) await loadTierlist();
-  if (!state.weaponsLoaded)  await loadWeaponsCatalog();
+
+  // Obtener datos de armas sin disparar ningún render de la guía
+  const weaponData = await fetchWeaponsDataForExport();
 
   const wb = XLSX.utils.book_new();
   wb.Props = { Title: 'Culones RPG — Backup Completo', Subject: 'Exportación completa', CreatedDate: new Date() };
@@ -3780,9 +3802,9 @@ async function exportAllXlsx() {
     ['Filas Tierlist',   state.tierRows.length,                                             now],
     ['Items Tierlist',   state.tierItems.length,                                            now],
     ['Categorías',       state.categories.length,                                           now],
-    ['Armas',            state.weapons.length,                                              now],
-    ['Categorías Armas', state.weaponCategories.length,                                    now],
-    ['Tipos de Armas',   state.weaponTypes.length,                                         now],
+    ['Armas',            weaponData.weapons.length,                                         now],
+    ['Categorías Armas', weaponData.categories.length,                                      now],
+    ['Tipos de Armas',   weaponData.types.length,                                           now],
   ];
   const wsSummary = buildXlSheet('📊 Resumen del Backup', summaryHeaders, summaryRows, [1], [28, 24, 28]);
 
@@ -3799,9 +3821,9 @@ async function exportAllXlsx() {
 
   // --- Hoja de armas ---
   const weaponHeaders = ['ID', 'Nombre', 'Categoría', 'Tipo', 'Publicada', 'Imagen (URL)', 'Orden'];
-  const weaponRows = state.weapons.map(w => {
-    const cat  = state.weaponCategories.find(c => c.id === w.category_id);
-    const type = state.weaponTypes.find(t => t.id === w.type_id);
+  const weaponRows = weaponData.weapons.map(w => {
+    const cat  = weaponData.categories.find(c => c.id === w.category_id);
+    const type = weaponData.types.find(t => t.id === w.type_id);
     return [
       w.id, w.name,
       cat?.label || '', type?.label || '',
@@ -3814,11 +3836,11 @@ async function exportAllXlsx() {
   // --- Hoja de ranks / versiones de armas ---
   const rankHeaders = ['ID', 'ID Arma', 'Nombre Arma', 'Nombre del Rank', 'Estadísticas', 'Habilidades (resumen)', 'Receta (resumen)', 'Orden'];
   const rankRows = [];
-  state.weapons.forEach(w => {
-    (state.weaponRanksByWeapon[w.id] || []).forEach(rank => {
-      const statsText = asArray(rank.stats).map(s => `${s.label}: ${s.value}`).join('; ');
+  weaponData.weapons.forEach(w => {
+    (weaponData.ranksByWeapon[w.id] || []).forEach(rank => {
+      const statsText     = asArray(rank.stats).map(s => `${s.label}: ${s.value}`).join('; ');
       const abilitiesText = asArray(rank.abilities).map(a => a.name).filter(Boolean).join(', ');
-      const recipeText = asArray(rank.recipe?.materials).map(m => `${m.name}×${m.qty}`).join(', ');
+      const recipeText    = asArray(rank.recipe?.materials).map(m => `${m.name}×${m.qty}`).join(', ');
       rankRows.push([
         rank.id, w.id, w.name, rank.name || '',
         statsText, abilitiesText, recipeText, rank.sort_order ?? '',
@@ -3829,12 +3851,12 @@ async function exportAllXlsx() {
 
   // --- Hoja de categorías de armas ---
   const wcatHeaders = ['ID', 'Etiqueta', 'Color', 'Orden'];
-  const wcatRows = state.weaponCategories.map(c => [c.id, c.label, c.color || '', c.sort_order ?? '']);
+  const wcatRows = weaponData.categories.map(c => [c.id, c.label, c.color || '', c.sort_order ?? '']);
   const wsWCats = buildXlSheet(`🎨 Categorías Armas (${wcatRows.length})`, wcatHeaders, wcatRows, [3], [12,28,12,8]);
 
   // --- Hoja de tipos de armas ---
   const wtypeHeaders = ['ID', 'Etiqueta', 'Orden'];
-  const wtypeRows = state.weaponTypes.map(t => [t.id, t.label, t.sort_order ?? '']);
+  const wtypeRows = weaponData.types.map(t => [t.id, t.label, t.sort_order ?? '']);
   const wsWTypes = buildXlSheet(`🔰 Tipos Armas (${wtypeRows.length})`, wtypeHeaders, wtypeRows, [2], [12,28,8]);
 
   // --- Hoja de configuración de campos ---
