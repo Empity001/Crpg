@@ -4,7 +4,34 @@ Registro de sesiones de desarrollo. Cada entrada resume qué se hizo, qué qued�
 
 ---
 
+# Sesión 16
+
+**Sistema de imágenes — Supabase Storage**
+
+- Se implementó subida de imágenes a Supabase Storage como opción principal, manteniendo la URL externa como opción secundaria opcional. El admin ve un botón 📁 junto a cada input de URL; al pulsarlo abre el selector de archivos del sistema y sube directamente.
+- La lógica de Storage se concentra en **dos funciones nuevas** en `app.js`, junto al bloque de utilidades existente, sin crear archivos nuevos:
+  - `uploadImageToStorage(file, folder, oldUrl)` — valida tipo (PNG/JPG/WEBP), tamaño (≤3 MB), sube al bucket `culones` con nombre único basado en timestamp, devuelve la URL pública, y borra la imagen anterior del Storage en fire-and-forget si era del mismo bucket (evita archivos huérfanos).
+  - `initImageUploader(prefix, folder, getOldUrl)` — conecta el botón 📁 y el `<input type="file">` al input URL existente de cada modal. Sube → obtiene URL → la escribe en el input → llama a `updateAssetPreview` que ya existía. Un solo wiring por prefijo, sin duplicar lógica.
+- **Reutilización total**: `updateAssetPreview`, `safeUrl`, `showToast`, `escapeHtml` — todo se reusa sin modificar, excepto que se extendió `updateAssetPreview` para limpiar/marcar `.input-error` en el input cuando una URL externa no carga como imagen (feedback visual antes de guardar, sin bloquear nada).
+- **HTML**: cada input URL existente envuelto en un `<div class="image-input-row">` con el botón 📁 y un `<input type="file" hidden>` junto a él. Sin reestructurar modales.
+- **CSS**: `.image-input-row` (flex-row), `.btn-upload-img` (botón 📁), `.modal-input.input-error` (borde magenta si URL externa no carga). 4 reglas nuevas.
+- **SQL** (`migration_010_storage.sql`): crea el bucket `culones` (público, 3 MB, PNG/JPG/WEBP) con 4 políticas RLS (select/insert/update/delete). La seguridad real sigue siendo la UI (el botón solo existe si hay sesión de admin activa), igual que el resto del proyecto.
+- **Carpetas del bucket**: `mobs/`, `items/` (también libres), `tierlist/`, `weapons/`, `weapon-ranks/`, `recipes/`.
+- **Prefijos cubiertos**: `mob`, `item`, `libre`, `tier-item`, `weapon`, `weapon-rank` — todos los modales con campo de imagen del proyecto.
+
+Pendiente:
+- Las imágenes de **materiales de receta** (dentro del JSONB `upgrade_recipe`) siguen siendo URLs externas — el editor de materiales genera filas dinámicas en JS sin un prefijo fijo, así que aplicarle el uploader requiere extender `renderRecipeMaterialsEditor` para añadir el botón 📁 a cada fila generada. No es urgente pero está anotado.
+- Exportaciones (verificar hojas de Excel de Tierlist y "Todo" contra columnas actuales).
+- Bot de Discord.
+
+Problemas conocidos:
+- El modal de habilidades hace demasiadas consultas.
+- El patrón de guardado de rangos de arma (`saveRankPatch`) reenvía el objeto completo — frágil ante nuevas columnas de `weapon_ranks` que se olviden añadir al `select()`.
+
+---
+
 # Sesión 15
+
 
 - Se diagnosticó por qué la Guía de Armas no cargaba nada y por qué un arma recién creada tampoco aparecía: el `SELECT` optimizado de `weapon_ranks` pedía columnas inexistentes (`recipe`, `sections`) en lugar de las reales (`upgrade_recipe`, `extra_sections`), y Supabase rechazaba la consulta completa. Corregido en `reloadWeaponData()` y en `fetchWeaponsDataForExport()` (export a Excel), incluyendo la referencia downstream `rank.recipe` → `rank.upgrade_recipe`.
 - De paso se detectó y corregido un bug silencioso de pérdida de datos: como `description` tampoco se seleccionaba, cualquier guardado parcial de un rango (solo stats, solo habilidades, etc.) habría borrado la descripción guardada, porque el guardado siempre reenvía el objeto completo (`saveRankPatch`). Ya no ocurre, `description` ahora se carga junto al resto.

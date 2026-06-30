@@ -278,16 +278,100 @@ function openAssetFullscreen(src, title) {
 // (mob/item/libre) — prefix es 'mob' | 'item' | 'libre'.
 function updateAssetPreview(prefix, url) {
   const wrap = document.getElementById(`${prefix}-image-preview-wrap`);
-  const img = document.getElementById(`${prefix}-image-preview`);
-  const btn = document.getElementById(`${prefix}-image-fullscreen-btn`);
+  const img  = document.getElementById(`${prefix}-image-preview`);
+  const btn  = document.getElementById(`${prefix}-image-fullscreen-btn`);
+  const urlInput = document.getElementById(`${prefix}-image-input`);
   if (!wrap || !img || !btn) return;
   const safe = safeUrl(url);
-  if (!safe) { wrap.classList.add('hidden'); return; }
+  if (!safe) {
+    wrap.classList.add('hidden');
+    if (urlInput) urlInput.classList.remove('input-error');
+    return;
+  }
   img.src = safe;
-  img.onerror = () => wrap.classList.add('hidden');
+  img.onload  = () => { if (urlInput) urlInput.classList.remove('input-error'); };
+  img.onerror = () => {
+    wrap.classList.add('hidden');
+    // Marca el input en rojo si la URL no carga como imagen — avisa al admin antes de guardar.
+    if (urlInput && url) urlInput.classList.add('input-error');
+  };
   wrap.classList.remove('hidden');
-  btn.dataset.assetSrc = safe;
-  btn.dataset.assetTitle = document.getElementById(`${prefix}-name-input`) ? document.getElementById(`${prefix}-name-input`).value : '';
+  btn.dataset.assetSrc   = safe;
+  btn.dataset.assetTitle = document.getElementById(`${prefix}-name-input`)?.value ?? '';
+}
+
+// Sube un archivo de imagen al bucket "culones" de Supabase Storage.
+// folder: carpeta destino ('mobs', 'items', 'tierlist', 'weapons', 'weapon-ranks', 'recipes')
+// oldUrl: URL previa (si viene de Storage) — se borra para no dejar huérfanos.
+// Devuelve la URL pública de la imagen subida, o lanza error.
+const STORAGE_MAX_BYTES = 3 * 1024 * 1024; // 3 MB
+const STORAGE_ALLOWED   = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const STORAGE_BUCKET    = 'culones';
+
+async function uploadImageToStorage(file, folder, oldUrl = '') {
+  if (!STORAGE_ALLOWED.includes(file.type)) {
+    throw new Error('Solo se permiten imágenes PNG, JPG o WEBP.');
+  }
+  if (file.size > STORAGE_MAX_BYTES) {
+    throw new Error('El archivo supera el límite de 3 MB.');
+  }
+
+  // Nombre único basado en timestamp — evita colisiones y cachés viejas.
+  const ext  = file.name.split('.').pop().toLowerCase().replace('jpg', 'jpeg');
+  const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+  const { error: upErr } = await supabaseClient.storage
+    .from(STORAGE_BUCKET)
+    .upload(path, file, { upsert: false, contentType: file.type });
+
+  if (upErr) throw new Error('Error al subir: ' + upErr.message);
+
+  const { data } = supabaseClient.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+
+  // Borrar imagen antigua del Storage (solo si era de nuestro mismo bucket).
+  if (oldUrl && oldUrl.includes(`/storage/v1/object/public/${STORAGE_BUCKET}/`)) {
+    const oldPath = oldUrl.split(`/storage/v1/object/public/${STORAGE_BUCKET}/`)[1];
+    if (oldPath) {
+      // Fire-and-forget: si falla el borrado no bloqueamos la subida nueva.
+      supabaseClient.storage.from(STORAGE_BUCKET).remove([oldPath]).catch(() => {});
+    }
+  }
+
+  return data.publicUrl;
+}
+
+// Conecta el botón 📁 de un modal al input URL existente.
+// prefix    : 'mob' | 'item' | 'libre' | 'tier-item' | 'weapon' | 'weapon-rank'
+// folder    : carpeta dentro del bucket ('mobs', 'items', 'tierlist', 'weapons', 'weapon-ranks')
+// getOldUrl : función que devuelve la URL actual guardada (para borrado de huérfanos)
+function initImageUploader(prefix, folder, getOldUrl = () => '') {
+  const btn      = document.getElementById(`${prefix}-image-upload-btn`);
+  const fileInput = document.getElementById(`${prefix}-image-file`);
+  const urlInput  = document.getElementById(`${prefix}-image-input`);
+  if (!btn || !fileInput || !urlInput) return;
+
+  btn.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    fileInput.value = ''; // permite volver a elegir el mismo archivo
+
+    btn.classList.add('is-uploading');
+    btn.textContent = '⏳';
+
+    try {
+      const publicUrl = await uploadImageToStorage(file, folder, getOldUrl());
+      urlInput.value = publicUrl;
+      updateAssetPreview(prefix, publicUrl);
+      showToast('Imagen subida correctamente', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.classList.remove('is-uploading');
+      btn.textContent = '📁';
+    }
+  });
 }
 
 // ---------------------------------------------------------
@@ -3007,6 +3091,10 @@ function initWeaponModals() {
   document.getElementById('close-weapon-modal').addEventListener('click', () => document.getElementById('weapon-modal').classList.add('hidden'));
   document.getElementById('submit-weapon-btn').addEventListener('click', submitWeapon);
   document.getElementById('weapon-image-input').addEventListener('input', (e) => updateAssetPreview('weapon', e.target.value.trim()));
+  initImageUploader('weapon', 'weapons', () => {
+    const w = state.weapons.find(x => x.id === state.editingWeaponId);
+    return w ? (w.image_url || '') : '';
+  });
 
   ['open-weapon-category-manage-btn', 'open-weapon-category-manage-btn-inline'].forEach(id =>
     document.getElementById(id).addEventListener('click', openWeaponCategoryModal));
@@ -3021,6 +3109,10 @@ function initWeaponModals() {
   document.getElementById('close-weapon-rank-modal').addEventListener('click', () => document.getElementById('weapon-rank-modal').classList.add('hidden'));
   document.getElementById('submit-weapon-rank-btn').addEventListener('click', submitWeaponRank);
   document.getElementById('weapon-rank-image-input').addEventListener('input', (e) => updateAssetPreview('weapon-rank', e.target.value.trim()));
+  initImageUploader('weapon-rank', 'weapon-ranks', () => {
+    const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === state.editingWeaponRankId);
+    return rank ? (rank.image_url || '') : '';
+  });
 
   document.getElementById('close-weapon-stats-modal').addEventListener('click', () => document.getElementById('weapon-stats-modal').classList.add('hidden'));
   document.getElementById('weapon-stats-add-btn').addEventListener('click', () => {
@@ -3125,6 +3217,10 @@ function initModals() {
   document.getElementById('mob-add-equipment-btn').addEventListener('click', addEquipmentPiece);
   document.getElementById('mob-add-extra-btn').addEventListener('click', () => { state.mobExtraDraft.push({ key: '', value: '' }); renderExtraFieldsEditor('mob-extra-fields-list', () => state.mobExtraDraft); });
   document.getElementById('mob-image-input').addEventListener('input', (e) => updateAssetPreview('mob', e.target.value.trim()));
+  initImageUploader('mob', 'mobs', () => {
+    const mob = state.editingMobIndex != null ? state.draftMobs[state.editingMobIndex] : null;
+    return mob ? (mob.image_url || '') : '';
+  });
 
   document.getElementById('open-add-item-btn').addEventListener('click', () => openItemModal(null));
   document.getElementById('close-item-modal').addEventListener('click', () => document.getElementById('item-modal').classList.add('hidden'));
@@ -3132,12 +3228,20 @@ function initModals() {
   document.getElementById('item-add-enchant-btn').addEventListener('click', addItemEnchant);
   document.getElementById('item-add-extra-btn').addEventListener('click', () => { state.itemExtraDraft.push({ key: '', value: '' }); renderExtraFieldsEditor('item-extra-fields-list', () => state.itemExtraDraft); });
   document.getElementById('item-image-input').addEventListener('input', (e) => updateAssetPreview('item', e.target.value.trim()));
+  initImageUploader('item', 'items', () => {
+    const item = state.editingItemIndex != null ? state.draftItems[state.editingItemIndex] : null;
+    return item ? (item.image_url || '') : '';
+  });
 
   document.getElementById('open-add-libre-btn').addEventListener('click', () => openLibreModal(null));
   document.getElementById('close-libre-modal').addEventListener('click', () => document.getElementById('libre-modal').classList.add('hidden'));
   document.getElementById('submit-libre-btn').addEventListener('click', submitLibreBlock);
   document.getElementById('libre-add-field-btn').addEventListener('click', addLibreField);
   document.getElementById('libre-image-input').addEventListener('input', (e) => updateAssetPreview('libre', e.target.value.trim()));
+  initImageUploader('libre', 'items', () => {
+    const lib = state.editingLibreIndex != null ? state.draftLibres[state.editingLibreIndex] : null;
+    return lib ? (lib.image_url || '') : '';
+  });
 
   document.getElementById('open-new-category-btn').addEventListener('click', openNewCategoryModal);
   document.getElementById('close-category-modal').addEventListener('click', () => document.getElementById('category-modal').classList.add('hidden'));
@@ -3160,6 +3264,10 @@ function initModals() {
   document.getElementById('close-tier-item-modal').addEventListener('click', () => document.getElementById('tier-item-modal').classList.add('hidden'));
   document.getElementById('submit-tier-item-btn').addEventListener('click', submitTierItem);
   document.getElementById('tier-item-image-input').addEventListener('input', (e) => updateAssetPreview('tier-item', e.target.value.trim()));
+  initImageUploader('tier-item', 'tierlist', () => {
+    const item = state.editingTierItemId ? state.tierItems.find(i => i.id === state.editingTierItemId) : null;
+    return item ? (item.image_url || '') : '';
+  });
 
   document.getElementById('close-tier-move-modal').addEventListener('click', () => document.getElementById('tier-move-modal').classList.add('hidden'));
   document.getElementById('submit-tier-move-btn').addEventListener('click', submitTierMove);
