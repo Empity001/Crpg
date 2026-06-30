@@ -358,7 +358,7 @@ function initImageUploader(prefix, folder, getOldUrl = () => '') {
     fileInput.value = ''; // permite volver a elegir el mismo archivo
 
     btn.classList.add('is-uploading');
-    btn.textContent = '⏳';
+    btn.textContent = '…';
 
     try {
       const publicUrl = await uploadImageToStorage(file, folder, getOldUrl());
@@ -369,7 +369,7 @@ function initImageUploader(prefix, folder, getOldUrl = () => '') {
       showToast(err.message, 'error');
     } finally {
       btn.classList.remove('is-uploading');
-      btn.textContent = '📁';
+      btn.textContent = 'Subir';
     }
   });
 }
