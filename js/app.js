@@ -3043,7 +3043,8 @@ function renderRecipeMaterialsEditor() {
   container.innerHTML = list.map((m, idx) => `
     <div class="weapon-material-row">
       <input type="text" class="modal-input wm-name" data-idx="${idx}" data-f="name" value="${escapeHtml(m.name || '')}" placeholder="Nombre del material" maxlength="60" />
-      <input type="url" class="modal-input wm-image" data-idx="${idx}" data-f="image_url" value="${escapeHtml(m.image_url || '')}" placeholder="URL de imagen" maxlength="500" />
+      <button type="button" class="btn-upload-zone btn-upload-zone-sm wm-img-btn" data-idx="${idx}">${m.image_url ? '✅ Imagen' : '📁 Imagen'}</button>
+      <input type="file" class="hidden wm-img-file" data-idx="${idx}" accept="image/png,image/jpeg,image/jpg,image/webp" />
       <input type="number" class="modal-input wm-qty" data-idx="${idx}" data-f="qty" value="${m.qty ?? 1}" min="1" />
       <button type="button" class="enchant-remove" data-idx="${idx}">🗑</button>
     </div>`).join('');
@@ -3052,6 +3053,29 @@ function renderRecipeMaterialsEditor() {
       const idx = Number(el.dataset.idx);
       const field = el.dataset.f;
       list[idx][field] = field === 'qty' ? (Number(el.value) || 1) : el.value;
+    });
+  });
+  // Botones de subir imagen de cada material
+  container.querySelectorAll('.wm-img-btn').forEach(btn => {
+    const idx = Number(btn.dataset.idx);
+    const fileInput = container.querySelectorAll('.wm-img-file')[idx];
+    if (!fileInput) return;
+    btn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      fileInput.value = '';
+      btn.textContent = '…';
+      try {
+        const oldUrl = list[idx].image_url || '';
+        const publicUrl = await uploadImageToStorage(file, 'recipes', oldUrl);
+        list[idx].image_url = publicUrl;
+        btn.textContent = '✅ Imagen';
+        showToast('Imagen del material subida', 'success');
+      } catch (err) {
+        btn.textContent = list[idx].image_url ? '✅ Imagen' : '📁 Imagen';
+        showToast(err.message, 'error');
+      }
     });
   });
   container.querySelectorAll('.enchant-remove').forEach(btn => {
@@ -3186,10 +3210,14 @@ function initWeaponModals() {
   document.getElementById('open-new-weapon-btn').addEventListener('click', () => openWeaponModal(null));
   document.getElementById('close-weapon-modal').addEventListener('click', () => document.getElementById('weapon-modal').classList.add('hidden'));
   document.getElementById('submit-weapon-btn').addEventListener('click', submitWeapon);
-  document.getElementById('weapon-image-input').addEventListener('input', (e) => updateAssetPreview('weapon', e.target.value.trim()));
+  document.getElementById('weapon-image-input').addEventListener('change', (e) => updateAssetPreview('weapon', e.target.value.trim()));
   initImageUploader('weapon', 'weapons', () => {
     const w = state.weapons.find(x => x.id === state.editingWeaponId);
     return w ? (w.image_url || '') : '';
+  });
+  document.getElementById('weapon-image-clear-btn').addEventListener('click', () => {
+    document.getElementById('weapon-image-input').value = '';
+    updateAssetPreview('weapon', '');
   });
 
   ['open-weapon-category-manage-btn', 'open-weapon-category-manage-btn-inline'].forEach(id =>
@@ -3204,10 +3232,14 @@ function initWeaponModals() {
 
   document.getElementById('close-weapon-rank-modal').addEventListener('click', () => document.getElementById('weapon-rank-modal').classList.add('hidden'));
   document.getElementById('submit-weapon-rank-btn').addEventListener('click', submitWeaponRank);
-  document.getElementById('weapon-rank-image-input').addEventListener('input', (e) => updateAssetPreview('weapon-rank', e.target.value.trim()));
+  document.getElementById('weapon-rank-image-input').addEventListener('change', (e) => updateAssetPreview('weapon-rank', e.target.value.trim()));
   initImageUploader('weapon-rank', 'weapon-ranks', () => {
     const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === state.editingWeaponRankId);
     return rank ? (rank.image_url || '') : '';
+  });
+  document.getElementById('weapon-rank-image-clear-btn').addEventListener('click', () => {
+    document.getElementById('weapon-rank-image-input').value = '';
+    updateAssetPreview('weapon-rank', '');
   });
 
   document.getElementById('close-weapon-stats-modal').addEventListener('click', () => document.getElementById('weapon-stats-modal').classList.add('hidden'));
@@ -3231,6 +3263,33 @@ function initWeaponModals() {
   });
   document.getElementById('submit-weapon-recipe-btn').addEventListener('click', submitWeaponRecipe);
   document.getElementById('clear-weapon-recipe-btn').addEventListener('click', clearWeaponRecipe);
+
+  // Uploader de imagen para el RESULTADO de receta (el único que no tenía file input antes)
+  const recipeResultUploadBtn = document.getElementById('weapon-recipe-result-image-upload-btn');
+  const recipeResultFileInput = document.getElementById('weapon-recipe-result-image-file');
+  const recipeResultHidden    = document.getElementById('weapon-recipe-result-image-input');
+  const recipeResultImgName   = document.getElementById('weapon-recipe-result-img-name');
+  if (recipeResultUploadBtn && recipeResultFileInput) {
+    recipeResultUploadBtn.addEventListener('click', () => recipeResultFileInput.click());
+    recipeResultFileInput.addEventListener('change', async () => {
+      const file = recipeResultFileInput.files[0];
+      if (!file) return;
+      recipeResultFileInput.value = '';
+      recipeResultUploadBtn.textContent = '…';
+      try {
+        const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === state.editingWeaponRankId);
+        const oldUrl = rank?.upgrade_recipe?.result?.image_url || '';
+        const publicUrl = await uploadImageToStorage(file, 'recipes', oldUrl);
+        recipeResultHidden.value = publicUrl;
+        if (recipeResultImgName) { recipeResultImgName.textContent = '✅ Imagen lista'; recipeResultImgName.classList.remove('hidden'); }
+        showToast('Imagen del resultado subida', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        recipeResultUploadBtn.textContent = '📁 Imagen del resultado';
+      }
+    });
+  }
 
   document.getElementById('close-weapon-section-modal').addEventListener('click', () => document.getElementById('weapon-section-modal').classList.add('hidden'));
   document.getElementById('weapon-section-kind-input').addEventListener('change', toggleWeaponSectionKindUI);
@@ -3312,10 +3371,14 @@ function initModals() {
   document.getElementById('submit-mob-btn').addEventListener('click', submitMobBlock);
   document.getElementById('mob-add-equipment-btn').addEventListener('click', addEquipmentPiece);
   document.getElementById('mob-add-extra-btn').addEventListener('click', () => { state.mobExtraDraft.push({ key: '', value: '' }); renderExtraFieldsEditor('mob-extra-fields-list', () => state.mobExtraDraft); });
-  document.getElementById('mob-image-input').addEventListener('input', (e) => updateAssetPreview('mob', e.target.value.trim()));
+  document.getElementById('mob-image-input').addEventListener('change', (e) => updateAssetPreview('mob', e.target.value.trim()));
   initImageUploader('mob', 'mobs', () => {
     const mob = state.editingMobIndex != null ? state.draftMobs[state.editingMobIndex] : null;
     return mob ? (mob.image_url || '') : '';
+  });
+  document.getElementById('mob-image-clear-btn').addEventListener('click', () => {
+    document.getElementById('mob-image-input').value = '';
+    updateAssetPreview('mob', '');
   });
 
   document.getElementById('open-add-item-btn').addEventListener('click', () => openItemModal(null));
@@ -3323,20 +3386,28 @@ function initModals() {
   document.getElementById('submit-item-btn').addEventListener('click', submitItemBlock);
   document.getElementById('item-add-enchant-btn').addEventListener('click', addItemEnchant);
   document.getElementById('item-add-extra-btn').addEventListener('click', () => { state.itemExtraDraft.push({ key: '', value: '' }); renderExtraFieldsEditor('item-extra-fields-list', () => state.itemExtraDraft); });
-  document.getElementById('item-image-input').addEventListener('input', (e) => updateAssetPreview('item', e.target.value.trim()));
+  document.getElementById('item-image-input').addEventListener('change', (e) => updateAssetPreview('item', e.target.value.trim()));
   initImageUploader('item', 'items', () => {
     const item = state.editingItemIndex != null ? state.draftItems[state.editingItemIndex] : null;
     return item ? (item.image_url || '') : '';
+  });
+  document.getElementById('item-image-clear-btn').addEventListener('click', () => {
+    document.getElementById('item-image-input').value = '';
+    updateAssetPreview('item', '');
   });
 
   document.getElementById('open-add-libre-btn').addEventListener('click', () => openLibreModal(null));
   document.getElementById('close-libre-modal').addEventListener('click', () => document.getElementById('libre-modal').classList.add('hidden'));
   document.getElementById('submit-libre-btn').addEventListener('click', submitLibreBlock);
   document.getElementById('libre-add-field-btn').addEventListener('click', addLibreField);
-  document.getElementById('libre-image-input').addEventListener('input', (e) => updateAssetPreview('libre', e.target.value.trim()));
+  document.getElementById('libre-image-input').addEventListener('change', (e) => updateAssetPreview('libre', e.target.value.trim()));
   initImageUploader('libre', 'items', () => {
     const lib = state.editingLibreIndex != null ? state.draftLibres[state.editingLibreIndex] : null;
     return lib ? (lib.image_url || '') : '';
+  });
+  document.getElementById('libre-image-clear-btn').addEventListener('click', () => {
+    document.getElementById('libre-image-input').value = '';
+    updateAssetPreview('libre', '');
   });
 
   document.getElementById('open-new-category-btn').addEventListener('click', openNewCategoryModal);
@@ -3359,14 +3430,11 @@ function initModals() {
   document.getElementById('open-new-tier-item-btn').addEventListener('click', () => openTierItemModal(null));
   document.getElementById('close-tier-item-modal').addEventListener('click', () => document.getElementById('tier-item-modal').classList.add('hidden'));
   document.getElementById('submit-tier-item-btn').addEventListener('click', submitTierItem);
-  document.getElementById('tier-item-image-input').addEventListener('input', (e) => {
+  document.getElementById('tier-item-image-input').addEventListener('change', (e) => {
     updateAssetPreview('tier-item', e.target.value.trim());
     syncTierDropzoneState(e.target.value.trim());
   });
 
-  // El initImageUploader original sigue funcionando para el btn oculto
-  // (no se elimina — uploadImageToStorage lo llama a través del btn).
-  // El nuevo flujo de dropzone se maneja aquí directamente para no duplicar lógica.
   initTierItemDropzone();
   initImageUploader('tier-item', 'tierlist', () => {
     const item = state.editingTierItemId ? state.tierItems.find(i => i.id === state.editingTierItemId) : null;

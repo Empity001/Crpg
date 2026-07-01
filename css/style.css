@@ -1200,6 +1200,7 @@ button:not(:disabled) {
 .asset-preview .link-btn { padding: 0; }
 
 /* Fila de input URL + botón de subida (modales de mob/item/weapon/etc.) */
+/* image-input-row se mantiene por compatibilidad con código heredado que pudiera quedar */
 .image-input-row {
   display: flex;
   gap: 6px;
@@ -1207,23 +1208,60 @@ button:not(:disabled) {
   flex-wrap: nowrap;
 }
 .image-input-row .modal-input { flex: 1; min-width: 0; }
+
+/* btn-upload-img: ahora oculto en la UI — se mantiene porque
+   initImageUploader lo referencia internamente por ID */
 .btn-upload-img {
-  flex-shrink: 0;
-  background: transparent;
-  border: 1px solid var(--border-soft);
-  color: var(--ink-400);
-  border-radius: var(--radius-sm);
-  padding: 0 12px;
-  height: 36px;
-  font-size: 12px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: border-color 0.15s, color 0.15s;
+  display: none;
 }
-.btn-upload-img:hover { border-color: var(--cyan); color: var(--cyan); }
-.btn-upload-img.is-uploading { opacity: 0.5; cursor: wait; }
+
+/* ── Nuevo sistema: solo subida de archivo ─────────────────── */
+.image-upload-only {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Botón principal de elegir archivo */
+.btn-upload-zone {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-strong);
+  color: var(--ink-300);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-upload-zone:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: rgba(77,212,232,0.06);
+}
+
+/* Variante pequeña para espacios más comprimidos
+   (resultado de receta, imágenes de materiales) */
+.btn-upload-zone-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  width: auto;
+  justify-content: flex-start;
+}
+
+.recipe-result-img-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hud-green);
+  margin-top: 4px;
+}
+
 
 /* ──────────────────────────────────────────────
    DROPZONE: subida de imagen en el modal Tierlist

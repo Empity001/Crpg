@@ -427,14 +427,15 @@
     <textarea id="mob-desc-input" class="modal-textarea" maxlength="600" rows="3" placeholder="Notas adicionales sobre este mob..."></textarea>
 
     <label class="field-label" style="margin-top:10px;">Imagen de referencia <span class="optional-tag">(opcional)</span></label>
-    <div class="image-input-row">
-      <input type="url" id="mob-image-input" class="modal-input" maxlength="500" placeholder="https://... o sube un archivo →" />
-      <button type="button" class="btn-upload-img" id="mob-image-upload-btn" title="Subir imagen desde tu ordenador">Subir</button>
+    <div class="image-upload-only">
+      <input type="hidden" id="mob-image-input" />
       <input type="file" id="mob-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
+      <button type="button" class="btn-upload-zone" id="mob-image-upload-btn">📁 Elegir imagen</button>
     </div>
     <div class="asset-preview hidden" id="mob-image-preview-wrap">
       <img id="mob-image-preview" alt="Vista previa" class="pixel-art" />
       <button type="button" class="link-btn js-open-asset" id="mob-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+      <button type="button" class="link-btn" id="mob-image-clear-btn">✕ Quitar imagen</button>
     </div>
 
     <label class="field-label" style="margin-top:10px;">Algo más <span class="optional-tag">(opcional, campos libres)</span></label>
@@ -480,14 +481,15 @@
     <textarea id="item-desc-input" class="modal-textarea" maxlength="600" rows="3" placeholder="Notas adicionales sobre este item..."></textarea>
 
     <label class="field-label" style="margin-top:10px;">Imagen de referencia <span class="optional-tag">(opcional)</span></label>
-    <div class="image-input-row">
-      <input type="url" id="item-image-input" class="modal-input" maxlength="500" placeholder="https://... o sube un archivo →" />
-      <button type="button" class="btn-upload-img" id="item-image-upload-btn" title="Subir imagen desde tu ordenador">Subir</button>
+    <div class="image-upload-only">
+      <input type="hidden" id="item-image-input" />
       <input type="file" id="item-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
+      <button type="button" class="btn-upload-zone" id="item-image-upload-btn">📁 Elegir imagen</button>
     </div>
     <div class="asset-preview hidden" id="item-image-preview-wrap">
       <img id="item-image-preview" alt="Vista previa" class="pixel-art" />
       <button type="button" class="link-btn js-open-asset" id="item-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+      <button type="button" class="link-btn" id="item-image-clear-btn">✕ Quitar imagen</button>
     </div>
 
     <label class="field-label" style="margin-top:10px;">Algo más <span class="optional-tag">(opcional, campos libres)</span></label>
@@ -537,6 +539,8 @@
     <!-- Zona principal: click o drag-and-drop para subir archivo -->
     <div class="tier-img-dropzone" id="tier-item-dropzone">
       <input type="file" id="tier-item-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
+      <input type="hidden" id="tier-item-image-input" />
+      <button type="button" class="btn-upload-img hidden" id="tier-item-image-upload-btn">Subir</button>
       <div class="tier-img-dropzone-icon" id="tier-item-dropzone-icon">🖼</div>
       <p class="tier-img-dropzone-label" id="tier-item-dropzone-label">Arrastrá una imagen aquí o hacé click para elegir</p>
       <p class="tier-img-dropzone-hint">PNG, JPG o WEBP · máx. 3 MB</p>
@@ -544,16 +548,6 @@
         <span class="tier-img-spinner"></span> Subiendo…
       </div>
     </div>
-
-    <!-- URL externa como alternativa opcional, colapsable -->
-    <details class="tier-img-url-details" id="tier-item-url-details">
-      <summary class="tier-img-url-toggle">🔗 O pegá una URL externa (opcional)</summary>
-      <div class="image-input-row" style="margin-top:8px;">
-        <input type="url" id="tier-item-image-input" class="modal-input" maxlength="500" placeholder="https://imgur.com/..." />
-        <!-- btn-upload-img oculto: initImageUploader lo bindea con el file input de arriba -->
-        <button type="button" class="btn-upload-img hidden" id="tier-item-image-upload-btn">Subir</button>
-      </div>
-    </details>
 
     <div class="asset-preview hidden" id="tier-item-image-preview-wrap">
       <img id="tier-item-image-preview" alt="Vista previa" class="pixel-art" />
@@ -603,14 +597,15 @@
     <input type="text" id="weapon-name-input" class="modal-input" maxlength="80" placeholder="Ej: Filo del Vacío" />
 
     <label class="field-label" style="margin-top:10px;">Imagen</label>
-    <div class="image-input-row">
-      <input type="url" id="weapon-image-input" class="modal-input" maxlength="500" placeholder="https://... o sube un archivo →" />
-      <button type="button" class="btn-upload-img" id="weapon-image-upload-btn" title="Subir imagen desde tu ordenador">Subir</button>
+    <div class="image-upload-only">
+      <input type="hidden" id="weapon-image-input" />
       <input type="file" id="weapon-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
+      <button type="button" class="btn-upload-zone" id="weapon-image-upload-btn">📁 Elegir imagen</button>
     </div>
     <div class="asset-preview hidden" id="weapon-image-preview-wrap">
       <img id="weapon-image-preview" alt="Vista previa" class="pixel-art" />
       <button type="button" class="link-btn js-open-asset" id="weapon-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+      <button type="button" class="link-btn" id="weapon-image-clear-btn">✕ Quitar imagen</button>
     </div>
 
     <div class="field-row" style="margin-top:10px;">
@@ -693,14 +688,15 @@
     <textarea id="weapon-rank-desc-input" class="modal-textarea" maxlength="800" rows="3" placeholder="Lore o detalles de este rango..."></textarea>
 
     <label class="field-label" style="margin-top:10px;">Imagen de este rango <span class="optional-tag">(opcional — si no se define, se usa la imagen del arma)</span></label>
-    <div class="image-input-row">
-      <input type="url" id="weapon-rank-image-input" class="modal-input" maxlength="500" placeholder="https://... o sube un archivo →" />
-      <button type="button" class="btn-upload-img" id="weapon-rank-image-upload-btn" title="Subir imagen desde tu ordenador">Subir</button>
+    <div class="image-upload-only">
+      <input type="hidden" id="weapon-rank-image-input" />
       <input type="file" id="weapon-rank-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
+      <button type="button" class="btn-upload-zone" id="weapon-rank-image-upload-btn">📁 Elegir imagen</button>
     </div>
     <div class="asset-preview hidden" id="weapon-rank-image-preview-wrap">
       <img id="weapon-rank-image-preview" alt="Vista previa" class="pixel-art" />
       <button type="button" class="link-btn js-open-asset" id="weapon-rank-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+      <button type="button" class="link-btn" id="weapon-rank-image-clear-btn">✕ Quitar imagen</button>
     </div>
 
     <div class="modal-error hidden" id="weapon-rank-modal-error"></div>
@@ -776,7 +772,10 @@
         <input type="text" id="weapon-recipe-result-name-input" class="modal-input" maxlength="80" placeholder="Ej: MK2" />
       </div>
       <div class="field-col">
-        <input type="url" id="weapon-recipe-result-image-input" class="modal-input" maxlength="500" placeholder="URL de imagen del resultado" />
+        <input type="hidden" id="weapon-recipe-result-image-input" />
+        <input type="file" id="weapon-recipe-result-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
+        <button type="button" class="btn-upload-zone btn-upload-zone-sm" id="weapon-recipe-result-image-upload-btn">📁 Imagen del resultado</button>
+        <span class="recipe-result-img-name hidden" id="weapon-recipe-result-img-name"></span>
       </div>
     </div>
 
@@ -862,14 +861,15 @@
     <textarea id="libre-desc-input" class="modal-textarea" maxlength="600" rows="3" placeholder="Notas adicionales sobre este bloque..."></textarea>
 
     <label class="field-label" style="margin-top:10px;">Imagen de referencia <span class="optional-tag">(opcional)</span></label>
-    <div class="image-input-row">
-      <input type="url" id="libre-image-input" class="modal-input" maxlength="500" placeholder="https://... o sube un archivo →" />
-      <button type="button" class="btn-upload-img" id="libre-image-upload-btn" title="Subir imagen desde tu ordenador">Subir</button>
+    <div class="image-upload-only">
+      <input type="hidden" id="libre-image-input" />
       <input type="file" id="libre-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
+      <button type="button" class="btn-upload-zone" id="libre-image-upload-btn">📁 Elegir imagen</button>
     </div>
     <div class="asset-preview hidden" id="libre-image-preview-wrap">
       <img id="libre-image-preview" alt="Vista previa" class="pixel-art" />
       <button type="button" class="link-btn js-open-asset" id="libre-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+      <button type="button" class="link-btn" id="libre-image-clear-btn">✕ Quitar imagen</button>
     </div>
 
     <div class="modal-error hidden" id="libre-modal-error"></div>

@@ -1,66 +1,174 @@
 # PROJECT_MEMORY — culones-rpg
 
-Registro de sesiones de desarrollo. Cada entrada resume qué se hizo, qué quedó pendiente y qué problemas se conocen pero no se resolvieron todavía. Pensado para que cualquier sesión futura (de Claude o de quien sea) pueda retomar el proyecto sin tener que releer todo el código desde cero.
+Registro de sesiones de desarrollo. Cada entrada resume qué se hizo, qué quedó pendiente y qué problemas se conocen. Pensado para que cualquier sesión futura pueda retomar el proyecto sin releer todo el código.
 
 ---
 
-# Sesión 16
+# Estado actual del proyecto (tras sesión 17)
 
-**Sistema de imágenes — Supabase Storage**
+## Arquitectura general
 
-- Se implementó subida de imágenes a Supabase Storage como opción principal, manteniendo la URL externa como opción secundaria opcional. El admin ve un botón 📁 junto a cada input de URL; al pulsarlo abre el selector de archivos del sistema y sube directamente.
-- La lógica de Storage se concentra en **dos funciones nuevas** en `app.js`, junto al bloque de utilidades existente, sin crear archivos nuevos:
-  - `uploadImageToStorage(file, folder, oldUrl)` — valida tipo (PNG/JPG/WEBP), tamaño (≤3 MB), sube al bucket `culones` con nombre único basado en timestamp, devuelve la URL pública, y borra la imagen anterior del Storage en fire-and-forget si era del mismo bucket (evita archivos huérfanos).
-  - `initImageUploader(prefix, folder, getOldUrl)` — conecta el botón 📁 y el `<input type="file">` al input URL existente de cada modal. Sube → obtiene URL → la escribe en el input → llama a `updateAssetPreview` que ya existía. Un solo wiring por prefijo, sin duplicar lógica.
-- **Reutilización total**: `updateAssetPreview`, `safeUrl`, `showToast`, `escapeHtml` — todo se reusa sin modificar, excepto que se extendió `updateAssetPreview` para limpiar/marcar `.input-error` en el input cuando una URL externa no carga como imagen (feedback visual antes de guardar, sin bloquear nada).
-- **HTML**: cada input URL existente envuelto en un `<div class="image-input-row">` con el botón 📁 y un `<input type="file" hidden>` junto a él. Sin reestructurar modales.
-- **CSS**: `.image-input-row` (flex-row), `.btn-upload-img` (botón 📁), `.modal-input.input-error` (borde magenta si URL externa no carga). 4 reglas nuevas.
-- **SQL** (`migration_010_storage.sql`): crea el bucket `culones` (público, 3 MB, PNG/JPG/WEBP) con 4 políticas RLS (select/insert/update/delete). La seguridad real sigue siendo la UI (el botón solo existe si hay sesión de admin activa), igual que el resto del proyecto.
-- **Carpetas del bucket**: `mobs/`, `items/` (también libres), `tierlist/`, `weapons/`, `weapon-ranks/`, `recipes/`.
-- **Prefijos cubiertos**: `mob`, `item`, `libre`, `tier-item`, `weapon`, `weapon-rank` — todos los modales con campo de imagen del proyecto.
-
-Pendiente:
-- Las imágenes de **materiales de receta** (dentro del JSONB `upgrade_recipe`) siguen siendo URLs externas — el editor de materiales genera filas dinámicas en JS sin un prefijo fijo, así que aplicarle el uploader requiere extender `renderRecipeMaterialsEditor` para añadir el botón 📁 a cada fila generada. No es urgente pero está anotado.
-- Exportaciones (verificar hojas de Excel de Tierlist y "Todo" contra columnas actuales).
-- Bot de Discord.
-
-Problemas conocidos:
-- El modal de habilidades hace demasiadas consultas.
-- El patrón de guardado de rangos de arma (`saveRankPatch`) reenvía el objeto completo — frágil ante nuevas columnas de `weapon_ranks` que se olviden añadir al `select()`.
+- **Web**: sitio estático HTML/CSS/JS vanilla. Sin backend propio. Desplegado en GitHub Pages.
+- **Base de datos**: Supabase (Postgres). Toda la lógica sensible protegida por RLS + funciones RPC con `security definer` que validan el código de admin antes de actuar.
+- **Imágenes**: Supabase Storage, bucket `culones` (público de lectura). La subida va siempre por `uploadImageToStorage()` en el frontend — nunca por URL externa (opción eliminada en sesión 17).
+- **Bot de Discord**: Node.js + discord.js, desplegado en Railway. Se conecta a Supabase directamente con `service_role`.
+- **Autenticación de admin**: código de 8 caracteres generado por el bot cada 24h, guardado en la tabla `admin_codes` con fecha de expiración. No hay login real de Supabase Auth.
 
 ---
 
-# Sesión 15
+## Pestañas de la web
 
-
-- Se diagnosticó por qué la Guía de Armas no cargaba nada y por qué un arma recién creada tampoco aparecía: el `SELECT` optimizado de `weapon_ranks` pedía columnas inexistentes (`recipe`, `sections`) en lugar de las reales (`upgrade_recipe`, `extra_sections`), y Supabase rechazaba la consulta completa. Corregido en `reloadWeaponData()` y en `fetchWeaponsDataForExport()` (export a Excel), incluyendo la referencia downstream `rank.recipe` → `rank.upgrade_recipe`.
-- De paso se detectó y corregido un bug silencioso de pérdida de datos: como `description` tampoco se seleccionaba, cualquier guardado parcial de un rango (solo stats, solo habilidades, etc.) habría borrado la descripción guardada, porque el guardado siempre reenvía el objeto completo (`saveRankPatch`). Ya no ocurre, `description` ahora se carga junto al resto.
-- Se auditaron **todos** los `select()` explícitos del proyecto (logs, log_mobs, log_items, comments, tierlist_rows, tierlist_items, app_settings, weapon_categories, weapon_types, weapons) contra el esquema SQL real. El único roto era el de `weapon_ranks`; el resto de la optimización (reemplazar `select('*')` por listas de columnas) está bien hecha.
-- Se integró `migration_fix_create_category.sql` (un archivo suelto fuera de la numeración) a la secuencia oficial como `migration_009_fix_create_category_slug.sql`.
-- Se movió el botón **🕒 Acciones realizadas** desde la barra de Logs hacia la pestaña **🛠 Herramientas**, como botón discreto (`🕒 Acciones`) en una fila superior, sin crear una sección/columna dedicada para él.
-- Se corrigió un detalle de UX suelto: el selector de archivo para importar aceptaba `.csv` aunque el importador solo soporta `.json` (quedó así desde que el export dejó de ser CSV y pasó a ser Excel) — ahora el selector solo ofrece `.json`.
-- README actualizado: la sección de exportación ya no describe el viejo CSV, sino el Excel actual (4 hojas con estilo); se documentó que "Herramientas" es una 5ª pestaña visible solo para admins; se actualizó la ubicación de "Acciones realizadas".
-
-Pendiente:
-- Exportaciones (verificar que las hojas de Excel de Tierlist y "Todo" sigan reflejando bien cualquier cambio futuro de columnas — son el mismo patrón de bug que el de armas, así que si se agregan columnas nuevas a `tierlist_items`/`weapons`/etc., hay que actualizar sus `select()` a mano).
-- Bot de Discord.
-
-Problemas conocidos:
-- El modal de habilidades hace demasiadas consultas.
-- El patrón de guardado de rangos de arma (`upsert_weapon_rank` vía `saveRankPatch`) reenvía el objeto completo en cada edición parcial. Funciona bien ahora que el `SELECT` trae todos los campos, pero es frágil: si en el futuro se agrega una columna nueva a `weapon_ranks` y se olvida añadirla también al `select()` de `reloadWeaponData()`, se repetirá exactamente el mismo tipo de bug que se corrigió esta sesión (consulta rota y/o pérdida silenciosa de datos al guardar). Vale la pena, en algún momento, mover `upsert_weapon_rank` a updates parciales reales (solo mandar lo que cambió) en vez de objeto completo.
+| Tab | `data-tab` | Visible para |
+|---|---|---|
+| 📜 Logs | `logs` | Todos |
+| ⚔️ Guía de Armas | `weapons` | Todos |
+| 🏆 Tierlist | `tierlist` | Todos |
+| 🎮 Acerca del Server | `about` | Todos |
+| 🛠 Herramientas | `admin` | Solo admin (hidden por CSS, visible al iniciar sesión) |
 
 ---
 
-# Sesión 14
+## Tablas en Supabase
 
-- Se terminó el CRUD de armas.
-- Se añadieron habilidades dinámicas.
-- Se creó el slider de ascensión.
-- Falta optimizar consultas.
+| Tabla | Descripción | Migración |
+|---|---|---|
+| `logs` | Logs principales del servidor | schema.sql |
+| `comments` | Comentarios por log (con `parent_id` para respuestas, `hidden` para moderación) | schema.sql |
+| `admin_codes` | Códigos temporales de admin (generados por el bot) | schema.sql |
+| `log_likes` | Un registro por (log_id, client_id) para evitar likes duplicados | schema.sql |
+| `categories` | Categorías dinámicas de logs (slug, label, emoji, color) | 002 |
+| `log_mobs` | Fichas de mobs adjuntas a un log (vida, daño, armor, equipamiento) | 003 |
+| `log_items` | Fichas de items adjuntas a un log (nombre, rango, tipo, fuente) | 003 |
+| `comment_likes` | Likes de comentarios (con RPC admin para moderar) | 004 |
+| `app_settings` | Configuración de la app (campos de fichas de mob/item, etc.) | 004 |
+| `action_log` | Bitácora de acciones de admin (solo inserción, lectura admin-gated) | 005 |
+| `tierlist_rows` | Filas de la tierlist (nombre, color, sort_order) | 006 |
+| `tierlist_items` | Elementos de la tierlist (row_id nullable=banco, column_key, image_url) | 006 |
+| `drafts` | Borradores guardados en Supabase (actualmente no se usa — ver nota abajo) | 007 |
+| `weapon_categories` | Categorías de armas (label, color) | 008 |
+| `weapon_types` | Tipos de armas (label) | 008 |
+| `weapons` | Armas (name, image_url, published, category_id, type_id) | 008 |
+| `weapon_ranks` | Rangos por arma (name, description, image_url, stats jsonb, abilities jsonb, upgrade_recipe jsonb, extra_sections jsonb) | 008 |
 
-Pendiente:
-- Exportaciones.
-- Bot Discord.
+---
 
-Problemas conocidos:
-- El modal de habilidades hace demasiadas consultas.
+## Sistema de imágenes (estado actual, sesión 17)
+
+**Implementado:** Subida directa a Supabase Storage. Sin opción de URL externa en ningún campo de imagen.
+
+- `uploadImageToStorage(file, folder, oldUrl)`: valida tipo (PNG/JPG/WEBP) y tamaño (≤3 MB), sube al bucket `culones` con nombre único (`folder/timestamp-random.ext`), devuelve URL pública, borra la imagen anterior si era del mismo bucket (fire-and-forget).
+- `initImageUploader(prefix, folder, getOldUrl)`: conecta botón `📁 Elegir imagen` + `<input type="file" hidden>` al campo `<input type="hidden" id="${prefix}-image-input">`. La URL resultante se escribe en ese hidden y se pasa a `updateAssetPreview`. El campo hidden es lo que el JS lee al guardar — nunca fue el tipo del input lo que importaba.
+- Todos los campos de imagen son ahora botón `📁 Elegir imagen` + vista previa con botón `✕ Quitar imagen`. El `btn-upload-img` sigue existiendo en el DOM con `display:none` porque `initImageUploader` lo busca por ID, pero el usuario nunca lo ve.
+- **Carpetas del bucket**: `mobs/`, `items/` (items + libres), `tierlist/`, `weapons/`, `weapon-ranks/`, `recipes/` (materiales y resultado de receta).
+- **Prefijos cubiertos**: `mob`, `item`, `libre`, `tier-item`, `weapon`, `weapon-rank`, más el resultado de receta (`weapon-recipe-result`) con su propio uploader manual.
+- **Materiales de receta** (las N filas dinámicas en `renderRecipeMaterialsEditor`): cada fila tiene un botón `📁 Imagen` con file input independiente. La imagen sube a `recipes/`. ✅ Resuelto en sesión 17 (era el pendiente de sesión 16).
+- La tierlist ya tenía dropzone con drag&drop. Se eliminó el `<details>` colapsable de URL externa.
+
+---
+
+## Sistema de borradores (estado real)
+
+**Importante**: hay **dos sistemas** de borradores que coexisten de forma no completamente integrada:
+
+1. **localStorage** (el que se usa activamente): `draftKey(logId)` → `'culones_draft_log_new'` o `'culones_draft_log_${id}'`. Captura título, descripción, categoría, relevancia, fecha, mobs, items, libres. Autoguardado cada 30s mientras el modal de log está abierto, y al cerrar el modal. Se muestra en la pestaña 🛠 Herramientas como lista de borradores recuperables. **Funciona completamente, solo para logs.**
+2. **Supabase (tabla `drafts`)**: la tabla existe (migration_007) con RPC `save_draft`, `list_drafts`, `delete_draft`. Pero **ninguna función del frontend actual llama a estas RPCs** — el frontend usa localStorage. La tabla fue diseñada para sincronizar borradores entre dispositivos, pero no está conectada.
+
+**Pendiente**: conectar el sistema de borradores de localStorage al de Supabase, o decidir que solo se usa localStorage (más simple, pero no sincroniza entre dispositivos).
+
+---
+
+## Sistema de comentarios
+
+- Comentarios por log con alias libre (sin login).
+- **Respuestas**: un nivel de anidación. `parent_id` en la tabla `comments`. Se activan con botón "Responder" en el modal de detalle.
+- **Likes de comentarios**: tabla `comment_likes`, con RPC para togglear.
+- **Moderación admin**: botones ocultar/mostrar (RPC `set_comment_hidden`) y borrar definitivo. Los comentarios ocultos muestran tag `[OCULTO]` solo para el admin.
+
+---
+
+## Guía de Armas
+
+- Catálogo de armas con categorías y tipos dinámicos.
+- Cada arma tiene múltiples rangos (`weapon_ranks`), y cada rango contiene en JSONB: `stats` (pares clave/valor), `abilities` (habilidades con nivel, stats propios), `upgrade_recipe` (materiales → resultado), `extra_sections` (secciones libres de contenido futuro).
+- Admin puede publicar/ocultar armas (campo `published`). Las armas no publicadas solo las ve el admin.
+- `saveRankPatch(rankId, patch)` envía el objeto completo del rango en cada edición parcial — funciona pero es frágil (ver problemas conocidos).
+- **Vista de detalle** inline dentro del panel de weapons (no es un modal separado) con `openWeaponDetail()` / `closeWeaponDetail()`.
+
+---
+
+## Tierlist
+
+- Filas dinámicas (nombre, color, sort_order) × 3 columnas fijas (`weapon`, `subweapon`, `accessory`).
+- `row_id = null` → elemento en el banco "Sin clasificar".
+- Drag & drop en PC (eventos nativos HTML5), botón "↕ Mover a..." en móvil.
+- Imágenes en pixel-art (`image-rendering: pixelated`) — pensadas para sprites de Minecraft.
+- El nombre de cada elemento se muestra debajo de su miniatura (`.tier-chip-name`).
+
+---
+
+## Pestaña 🛠 Herramientas (solo admin)
+
+Contiene:
+- **📝 Borradores**: lista de borradores de log guardados en localStorage en este dispositivo. Botón "Limpiar todos".
+- **📤 Exportar**: exportación a Excel (.xlsx) o JSON. Excel genera archivos con múltiples hojas (Logs, Mobs, Items, Libres para la sección de logs; Filas y Elementos para tierlist; Todo combina todo). También export de armas en `exportAllXlsx`.
+- **📥 Importar**: importación de JSON. Analiza conflictos antes de aplicar y muestra modal de confirmación con lista de conflictos detectados.
+- **🕒 Acciones**: botón discreto en la cabecera del panel admin que abre el modal de bitácora (`action_log`).
+
+---
+
+## Realtime (Supabase)
+
+Se escuchan cambios en tiempo real en 3 canales:
+- `logs-changes`: tablas `logs`, `log_mobs`, `log_items`, `comments`
+- `tierlist-changes`: tablas `tierlist_rows`, `tierlist_items`
+- `weapons-changes`: tablas `weapons`, `weapon_ranks`, `weapon_categories`, `weapon_types`
+
+Cada canal tiene un flag de supresión (`_suppressRealtimeReload`, etc.) para evitar que el propio admin que está editando vea un reload innecesario inmediatamente después de guardar.
+
+---
+
+## Bot de Discord (estado actual)
+
+Comandos disponibles:
+- `/ping`: latencia del bot y Supabase.
+- `/getcode`: envía el código admin por DM. Solo IDs en `AUTHORIZED_USER_IDS`.
+- `/setlogchannel #canal`: configura canal de anuncios de logs. Solo IDs autorizados.
+- `/screenshot tierlist columna:<Arma|Sub-arma|Accesorio> [canal]`: genera imagen de la columna.
+- `/screenshot logs [cantidad] [canal]`: imagen con los logs más recientes.
+- `/screenshot arma nombre:<autocompletado> [canal]`: una imagen por cada rango del arma.
+
+Procesos automáticos:
+- Rotación de código admin cada 24h (cron a las 00:00 UTC).
+- Watcher Realtime en `logs`: al insertar → publica embed en el canal configurado; al actualizar → edita el mensaje existente; al borrar el mensaje manualmente → publica uno nuevo.
+
+---
+
+## Migraciones SQL (orden de aplicación)
+
+1. `schema.sql` — tablas base
+2. `migration_002_categories_and_dates.sql` — categorías dinámicas + fecha editable en logs
+3. `migration_003_mob_item_blocks.sql` — fichas de mob/item/bloque libre
+4. `migration_004_advanced_features.sql` — comment_likes, app_settings, campos configurables
+5. `migration_005_action_log.sql` — bitácora de acciones
+6. `migration_006_tierlist.sql` — tierlist_rows + tierlist_items
+7. `migration_007_drafts.sql` — tabla drafts (existe pero frontend usa localStorage)
+8. `migration_008_weapons.sql` — guía de armas completa
+9. `migration_009_fix_create_category_slug.sql` — fix de normalización de slugs de categoría
+10. `migration_010_storage.sql` — bucket `culones` + políticas RLS de Storage
+
+---
+
+## Problemas conocidos
+
+- **`saveRankPatch` envía objeto completo**: en vez de hacer un PATCH parcial, manda todos los campos del rango en cada edición. Funciona bien ahora que el `SELECT` trae todos los campos, pero si se agrega una columna nueva a `weapon_ranks` y se olvida añadirla al `select()` de `reloadWeaponData()`, puede causar pérdida silenciosa de datos al guardar. Solución correcta: cambiar a updates parciales por campo.
+- **Modal de habilidades hace demasiadas consultas**: cada edición de habilidad recarga todo el arma.
+- **Borradores no sincronizados entre dispositivos**: la tabla `drafts` en Supabase existe pero no está conectada al frontend. Los borradores solo existen en localStorage del navegador actual.
+
+---
+
+## Pendientes
+
+- Conectar el sistema de borradores de localStorage a Supabase (o documentar que se descartó la idea).
+- Verificar que las hojas de Excel de exportación de Tierlist y "Todo" siguen reflejando bien las columnas actuales si se agregan campos nuevos.
+- Optimizar el modal de habilidades de armas para no recargar todo el arma en cada edición.
+
