@@ -161,10 +161,16 @@
 
   <!-- ---------- PANEL: ACERCA DEL SERVER ---------- -->
   <section class="tab-panel" id="panel-about">
-    <div class="placeholder-panel">
-      <div class="placeholder-icon">🎮</div>
-      <h2>Acerca de culones-rpg</h2>
-      <p>Servidor de Minecraft con sistema RPG y gacha. Esta web sincroniza en tiempo real con nuestro Discord — cada evento importante del servidor queda registrado aquí como un log público.</p>
+    <div class="about-admin-toolbar hidden" id="about-admin-toolbar">
+      <button type="button" class="btn-secondary-admin" id="open-about-editor-btn">✏️ Editar esta página</button>
+    </div>
+    <div id="about-content-render" class="about-content">
+      <!-- Se renderiza dinámicamente desde app.js usando app_settings[about_blocks] -->
+      <div class="placeholder-panel">
+        <div class="placeholder-icon">🎮</div>
+        <h2>Acerca de culones-rpg</h2>
+        <p>Servidor de Minecraft con sistema RPG y gacha. Esta web sincroniza en tiempo real con nuestro Discord — cada evento importante del servidor queda registrado aquí como un log público.</p>
+      </div>
     </div>
   </section>
 
@@ -236,6 +242,63 @@
           <input type="file" id="import-file-input" accept=".json" class="hidden" />
         </label>
       </div>
+    </div>
+
+    <!-- Fondo de la página -->
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <h2 class="admin-section-title">🎨 Fondo de la página</h2>
+        <button type="button" class="btn-secondary-admin" id="bg-clear-btn">🗑 Quitar fondo</button>
+      </div>
+      <p class="admin-section-hint">Reemplaza el fondo oscuro por una imagen propia (pega la URL de una imagen ya alojada). Se aplica para <strong>todos los visitantes</strong>. Los cambios se ven en vivo mientras los ajustás.</p>
+
+      <label class="field-label">URL de la imagen de fondo</label>
+      <input type="text" id="bg-image-url-input" class="modal-input" placeholder="https://..." />
+
+      <label class="field-label" style="margin-top:14px;">¿Cómo se adapta a la pantalla?</label>
+      <div class="bg-mode-options">
+        <label class="bg-mode-option">
+          <input type="radio" name="bg-mode" value="fixed" checked />
+          <div><strong>🪟 Fija (estilo POV)</strong><span>El fondo queda anclado a tu pantalla — el contenido se mueve pero la imagen no.</span></div>
+        </label>
+        <label class="bg-mode-option">
+          <input type="radio" name="bg-mode" value="continuous" />
+          <div><strong>📜 Continua</strong><span>La imagen se estira como un solo lienzo; al scrollear recorrés distintas partes de ella.</span></div>
+        </label>
+        <label class="bg-mode-option">
+          <input type="radio" name="bg-mode" value="contain" />
+          <div><strong>🖼 Completa, sin recortes</strong><span>La imagen entera sin perder ningún borde; el espacio restante se rellena con un difuminado.</span></div>
+        </label>
+      </div>
+
+      <label class="field-label" style="margin-top:14px;">¿En qué pestañas se muestra?</label>
+      <div class="bg-tabs-options" id="bg-tabs-options">
+        <label class="bg-tab-checkbox"><input type="checkbox" value="logs" checked /> 📜 Logs</label>
+        <label class="bg-tab-checkbox"><input type="checkbox" value="weapons" checked /> ⚔️ Guía de Armas</label>
+        <label class="bg-tab-checkbox"><input type="checkbox" value="tierlist" checked /> 🏆 Tierlist</label>
+        <label class="bg-tab-checkbox"><input type="checkbox" value="about" checked /> 🎮 Acerca del Server</label>
+        <label class="bg-tab-checkbox"><input type="checkbox" value="admin" /> 🛠 Herramientas</label>
+      </div>
+
+      <div class="modal-error hidden" id="bg-config-error"></div>
+      <button class="btn-primary" id="bg-save-btn" style="margin-top:14px;">Guardar fondo</button>
+    </div>
+
+    <!-- Icono de la página (favicon) -->
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <h2 class="admin-section-title">🖼 Icono de la página (favicon)</h2>
+      </div>
+      <p class="admin-section-hint">El ícono que aparece en la pestaña del navegador y al guardar la página como favorito. Pegá la URL de una imagen cuadrada (idealmente PNG de 32×32 o 64×64 px).</p>
+      <div class="favicon-row">
+        <div class="favicon-preview" id="favicon-preview">?</div>
+        <div style="flex:1;">
+          <input type="text" id="favicon-url-input" class="modal-input" placeholder="https://... (PNG, ICO, SVG)" />
+          <p class="field-hint" style="margin-top:5px;">Se aplica al instante en tu pestaña y para todos los visitantes que carguen la página después de guardar.</p>
+        </div>
+      </div>
+      <div class="modal-error hidden" id="favicon-config-error"></div>
+      <button class="btn-primary" id="favicon-save-btn" style="margin-top:12px;">Guardar icono</button>
     </div>
 
   </section>
@@ -548,6 +611,12 @@
         <span class="tier-img-spinner"></span> Subiendo…
       </div>
     </div>
+
+    <!-- URL externa como alternativa opcional -->
+    <details class="tier-img-url-details" id="tier-item-url-details">
+      <summary class="tier-img-url-toggle">🔗 O pegá una URL externa (opcional)</summary>
+      <input type="url" style="margin-top:8px;" class="modal-input" placeholder="https://..." onchange="document.getElementById('tier-item-image-input').value=this.value.trim(); updateAssetPreview && updateAssetPreview('tier-item', this.value.trim());" />
+    </details>
 
     <div class="asset-preview hidden" id="tier-item-image-preview-wrap">
       <img id="tier-item-image-preview" alt="Vista previa" class="pixel-art" />
@@ -905,5 +974,30 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
+<!-- ============ MODAL: EDITOR DE "ACERCA DEL SERVER" ============ -->
+<div class="modal-overlay hidden" id="about-editor-modal">
+  <div class="modal-box modal-box-wide modal-box-tall">
+    <button class="modal-close" id="close-about-editor-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title">🎮 EDITAR "ACERCA DEL SERVER"</h3>
+    <p class="modal-hint">Cada bloque es una pieza de contenido. Podés reordenarlos, editarlos o eliminarlos. El resultado se ve en la pestaña "🎮 Acerca del Server" para todos los visitantes.</p>
+
+    <div class="about-blocks-editor" id="about-blocks-editor">
+      <!-- Se renderiza dinámicamente -->
+    </div>
+
+    <div class="about-add-block-row">
+      <span class="about-add-label">Agregar bloque:</span>
+      <button type="button" class="btn-add-about-block" data-kind="heading">🔤 Título</button>
+      <button type="button" class="btn-add-about-block" data-kind="text">📝 Texto</button>
+      <button type="button" class="btn-add-about-block" data-kind="image">🖼 Imagen</button>
+      <button type="button" class="btn-add-about-block" data-kind="divider">➖ Separador</button>
+      <button type="button" class="btn-add-about-block" data-kind="highlight">✨ Destacado</button>
+    </div>
+
+    <div class="modal-error hidden" id="about-editor-error"></div>
+    <button class="btn-primary" id="save-about-editor-btn">Guardar cambios</button>
+  </div>
+</div>
+
 </body>
 </html>

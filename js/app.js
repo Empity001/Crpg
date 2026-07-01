@@ -84,6 +84,10 @@ const state = {
   // Configuración de fichas (campos fijos activables/reordenables)
   fieldConfig: { mob: [], item: [] },
   fieldConfigDraft: { mob: [], item: [] },
+  aboutBlocks: null,
+  aboutEditorBlocks: [],
+  backgroundConfig: { image_url: '', mode: 'fixed', tabs: [] },
+  faviconUrl: '',
   // Comentarios: cache plano del log abierto + likes + respuesta activa
   commentsFlat: [],
   likedCommentIds: new Set(JSON.parse(localStorage.getItem('culones_liked_comments') || '[]')),
@@ -477,6 +481,7 @@ function initTabs() {
       document.getElementById(`panel-${target}`).classList.add('is-active');
       document.getElementById('active-tab-path').textContent = target;
       state.activeTab = target;
+      applyCustomBackground();
 
       if (target === 'tierlist' && !state.tierlistLoaded) {
         state.tierlistLoaded = true;
@@ -593,12 +598,45 @@ async function deleteCategory(slug) {
 // ---------------------------------------------------------
 async function loadAppSettings() {
   state.fieldConfig = { mob: DEFAULT_MOB_FIELDS, item: DEFAULT_ITEM_FIELDS };
+  state.aboutBlocks = null;
+  state.backgroundConfig = { image_url: '', mode: 'fixed', tabs: [] };
+  state.faviconUrl = '';
+
   const { data, error } = await supabaseClient.from('app_settings').select('key,value');
   if (error || !data) return;
-  const mobRow = data.find(r => r.key === 'mob_fields');
-  const itemRow = data.find(r => r.key === 'item_fields');
-  if (mobRow && Array.isArray(mobRow.value) && mobRow.value.length > 0) state.fieldConfig.mob = mobRow.value;
+
+  const mobRow   = data.find(r => r.key === 'mob_fields');
+  const itemRow  = data.find(r => r.key === 'item_fields');
+  const aboutRow = data.find(r => r.key === 'about_blocks');
+  const bgRow    = data.find(r => r.key === 'background_config');
+  const faviRow  = data.find(r => r.key === 'favicon_url');
+
+  if (mobRow  && Array.isArray(mobRow.value)  && mobRow.value.length  > 0) state.fieldConfig.mob  = mobRow.value;
   if (itemRow && Array.isArray(itemRow.value) && itemRow.value.length > 0) state.fieldConfig.item = itemRow.value;
+
+  if (aboutRow && Array.isArray(aboutRow.value)) {
+    state.aboutBlocks = aboutRow.value;
+  }
+
+  if (bgRow && bgRow.value && typeof bgRow.value === 'object') {
+    state.backgroundConfig = {
+      image_url: bgRow.value.image_url || '',
+      mode: ['fixed','continuous','contain'].includes(bgRow.value.mode) ? bgRow.value.mode : 'fixed',
+      tabs: Array.isArray(bgRow.value.tabs) ? bgRow.value.tabs : [],
+    };
+  }
+
+  if (faviRow && typeof faviRow.value === 'string') {
+    state.faviconUrl = faviRow.value;
+  } else if (faviRow && faviRow.value && typeof faviRow.value === 'object') {
+    state.faviconUrl = faviRow.value.url || '';
+  }
+
+  renderAboutContent();
+  populateBackgroundForm();
+  applyCustomBackground();
+  applyFavicon(state.faviconUrl);
+  populateFaviconForm();
 }
 
 function openFieldConfigModal() {
@@ -1264,6 +1302,8 @@ function updateAdminUI() {
     weaponCatBtn.classList.remove('hidden');
     weaponTypeBtn.classList.remove('hidden');
     if (adminTab) adminTab.classList.remove('hidden');
+    const aboutToolbar = document.getElementById('about-admin-toolbar');
+    if (aboutToolbar) aboutToolbar.classList.remove('hidden');
   } else {
     dot.className = 'dot-offline';
     newLogBtn.classList.add('hidden');
@@ -1275,6 +1315,8 @@ function updateAdminUI() {
     weaponCatBtn.classList.add('hidden');
     weaponTypeBtn.classList.add('hidden');
     if (adminTab) adminTab.classList.add('hidden');
+    const aboutToolbar = document.getElementById('about-admin-toolbar');
+    if (aboutToolbar) aboutToolbar.classList.add('hidden');
     // Si estaba en la pestaña admin, volver a logs
     if (state.activeTab === 'admin') {
       document.querySelector('[data-tab="logs"]').click();
@@ -4423,6 +4465,230 @@ async function confirmImport() {
   if (state.tierlistLoaded) await loadTierlist();
 }
 
+// =========================================================
+// ACERCA DEL SERVER — renderizado público + editor admin
+// =========================================================
+
+const ABOUT_BLOCK_KINDS = {
+  heading:   { label: '🔤 Título',     icon: '🔤' },
+  text:      { label: '📝 Texto',      icon: '📝' },
+  image:     { label: '🖼 Imagen',     icon: '🖼' },
+  divider:   { label: '➖ Separador',  icon: '➖' },
+  highlight: { label: '✨ Destacado',  icon: '✨' },
+};
+
+function renderAboutContent() {
+  const container = document.getElementById('about-content-render');
+  if (!container) return;
+  const blocks = state.aboutBlocks;
+  if (!blocks || blocks.length === 0) {
+    container.innerHTML = `
+      <div class="placeholder-panel">
+        <div class="placeholder-icon">🎮</div>
+        <h2>Acerca de culones-rpg</h2>
+        <p>Servidor de Minecraft con sistema RPG y gacha.</p>
+      </div>`;
+    return;
+  }
+  container.innerHTML = blocks.map(block => {
+    switch (block.kind) {
+      case 'heading':   return `<h2 class="about-block-heading">${escapeHtml(block.content || '')}</h2>`;
+      case 'text':      return `<p class="about-block-text">${escapeHtml(block.content || '')}</p>`;
+      case 'highlight': return `<div class="about-block-highlight">${escapeHtml(block.content || '')}</div>`;
+      case 'divider':   return `<hr class="about-block-divider" />`;
+      case 'image': {
+        const safe = (block.url || '').replace(/['"\\]/g, '');
+        if (!safe) return '';
+        return `<img class="about-block-image" src="${escapeHtml(safe)}" alt="${escapeHtml(block.caption || '')}" loading="lazy" />` +
+               (block.caption ? `<p class="about-block-image-caption">${escapeHtml(block.caption)}</p>` : '');
+      }
+      default: return '';
+    }
+  }).join('');
+}
+
+function openAboutEditor() {
+  state.aboutEditorBlocks = JSON.parse(JSON.stringify(state.aboutBlocks || []));
+  renderAboutEditorBlocks();
+  document.getElementById('about-editor-error').classList.add('hidden');
+  document.getElementById('about-editor-modal').classList.remove('hidden');
+}
+
+function renderAboutEditorBlocks() {
+  const container = document.getElementById('about-blocks-editor');
+  if (!container) return;
+  if (state.aboutEditorBlocks.length === 0) {
+    container.innerHTML = '<p class="admin-empty" style="padding:16px 0;">No hay bloques todavía. Usá los botones de abajo para agregar contenido.</p>';
+    return;
+  }
+  const meta = (b) => ({ heading:'🔤 Título', text:'📝 Texto', image:'🖼 Imagen', divider:'➖ Separador', highlight:'✨ Destacado' }[b.kind] || b.kind);
+  container.innerHTML = state.aboutEditorBlocks.map((block, idx) => {
+    const first = idx === 0, last = idx === state.aboutEditorBlocks.length - 1;
+    const btns = `<div class="about-editor-block-actions">
+      <button type="button" class="move-about-block" data-dir="-1" data-idx="${idx}" ${first ? 'disabled' : ''}>▲</button>
+      <button type="button" class="move-about-block" data-dir="1" data-idx="${idx}" ${last ? 'disabled' : ''}>▼</button>
+      <button type="button" class="del-about-block" data-idx="${idx}">✕</button>
+    </div>`;
+    if (block.kind === 'divider') return `<div class="about-editor-block is-divider" data-idx="${idx}"><div class="about-editor-block-body"><span class="about-editor-block-kind">${meta(block)}</span><div class="about-editor-divider-preview"></div></div>${btns}</div>`;
+    if (block.kind === 'image') return `<div class="about-editor-block" data-idx="${idx}"><div class="about-editor-block-body"><span class="about-editor-block-kind">${meta(block)}</span><input type="text" class="modal-input about-block-field" data-idx="${idx}" data-field="url" value="${escapeHtml(block.url||'')}" placeholder="URL de la imagen (https://...)" /><input type="text" class="modal-input about-block-field" data-idx="${idx}" data-field="caption" value="${escapeHtml(block.caption||'')}" placeholder="Pie de foto (opcional)" /></div>${btns}</div>`;
+    return `<div class="about-editor-block" data-idx="${idx}"><div class="about-editor-block-body"><span class="about-editor-block-kind">${meta(block)}</span><textarea class="modal-input about-block-field" data-idx="${idx}" data-field="content" rows="${block.kind==='heading'?1:3}" placeholder="${block.kind==='heading'?'Título':'Contenido...'}">${escapeHtml(block.content||'')}</textarea></div>${btns}</div>`;
+  }).join('');
+
+  container.querySelectorAll('.about-block-field').forEach(el => {
+    el.addEventListener('input', (e) => { state.aboutEditorBlocks[+e.target.dataset.idx][e.target.dataset.field] = e.target.value; });
+  });
+  container.querySelectorAll('.move-about-block').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = +btn.dataset.idx, d = +btn.dataset.dir, j = i + d;
+      if (j < 0 || j >= state.aboutEditorBlocks.length) return;
+      [state.aboutEditorBlocks[i], state.aboutEditorBlocks[j]] = [state.aboutEditorBlocks[j], state.aboutEditorBlocks[i]];
+      renderAboutEditorBlocks();
+    });
+  });
+  container.querySelectorAll('.del-about-block').forEach(btn => {
+    btn.addEventListener('click', () => { state.aboutEditorBlocks.splice(+btn.dataset.idx, 1); renderAboutEditorBlocks(); });
+  });
+}
+
+function addAboutBlock(kind) {
+  const block = { kind };
+  if (kind === 'image') { block.url = ''; block.caption = ''; }
+  else if (kind !== 'divider') block.content = '';
+  state.aboutEditorBlocks.push(block);
+  renderAboutEditorBlocks();
+  const c = document.getElementById('about-blocks-editor');
+  if (c) setTimeout(() => c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' }), 50);
+}
+
+async function saveAboutContent() {
+  const errorBox = document.getElementById('about-editor-error');
+  errorBox.classList.add('hidden');
+  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  const { error } = await supabaseClient.rpc('update_app_setting', { input_code: state.adminCode, input_key: 'about_blocks', input_value: state.aboutEditorBlocks });
+  if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
+  state.aboutBlocks = JSON.parse(JSON.stringify(state.aboutEditorBlocks));
+  document.getElementById('about-editor-modal').classList.add('hidden');
+  renderAboutContent();
+  showToast('Página "Acerca del Server" actualizada', 'success');
+}
+
+// =========================================================
+// FONDO DE LA PÁGINA
+// =========================================================
+function populateBackgroundForm() {
+  const cfg = state.backgroundConfig;
+  const urlInput = document.getElementById('bg-image-url-input');
+  if (!urlInput) return;
+  urlInput.value = cfg.image_url || '';
+  const r = document.querySelector(`input[name="bg-mode"][value="${cfg.mode||'fixed'}"]`);
+  if (r) r.checked = true;
+  document.querySelectorAll('#bg-tabs-options input[type="checkbox"]').forEach(cb => { cb.checked = Array.isArray(cfg.tabs) && cfg.tabs.includes(cb.value); });
+}
+
+function readBackgroundForm() {
+  return {
+    image_url: document.getElementById('bg-image-url-input')?.value.trim() || '',
+    mode: document.querySelector('input[name="bg-mode"]:checked')?.value || 'fixed',
+    tabs: Array.from(document.querySelectorAll('#bg-tabs-options input:checked')).map(cb => cb.value),
+  };
+}
+
+function applyCustomBackground(config) {
+  const cfg = config || state.backgroundConfig;
+  const valid = !!cfg.image_url && /^https?:\/\//i.test(cfg.image_url);
+  const show  = valid && Array.isArray(cfg.tabs) && cfg.tabs.includes(state.activeTab || 'logs');
+  if (!show) { ['backgroundImage','backgroundAttachment','backgroundSize','backgroundPosition','backgroundRepeat'].forEach(p => document.body.style[p] = ''); return; }
+  const u = cfg.image_url.replace(/["\\]/g, '');
+  document.body.style.backgroundImage = `url("${u}")`;
+  document.body.style.backgroundPosition = 'center center';
+  document.body.style.backgroundRepeat = 'no-repeat';
+  if (cfg.mode === 'continuous') { document.body.style.backgroundSize = '100% auto'; document.body.style.backgroundAttachment = 'scroll'; }
+  else if (cfg.mode === 'contain') { document.body.style.backgroundSize = 'contain'; document.body.style.backgroundAttachment = 'fixed'; }
+  else { document.body.style.backgroundSize = 'cover'; document.body.style.backgroundAttachment = 'fixed'; }
+}
+
+async function saveBackgroundConfig() {
+  const errorBox = document.getElementById('bg-config-error');
+  errorBox.classList.add('hidden');
+  const value = readBackgroundForm();
+  if (value.image_url && !/^https?:\/\//i.test(value.image_url)) { errorBox.textContent = 'La URL debe empezar con http:// o https://'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  const { error } = await supabaseClient.rpc('update_app_setting', { input_code: state.adminCode, input_key: 'background_config', input_value: value });
+  if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
+  state.backgroundConfig = value;
+  applyCustomBackground();
+  showToast(value.image_url ? 'Fondo guardado para todos' : 'Fondo de página quitado', 'success');
+}
+
+async function clearBackgroundConfig() {
+  if (!confirm('¿Quitar el fondo personalizado para todos?')) return;
+  const i = document.getElementById('bg-image-url-input'); if (i) i.value = '';
+  await saveBackgroundConfig();
+}
+
+function initBackgroundTool() {
+  const u = document.getElementById('bg-image-url-input'); if (!u) return;
+  const preview = () => applyCustomBackground(readBackgroundForm());
+  u.addEventListener('input', preview);
+  document.querySelectorAll('input[name="bg-mode"]').forEach(r => r.addEventListener('change', preview));
+  document.querySelectorAll('#bg-tabs-options input[type="checkbox"]').forEach(cb => cb.addEventListener('change', preview));
+  document.getElementById('bg-save-btn')?.addEventListener('click', saveBackgroundConfig);
+  document.getElementById('bg-clear-btn')?.addEventListener('click', clearBackgroundConfig);
+}
+
+// =========================================================
+// FAVICON
+// =========================================================
+function applyFavicon(url) {
+  if (!url || !/^https?:\/\//i.test(url)) return;
+  let link = document.querySelector("link[rel~='icon']");
+  if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+  link.href = url;
+}
+
+function populateFaviconForm() {
+  const input = document.getElementById('favicon-url-input');
+  const preview = document.getElementById('favicon-preview');
+  if (input) input.value = state.faviconUrl || '';
+  if (preview && state.faviconUrl) preview.innerHTML = `<img src="${escapeHtml(state.faviconUrl)}" alt="favicon" onerror="this.parentNode.textContent='?'" />`;
+}
+
+async function saveFaviconConfig() {
+  const errorBox = document.getElementById('favicon-config-error');
+  const input = document.getElementById('favicon-url-input');
+  const preview = document.getElementById('favicon-preview');
+  errorBox.classList.add('hidden');
+  const url = input?.value.trim() || '';
+  if (url && !/^https?:\/\//i.test(url)) { errorBox.textContent = 'La URL debe empezar con http:// o https://'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  const { error } = await supabaseClient.rpc('update_app_setting', { input_code: state.adminCode, input_key: 'favicon_url', input_value: url });
+  if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
+  state.faviconUrl = url;
+  applyFavicon(url);
+  if (preview) preview.innerHTML = url ? `<img src="${escapeHtml(url)}" alt="favicon" onerror="this.parentNode.textContent='?'" />` : '?';
+  showToast(url ? 'Icono de página guardado' : 'Icono de página quitado', 'success');
+}
+
+function initFaviconTool() {
+  const input = document.getElementById('favicon-url-input');
+  const preview = document.getElementById('favicon-preview');
+  if (!input) return;
+  input.addEventListener('input', () => {
+    const url = input.value.trim();
+    if (preview) preview.innerHTML = (url && /^https?:\/\//i.test(url)) ? `<img src="${escapeHtml(url)}" alt="favicon" onerror="this.parentNode.textContent='?'" />` : '?';
+    if (url && /^https?:\/\//i.test(url)) applyFavicon(url);
+  });
+  document.getElementById('favicon-save-btn')?.addEventListener('click', saveFaviconConfig);
+}
+
+function initAboutEditor() {
+  document.getElementById('open-about-editor-btn')?.addEventListener('click', openAboutEditor);
+  document.getElementById('close-about-editor-modal')?.addEventListener('click', () => { document.getElementById('about-editor-modal').classList.add('hidden'); });
+  document.getElementById('save-about-editor-btn')?.addEventListener('click', saveAboutContent);
+  document.querySelectorAll('.btn-add-about-block').forEach(btn => { btn.addEventListener('click', () => addAboutBlock(btn.dataset.kind)); });
+  document.getElementById('about-editor-modal')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden'); });
+}
+
 function initAdminPanel() {
   // Export buttons
   document.querySelectorAll('.btn-export').forEach(btn => {
@@ -4430,8 +4696,12 @@ function initAdminPanel() {
   });
 
   // Import: file input
+  // Reseteamos el value ANTES de procesar (no después) para que volver a
+  // elegir el mismo archivo dispare el evento 'change' correctamente.
   document.getElementById('import-file-input').addEventListener('change', (e) => {
-    if (e.target.files[0]) handleImportFile(e.target.files[0]);
+    const file = e.target.files[0];
+    e.target.value = '';          // reset inmediato → permite reseleccionar el mismo archivo
+    if (file) handleImportFile(file);
   });
 
   // Import: drag & drop
@@ -4483,5 +4753,8 @@ function initAdminPanel() {
     showToast('Todos los borradores eliminados');
   });
 
+  initAboutEditor();
+  initBackgroundTool();
+  initFaviconTool();
   initBeforeUnload();
 }
