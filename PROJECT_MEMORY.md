@@ -4,7 +4,7 @@ Este archivo funciona como un registro de las sesiones de desarrollo del proyect
 
 ---
 
-# Estado actual del proyecto (después de la sesión 17)
+# Estado actual del proyecto (después de la sesión 19)
 
 ## Arquitectura general
 
@@ -56,7 +56,7 @@ Este archivo funciona como un registro de las sesiones de desarrollo del proyect
 
 ---
 
-# Sistema de imágenes (estado actual - sesión 17)
+# Sistema de imágenes (estado actual - sesión 19)
 
 Actualmente todo el proyecto utiliza un único sistema de subida de imágenes basado en Supabase Storage. Ya no existe ningún campo que permita pegar una URL externa; esa opción fue eliminada por completo durante la sesión 18, incluyendo los últimos tres casos que aún quedaban.
 
