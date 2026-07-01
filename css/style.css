@@ -1335,6 +1335,14 @@ button:not(:disabled) {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Variante compacta para el favicon (espacio junto al preview cuadrado) */
+.favicon-dropzone {
+  padding: 12px 10px;
+  min-height: 70px;
+}
+.favicon-dropzone .tier-img-dropzone-icon { font-size: 20px; }
+.favicon-dropzone .tier-img-dropzone-label { font-size: 11.5px; }
+
 /* URL externa: <details> colapsable debajo de la dropzone */
 .tier-img-url-details {
   margin-top: 8px;
@@ -2598,6 +2606,17 @@ button:not(:disabled) {
 
 /* Separador visual dentro del editor */
 .about-editor-block.is-divider { align-items: center; }
+
+.about-block-image-upload-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.about-block-image-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft);
+  flex-shrink: 0;
+}
+.about-block-img-btn { width: auto; }
 .about-editor-divider-preview {
   flex: 1;
   height: 1px;

@@ -250,10 +250,26 @@
         <h2 class="admin-section-title">🎨 Fondo de la página</h2>
         <button type="button" class="btn-secondary-admin" id="bg-clear-btn">🗑 Quitar fondo</button>
       </div>
-      <p class="admin-section-hint">Reemplaza el fondo oscuro por una imagen propia (pega la URL de una imagen ya alojada). Se aplica para <strong>todos los visitantes</strong>. Los cambios se ven en vivo mientras los ajustás.</p>
+      <p class="admin-section-hint">Reemplaza el fondo oscuro por una imagen propia (subila desde tu dispositivo). Se aplica para <strong>todos los visitantes</strong>. Los cambios se ven en vivo mientras los ajustás.</p>
 
-      <label class="field-label">URL de la imagen de fondo</label>
-      <input type="text" id="bg-image-url-input" class="modal-input" placeholder="https://..." />
+      <label class="field-label">Imagen de fondo</label>
+      <div class="tier-img-dropzone" id="bg-dropzone">
+        <input type="file" id="bg-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
+        <input type="hidden" id="bg-image-input" />
+        <div class="tier-img-dropzone-icon" id="bg-dropzone-icon">🖼</div>
+        <p class="tier-img-dropzone-label" id="bg-dropzone-label">Arrastrá una imagen aquí o hacé click para elegir</p>
+        <p class="tier-img-dropzone-hint">PNG, JPG o WEBP · máx. 3 MB</p>
+        <div class="tier-img-uploading hidden" id="bg-upload-progress">
+          <span class="tier-img-spinner"></span> Subiendo…
+        </div>
+      </div>
+      <div class="asset-preview hidden" id="bg-image-preview-wrap">
+        <img id="bg-image-preview" alt="Vista previa" class="pixel-art" />
+        <div class="asset-preview-actions">
+          <button type="button" class="link-btn js-open-asset" id="bg-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+          <button type="button" class="link-btn tier-img-clear-btn" id="bg-image-clear-btn">✕ Quitar imagen</button>
+        </div>
+      </div>
 
       <label class="field-label" style="margin-top:14px;">¿Cómo se adapta a la pantalla?</label>
       <div class="bg-mode-options">
@@ -289,11 +305,21 @@
       <div class="admin-section-head">
         <h2 class="admin-section-title">🖼 Icono de la página (favicon)</h2>
       </div>
-      <p class="admin-section-hint">El ícono que aparece en la pestaña del navegador y al guardar la página como favorito. Pegá la URL de una imagen cuadrada (idealmente PNG de 32×32 o 64×64 px).</p>
+      <p class="admin-section-hint">El ícono que aparece en la pestaña del navegador y al guardar la página como favorito. Subí una imagen cuadrada (idealmente PNG de 32×32 o 64×64 px).</p>
       <div class="favicon-row">
         <div class="favicon-preview" id="favicon-preview">?</div>
         <div style="flex:1;">
-          <input type="text" id="favicon-url-input" class="modal-input" placeholder="https://... (PNG, ICO, SVG)" />
+          <div class="tier-img-dropzone favicon-dropzone" id="favicon-dropzone">
+            <input type="file" id="favicon-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
+            <input type="hidden" id="favicon-image-input" />
+            <div class="tier-img-dropzone-icon" id="favicon-dropzone-icon">🖼</div>
+            <p class="tier-img-dropzone-label" id="favicon-dropzone-label">Arrastrá una imagen aquí o hacé click para elegir</p>
+            <p class="tier-img-dropzone-hint">PNG, JPG o WEBP cuadrado · máx. 3 MB</p>
+            <div class="tier-img-uploading hidden" id="favicon-upload-progress">
+              <span class="tier-img-spinner"></span> Subiendo…
+            </div>
+          </div>
+          <button type="button" class="link-btn" id="favicon-clear-btn" style="margin-top:6px;">✕ Quitar icono</button>
           <p class="field-hint" style="margin-top:5px;">Se aplica al instante en tu pestaña y para todos los visitantes que carguen la página después de guardar.</p>
         </div>
       </div>
@@ -611,12 +637,6 @@
         <span class="tier-img-spinner"></span> Subiendo…
       </div>
     </div>
-
-    <!-- URL externa como alternativa opcional -->
-    <details class="tier-img-url-details" id="tier-item-url-details">
-      <summary class="tier-img-url-toggle">🔗 O pegá una URL externa (opcional)</summary>
-      <input type="url" style="margin-top:8px;" class="modal-input" placeholder="https://..." onchange="document.getElementById('tier-item-image-input').value=this.value.trim(); updateAssetPreview && updateAssetPreview('tier-item', this.value.trim());" />
-    </details>
 
     <div class="asset-preview hidden" id="tier-item-image-preview-wrap">
       <img id="tier-item-image-preview" alt="Vista previa" class="pixel-art" />

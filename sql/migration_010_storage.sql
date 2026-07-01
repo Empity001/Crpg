@@ -14,8 +14,11 @@
 --   ├── tierlist/      imágenes de la tierlist (tierlist_items.image_url)
 --   ├── weapons/       imagen principal de cada arma (weapons.image_url)
 --   ├── weapon-ranks/  imagen por rango (weapon_ranks.image_url)
---   └── recipes/       imágenes de materiales/resultado de recetas
---                      (dentro del jsonb upgrade_recipe)
+--   ├── recipes/       imágenes de materiales/resultado de recetas
+--   │                  (dentro del jsonb upgrade_recipe)
+--   ├── backgrounds/   imagen de fondo de la página (app_settings.background_config)
+--   ├── favicons/      icono de la pestaña del navegador (app_settings.favicon_url)
+--   └── about/         imágenes de bloques en "Acerca del Server" (app_settings.about_blocks)
 --
 -- Un único bucket "culones" con acceso público de lectura.
 -- Las subidas solo están permitidas via UPSERT a través de la

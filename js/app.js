@@ -432,6 +432,74 @@ function initTierItemDropzone() {
   }
 }
 
+// Dropzone genérica de imagen (click, drag&drop, quitar) para campos
+// únicos de configuración global (fondo de página, favicon). Sigue el
+// mismo patrón visual/funcional que la dropzone de la tierlist.
+// prefix    : 'bg' | 'favicon' (ids esperados: ${prefix}-dropzone, ${prefix}-image-file,
+//             ${prefix}-image-input, ${prefix}-dropzone-icon, ${prefix}-dropzone-label,
+//             ${prefix}-upload-progress)
+// folder    : carpeta destino en el bucket
+// getOldUrl : función que devuelve la URL actual guardada (para borrado de huérfanos)
+// onChange  : callback(url) llamado tras subir o quitar la imagen
+function syncGenericDropzoneState(prefix, url) {
+  const zone  = document.getElementById(`${prefix}-dropzone`);
+  const icon  = document.getElementById(`${prefix}-dropzone-icon`);
+  const label = document.getElementById(`${prefix}-dropzone-label`);
+  if (!zone) return;
+  if (url) {
+    zone.classList.add('has-image');
+    if (icon)  icon.textContent  = '✅';
+    if (label) label.textContent = 'Imagen lista — hacé click para reemplazarla';
+  } else {
+    zone.classList.remove('has-image');
+    if (icon)  icon.textContent  = '🖼';
+    if (label) label.textContent = 'Arrastrá una imagen aquí o hacé click para elegir';
+  }
+}
+
+function initGenericImageDropzone(prefix, folder, getOldUrl = () => '', onChange = () => {}) {
+  const zone      = document.getElementById(`${prefix}-dropzone`);
+  const fileInput = document.getElementById(`${prefix}-image-file`);
+  const urlInput  = document.getElementById(`${prefix}-image-input`);
+  const progress  = document.getElementById(`${prefix}-upload-progress`);
+  if (!zone || !fileInput || !urlInput) return;
+
+  syncGenericDropzoneState(prefix, urlInput.value);
+
+  zone.addEventListener('click', () => fileInput.click());
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('is-drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('is-drag-over'));
+  zone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    zone.classList.remove('is-drag-over');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) await handleFile(file);
+  });
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    fileInput.value = '';
+    await handleFile(file);
+  });
+
+  async function handleFile(file) {
+    if (progress) progress.classList.remove('hidden');
+    zone.style.pointerEvents = 'none';
+    try {
+      const publicUrl = await uploadImageToStorage(file, folder, getOldUrl());
+      urlInput.value = publicUrl;
+      syncGenericDropzoneState(prefix, publicUrl);
+      onChange(publicUrl);
+      showToast('Imagen subida correctamente', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      if (progress) progress.classList.add('hidden');
+      zone.style.pointerEvents = '';
+    }
+  }
+}
+
 // Conecta el botón 📁 de un modal al input URL existente.
 // prefix    : 'mob' | 'item' | 'libre' | 'tier-item' | 'weapon' | 'weapon-rank'
 // folder    : carpeta dentro del bucket ('mobs', 'items', 'tierlist', 'weapons', 'weapon-ranks')
@@ -2131,9 +2199,6 @@ async function reorderTierRow(rowId, direction) {
 function openTierItemModal(itemId = null) {
   state.editingTierItemId = itemId;
   const titleEl = document.getElementById('tier-item-modal-title');
-  // Colapsar la sección de URL externa al abrir (estado limpio)
-  const urlDetails = document.getElementById('tier-item-url-details');
-  if (urlDetails) urlDetails.removeAttribute('open');
 
   if (itemId) {
     const item = state.tierItems.find(it => it.id === itemId);
@@ -2144,8 +2209,6 @@ function openTierItemModal(itemId = null) {
     document.getElementById('tier-item-image-input').value = item.image_url || '';
     updateAssetPreview('tier-item', item.image_url || '');
     syncTierDropzoneState(item.image_url || '');
-    // Si ya tiene imagen, abre la sección de URL para que se vea la URL actual
-    if (item.image_url && urlDetails) urlDetails.setAttribute('open', '');
   } else {
     titleEl.textContent = '🎴 NUEVO ELEMENTO';
     document.getElementById('tier-item-name-input').value = '';
@@ -4530,12 +4593,48 @@ function renderAboutEditorBlocks() {
       <button type="button" class="del-about-block" data-idx="${idx}">✕</button>
     </div>`;
     if (block.kind === 'divider') return `<div class="about-editor-block is-divider" data-idx="${idx}"><div class="about-editor-block-body"><span class="about-editor-block-kind">${meta(block)}</span><div class="about-editor-divider-preview"></div></div>${btns}</div>`;
-    if (block.kind === 'image') return `<div class="about-editor-block" data-idx="${idx}"><div class="about-editor-block-body"><span class="about-editor-block-kind">${meta(block)}</span><input type="text" class="modal-input about-block-field" data-idx="${idx}" data-field="url" value="${escapeHtml(block.url||'')}" placeholder="URL de la imagen (https://...)" /><input type="text" class="modal-input about-block-field" data-idx="${idx}" data-field="caption" value="${escapeHtml(block.caption||'')}" placeholder="Pie de foto (opcional)" /></div>${btns}</div>`;
+    if (block.kind === 'image') return `<div class="about-editor-block" data-idx="${idx}"><div class="about-editor-block-body"><span class="about-editor-block-kind">${meta(block)}</span>
+      <div class="about-block-image-upload-row">
+        ${block.url ? `<img src="${escapeHtml(block.url)}" alt="" class="about-block-image-thumb" />` : ''}
+        <button type="button" class="btn-upload-zone btn-upload-zone-sm about-block-img-btn" data-idx="${idx}">${block.url ? '✅ Imagen' : '📁 Elegir imagen'}</button>
+        <input type="file" class="hidden about-block-img-file" data-idx="${idx}" accept="image/png,image/jpeg,image/jpg,image/webp" />
+        ${block.url ? `<button type="button" class="link-btn about-block-img-clear" data-idx="${idx}">✕ Quitar</button>` : ''}
+      </div>
+      <input type="text" class="modal-input about-block-field" data-idx="${idx}" data-field="caption" value="${escapeHtml(block.caption||'')}" placeholder="Pie de foto (opcional)" /></div>${btns}</div>`;
     return `<div class="about-editor-block" data-idx="${idx}"><div class="about-editor-block-body"><span class="about-editor-block-kind">${meta(block)}</span><textarea class="modal-input about-block-field" data-idx="${idx}" data-field="content" rows="${block.kind==='heading'?1:3}" placeholder="${block.kind==='heading'?'Título':'Contenido...'}">${escapeHtml(block.content||'')}</textarea></div>${btns}</div>`;
   }).join('');
 
   container.querySelectorAll('.about-block-field').forEach(el => {
     el.addEventListener('input', (e) => { state.aboutEditorBlocks[+e.target.dataset.idx][e.target.dataset.field] = e.target.value; });
+  });
+  container.querySelectorAll('.about-block-img-btn').forEach(btn => {
+    const idx = Number(btn.dataset.idx);
+    const fileInput = container.querySelector(`.about-block-img-file[data-idx="${idx}"]`);
+    if (!fileInput) return;
+    btn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      fileInput.value = '';
+      btn.textContent = '…';
+      try {
+        const oldUrl = state.aboutEditorBlocks[idx].url || '';
+        const publicUrl = await uploadImageToStorage(file, 'about', oldUrl);
+        state.aboutEditorBlocks[idx].url = publicUrl;
+        showToast('Imagen subida correctamente', 'success');
+        renderAboutEditorBlocks();
+      } catch (err) {
+        btn.textContent = state.aboutEditorBlocks[idx].url ? '✅ Imagen' : '📁 Elegir imagen';
+        showToast(err.message, 'error');
+      }
+    });
+  });
+  container.querySelectorAll('.about-block-img-clear').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.idx);
+      state.aboutEditorBlocks[idx].url = '';
+      renderAboutEditorBlocks();
+    });
   });
   container.querySelectorAll('.move-about-block').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -4577,9 +4676,11 @@ async function saveAboutContent() {
 // =========================================================
 function populateBackgroundForm() {
   const cfg = state.backgroundConfig;
-  const urlInput = document.getElementById('bg-image-url-input');
+  const urlInput = document.getElementById('bg-image-input');
   if (!urlInput) return;
   urlInput.value = cfg.image_url || '';
+  updateAssetPreview('bg', cfg.image_url || '');
+  syncGenericDropzoneState('bg', cfg.image_url || '');
   const r = document.querySelector(`input[name="bg-mode"][value="${cfg.mode||'fixed'}"]`);
   if (r) r.checked = true;
   document.querySelectorAll('#bg-tabs-options input[type="checkbox"]').forEach(cb => { cb.checked = Array.isArray(cfg.tabs) && cfg.tabs.includes(cb.value); });
@@ -4587,7 +4688,7 @@ function populateBackgroundForm() {
 
 function readBackgroundForm() {
   return {
-    image_url: document.getElementById('bg-image-url-input')?.value.trim() || '',
+    image_url: document.getElementById('bg-image-input')?.value.trim() || '',
     mode: document.querySelector('input[name="bg-mode"]:checked')?.value || 'fixed',
     tabs: Array.from(document.querySelectorAll('#bg-tabs-options input:checked')).map(cb => cb.value),
   };
@@ -4611,7 +4712,6 @@ async function saveBackgroundConfig() {
   const errorBox = document.getElementById('bg-config-error');
   errorBox.classList.add('hidden');
   const value = readBackgroundForm();
-  if (value.image_url && !/^https?:\/\//i.test(value.image_url)) { errorBox.textContent = 'La URL debe empezar con http:// o https://'; errorBox.classList.remove('hidden'); return; }
   if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
   const { error } = await supabaseClient.rpc('update_app_setting', { input_code: state.adminCode, input_key: 'background_config', input_value: value });
   if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
@@ -4622,18 +4722,29 @@ async function saveBackgroundConfig() {
 
 async function clearBackgroundConfig() {
   if (!confirm('¿Quitar el fondo personalizado para todos?')) return;
-  const i = document.getElementById('bg-image-url-input'); if (i) i.value = '';
+  const i = document.getElementById('bg-image-input'); if (i) i.value = '';
+  updateAssetPreview('bg', '');
+  syncGenericDropzoneState('bg', '');
   await saveBackgroundConfig();
 }
 
 function initBackgroundTool() {
-  const u = document.getElementById('bg-image-url-input'); if (!u) return;
+  const u = document.getElementById('bg-image-input'); if (!u) return;
   const preview = () => applyCustomBackground(readBackgroundForm());
-  u.addEventListener('input', preview);
   document.querySelectorAll('input[name="bg-mode"]').forEach(r => r.addEventListener('change', preview));
   document.querySelectorAll('#bg-tabs-options input[type="checkbox"]').forEach(cb => cb.addEventListener('change', preview));
   document.getElementById('bg-save-btn')?.addEventListener('click', saveBackgroundConfig);
   document.getElementById('bg-clear-btn')?.addEventListener('click', clearBackgroundConfig);
+  document.getElementById('bg-image-clear-btn')?.addEventListener('click', () => {
+    u.value = '';
+    updateAssetPreview('bg', '');
+    syncGenericDropzoneState('bg', '');
+    preview();
+  });
+  initGenericImageDropzone('bg', 'backgrounds', () => state.backgroundConfig.image_url || '', (url) => {
+    updateAssetPreview('bg', url);
+    preview();
+  });
 }
 
 // =========================================================
@@ -4647,19 +4758,19 @@ function applyFavicon(url) {
 }
 
 function populateFaviconForm() {
-  const input = document.getElementById('favicon-url-input');
+  const input = document.getElementById('favicon-image-input');
   const preview = document.getElementById('favicon-preview');
   if (input) input.value = state.faviconUrl || '';
-  if (preview && state.faviconUrl) preview.innerHTML = `<img src="${escapeHtml(state.faviconUrl)}" alt="favicon" onerror="this.parentNode.textContent='?'" />`;
+  syncGenericDropzoneState('favicon', state.faviconUrl || '');
+  if (preview) preview.innerHTML = state.faviconUrl ? `<img src="${escapeHtml(state.faviconUrl)}" alt="favicon" onerror="this.parentNode.textContent='?'" />` : '?';
 }
 
 async function saveFaviconConfig() {
   const errorBox = document.getElementById('favicon-config-error');
-  const input = document.getElementById('favicon-url-input');
+  const input = document.getElementById('favicon-image-input');
   const preview = document.getElementById('favicon-preview');
   errorBox.classList.add('hidden');
   const url = input?.value.trim() || '';
-  if (url && !/^https?:\/\//i.test(url)) { errorBox.textContent = 'La URL debe empezar con http:// o https://'; errorBox.classList.remove('hidden'); return; }
   if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
   const { error } = await supabaseClient.rpc('update_app_setting', { input_code: state.adminCode, input_key: 'favicon_url', input_value: url });
   if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
@@ -4670,15 +4781,19 @@ async function saveFaviconConfig() {
 }
 
 function initFaviconTool() {
-  const input = document.getElementById('favicon-url-input');
+  const input = document.getElementById('favicon-image-input');
   const preview = document.getElementById('favicon-preview');
   if (!input) return;
-  input.addEventListener('input', () => {
-    const url = input.value.trim();
-    if (preview) preview.innerHTML = (url && /^https?:\/\//i.test(url)) ? `<img src="${escapeHtml(url)}" alt="favicon" onerror="this.parentNode.textContent='?'" />` : '?';
-    if (url && /^https?:\/\//i.test(url)) applyFavicon(url);
-  });
   document.getElementById('favicon-save-btn')?.addEventListener('click', saveFaviconConfig);
+  document.getElementById('favicon-clear-btn')?.addEventListener('click', () => {
+    input.value = '';
+    syncGenericDropzoneState('favicon', '');
+    if (preview) preview.innerHTML = '?';
+  });
+  initGenericImageDropzone('favicon', 'favicons', () => state.faviconUrl || '', (url) => {
+    if (preview) preview.innerHTML = `<img src="${escapeHtml(url)}" alt="favicon" onerror="this.parentNode.textContent='?'" />`;
+    applyFavicon(url);
+  });
 }
 
 function initAboutEditor() {

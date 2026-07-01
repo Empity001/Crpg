@@ -54,15 +54,18 @@ Registro de sesiones de desarrollo. Cada entrada resume qué se hizo, qué qued�
 
 ## Sistema de imágenes (estado actual, sesión 17)
 
-**Implementado:** Subida directa a Supabase Storage. Sin opción de URL externa en ningún campo de imagen.
+**Implementado:** Subida directa a Supabase Storage. Sin opción de URL externa en ningún campo de imagen de todo el proyecto (sesión 18: se cerraron los últimos 3 huecos que quedaban).
 
 - `uploadImageToStorage(file, folder, oldUrl)`: valida tipo (PNG/JPG/WEBP) y tamaño (≤3 MB), sube al bucket `culones` con nombre único (`folder/timestamp-random.ext`), devuelve URL pública, borra la imagen anterior si era del mismo bucket (fire-and-forget).
 - `initImageUploader(prefix, folder, getOldUrl)`: conecta botón `📁 Elegir imagen` + `<input type="file" hidden>` al campo `<input type="hidden" id="${prefix}-image-input">`. La URL resultante se escribe en ese hidden y se pasa a `updateAssetPreview`. El campo hidden es lo que el JS lee al guardar — nunca fue el tipo del input lo que importaba.
-- Todos los campos de imagen son ahora botón `📁 Elegir imagen` + vista previa con botón `✕ Quitar imagen`. El `btn-upload-img` sigue existiendo en el DOM con `display:none` porque `initImageUploader` lo busca por ID, pero el usuario nunca lo ve.
-- **Carpetas del bucket**: `mobs/`, `items/` (items + libres), `tierlist/`, `weapons/`, `weapon-ranks/`, `recipes/` (materiales y resultado de receta).
-- **Prefijos cubiertos**: `mob`, `item`, `libre`, `tier-item`, `weapon`, `weapon-rank`, más el resultado de receta (`weapon-recipe-result`) con su propio uploader manual.
-- **Materiales de receta** (las N filas dinámicas en `renderRecipeMaterialsEditor`): cada fila tiene un botón `📁 Imagen` con file input independiente. La imagen sube a `recipes/`. ✅ Resuelto en sesión 17 (era el pendiente de sesión 16).
-- La tierlist ya tenía dropzone con drag&drop. Se eliminó el `<details>` colapsable de URL externa.
+- `initGenericImageDropzone(prefix, folder, getOldUrl, onChange)` + `syncGenericDropzoneState(prefix, url)` (sesión 18): versión genérica del patrón dropzone de la tierlist (click, drag&drop, estado visual `has-image`), reutilizada por los campos de configuración global que antes tenían input de URL: fondo de página y favicon.
+- Todos los campos de imagen son ahora botón `📁 Elegir imagen` (o dropzone) + vista previa con botón `✕ Quitar imagen`. El `btn-upload-img` sigue existiendo en el DOM con `display:none` porque `initImageUploader` lo busca por ID, pero el usuario nunca lo ve.
+- **Carpetas del bucket**: `mobs/`, `items/` (items + libres), `tierlist/`, `weapons/`, `weapon-ranks/`, `recipes/` (materiales y resultado de receta), `backgrounds/` (fondo de página), `favicons/` (icono de pestaña), `about/` (imágenes de bloques en "Acerca del Server"). Todas dentro del mismo bucket `culones`, sin restricción de carpeta a nivel de política RLS.
+- **Prefijos cubiertos**: `mob`, `item`, `libre`, `tier-item`, `weapon`, `weapon-rank`, `bg`, `favicon`, más el resultado de receta (`weapon-recipe-result`) con su propio uploader manual.
+- **Materiales de receta** (las N filas dinámicas en `renderRecipeMaterialsEditor`): cada fila tiene un botón `📁 Imagen` con file input independiente. La imagen sube a `recipes/`.
+- **Bloques de imagen de "Acerca del Server"** (sesión 18): cada bloque `image` en el editor (`renderAboutEditorBlocks`) tiene su propio botón `📁 Elegir imagen` + file input + miniatura + `✕ Quitar`, subiendo a `about/`. Antes era un `<input type="text">` con la URL pegada a mano.
+- **Fondo de página y favicon** (sesión 18): antes eran inputs de texto (`bg-image-url-input`, `favicon-url-input`) donde se pegaba una URL externa. Ahora son dropzones (`bg-image-input`, `favicon-image-input`) que suben el archivo igual que el resto del sistema, con vista previa en vivo.
+- La tierlist ya tenía dropzone con drag&drop. Se eliminó el `<details>` colapsable de URL externa que había quedado (era el único resto de URL externa en todo el proyecto).
 
 ---
 
