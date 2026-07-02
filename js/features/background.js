@@ -9,6 +9,7 @@ import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { initGenericImageDropzone, syncGenericDropzoneState, updateAssetPreview } from '../core/storage.js';
 import { showToast } from '../core/utils.js';
+import { attachMediaPickerButton } from './media-library.js';
 
 export function populateBackgroundForm() {
   const cfg = state.backgroundConfig;
@@ -85,5 +86,15 @@ export function initBackgroundTool() {
   initGenericImageDropzone('bg', 'backgrounds', () => state.backgroundConfig.image_url || '', (url) => {
     updateAssetPreview('bg', url);
     preview();
+  });
+  attachMediaPickerButton({
+    targetInputId: 'bg-image-input',
+    insertAfterId: 'bg-dropzone',
+    title: 'Seleccionar fondo',
+    onSelect: ({ url }) => {
+      updateAssetPreview('bg', url);
+      syncGenericDropzoneState('bg', url);
+      preview();
+    },
   });
 }

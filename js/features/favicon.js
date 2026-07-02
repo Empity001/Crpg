@@ -9,6 +9,7 @@ import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { initGenericImageDropzone, syncGenericDropzoneState } from '../core/storage.js';
 import { escapeHtml, showToast } from '../core/utils.js';
+import { attachMediaPickerButton } from './media-library.js';
 
 export function applyFavicon(url) {
   if (!url || !/^https?:\/\//i.test(url)) return;
@@ -56,5 +57,15 @@ export function initFaviconTool() {
   initGenericImageDropzone('favicon', 'favicons', () => state.faviconUrl || '', (url) => {
     if (preview) preview.innerHTML = `<img src="${escapeHtml(url)}" alt="favicon" onerror="this.parentNode.textContent='?'" />`;
     applyFavicon(url);
+  });
+  attachMediaPickerButton({
+    targetInputId: 'favicon-image-input',
+    insertAfterId: 'favicon-dropzone',
+    title: 'Seleccionar favicon',
+    onSelect: ({ url }) => {
+      if (preview) preview.innerHTML = `<img src="${escapeHtml(url)}" alt="favicon" onerror="this.parentNode.textContent='?'" />`;
+      syncGenericDropzoneState('favicon', url);
+      applyFavicon(url);
+    },
   });
 }

@@ -10,6 +10,7 @@ import { supabaseClient } from '../config.js';
 import { loadLogsData } from './logs-data.js';
 import { state, suppressNextRealtimeReload, suppressNextTierlistReload } from '../core/state.js';
 import { loadTierlist } from './tierlist.js';
+import { isMediaInfrastructureMissing, listMediaAssets, upsertMediaAsset } from '../core/media.js';
 import { asArray, escapeHtml, showToast } from '../core/utils.js';
 
 let _importPayload = null; // datos del archivo leído
@@ -88,6 +89,29 @@ async function analyzeAndShowImportConflicts(payload) {
     });
   }
 
+  if (type === 'full_backup') {
+    const importMedia = (payload.media_assets || []).filter(asset => (asset.source_type || 'storage') === 'storage');
+    if (importMedia.length) {
+      const { data: existingMedia, error } = await listMediaAssets({ includeArchived: true });
+      const mediaInfrastructureMissing = error && isMediaInfrastructureMissing(error);
+      const existingUrls = new Set((existingMedia || []).map(asset => asset.url).filter(Boolean));
+      const existingHashes = new Set((existingMedia || []).map(asset => asset.file_hash).filter(Boolean));
+      if (error && !mediaInfrastructureMissing) console.warn('Media import conflict check skipped:', error);
+
+      importMedia.forEach(asset => {
+        const hasConflict = existingUrls.has(asset.url) || (!!asset.file_hash && existingHashes.has(asset.file_hash));
+        allConflicts.push({
+          kind: 'media_asset',
+          id: asset.id || asset.url,
+          name: `[Multimedia] ${asset.display_name || asset.url || 'Recurso'}${mediaInfrastructureMissing ? ' (migración pendiente)' : ''}`,
+          isConflict: mediaInfrastructureMissing || hasConflict,
+          item: asset,
+          resolution: mediaInfrastructureMissing || hasConflict ? 'skip' : 'import',
+        });
+      });
+    }
+  }
+
   _importConflicts = allConflicts;
   showImportConflictModal(allConflicts);
 }
@@ -101,7 +125,7 @@ function showImportConflictModal(conflicts) {
   const conflictCount = conflicts.filter(c => c.isConflict).length;
   const newCount = conflicts.filter(c => !c.isConflict).length;
 
-  summaryEl.textContent = `${conflicts.length} elemento(s) encontrados: ${newCount} nuevos, ${conflictCount} con conflicto de ID.`;
+  summaryEl.textContent = `${conflicts.length} elemento(s) encontrados: ${newCount} nuevos, ${conflictCount} con conflicto.`;
 
   listEl.innerHTML = conflicts.map((c, idx) => `
     <div class="import-conflict-row ${c.isConflict ? 'is-conflict' : 'is-new'}">
@@ -187,6 +211,10 @@ export async function confirmImport() {
           input_column_key: item.column_key, input_row_id: item.row_id || null,
           input_extra_fields: asArray(item.extra_fields),
         });
+        imported++;
+      } else if (conflict.kind === 'media_asset') {
+        const { error } = await upsertMediaAsset(conflict.item);
+        if (error) throw error;
         imported++;
       }
     } catch(e) {

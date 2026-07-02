@@ -17,6 +17,7 @@ import { cancelReply, deleteCommentAction, startReplyTo, submitComment, toggleCo
 import { initBeforeUnload, restoreDraft, saveDraft, stopDraftAutosave } from '../features/drafts.js';
 import { openFieldConfigModal, saveFieldConfig, setFieldConfigSavedHandler } from '../features/field-config.js';
 import { initSortControl, loadLogs, openEditLogModal, openNewLogModal, renderLogs, submitLog } from '../features/logs.js';
+import { attachMediaPickerButton } from '../features/media-library.js';
 import { state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
 
@@ -41,6 +42,12 @@ function initLogsModals() {
     const mob = state.editingMobIndex != null ? state.draftMobs[state.editingMobIndex] : null;
     return mob ? (mob.image_url || '') : '';
   });
+  attachMediaPickerButton({
+    targetInputId: 'mob-image-input',
+    insertAfterId: 'mob-image-upload-btn',
+    title: 'Seleccionar imagen de mob',
+    onSelect: ({ url }) => updateAssetPreview('mob', url),
+  });
   document.getElementById('mob-image-clear-btn').addEventListener('click', () => {
     document.getElementById('mob-image-input').value = '';
     updateAssetPreview('mob', '');
@@ -56,6 +63,12 @@ function initLogsModals() {
     const item = state.editingItemIndex != null ? state.draftItems[state.editingItemIndex] : null;
     return item ? (item.image_url || '') : '';
   });
+  attachMediaPickerButton({
+    targetInputId: 'item-image-input',
+    insertAfterId: 'item-image-upload-btn',
+    title: 'Seleccionar imagen de item',
+    onSelect: ({ url }) => updateAssetPreview('item', url),
+  });
   document.getElementById('item-image-clear-btn').addEventListener('click', () => {
     document.getElementById('item-image-input').value = '';
     updateAssetPreview('item', '');
@@ -69,6 +82,12 @@ function initLogsModals() {
   initImageUploader('libre', 'items', () => {
     const lib = state.editingLibreIndex != null ? state.draftLibres[state.editingLibreIndex] : null;
     return lib ? (lib.image_url || '') : '';
+  });
+  attachMediaPickerButton({
+    targetInputId: 'libre-image-input',
+    insertAfterId: 'libre-image-upload-btn',
+    title: 'Seleccionar imagen de bloque libre',
+    onSelect: ({ url }) => updateAssetPreview('libre', url),
   });
   document.getElementById('libre-image-clear-btn').addEventListener('click', () => {
     document.getElementById('libre-image-input').value = '';

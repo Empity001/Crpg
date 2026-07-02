@@ -12,6 +12,7 @@ import { renderDraftsList } from './drafts-list.js';
 import { exportData } from './export.js';
 import { initFaviconTool } from './favicon.js';
 import { _importConflicts, confirmImport, handleImportFile } from './import.js';
+import { initMediaLibraryPanel } from './media-library.js';
 import { showToast } from '../core/utils.js';
 
 export function initAdminPanel() {
@@ -74,6 +75,7 @@ export function initAdminPanel() {
   });
 
   renderDraftsList();
+  initMediaLibraryPanel();
   initBackgroundTool();
   initFaviconTool();
 }

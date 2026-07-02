@@ -11,6 +11,7 @@ import { renderExtraFieldsEditor } from './blocks-editor.js';
 import { state, suppressNextWeaponsReload } from '../core/state.js';
 import { initImageUploader, updateAssetPreview, uploadImageToStorage } from '../core/storage.js';
 import { asArray, debounce, escapeHtml, showToast } from '../core/utils.js';
+import { attachMediaPickerButton, openMediaPicker } from './media-library.js';
 import { renderWeaponsGrid } from './weapons-catalog.js';
 import { openWeaponCategoryModal, openWeaponTypeModal, renderWeaponCategorySelectOptions, renderWeaponTypeSelectOptions, submitWeaponCategory, submitWeaponType } from './weapons-catalog-admin.js';
 import { reloadWeaponData } from './weapons-data.js';
@@ -294,7 +295,8 @@ function renderRecipeMaterialsEditor() {
     <div class="weapon-material-row">
       <input type="text" class="modal-input wm-name" data-idx="${idx}" data-f="name" value="${escapeHtml(m.name || '')}" placeholder="Nombre del material" maxlength="60" />
       <button type="button" class="btn-upload-zone btn-upload-zone-sm wm-img-btn" data-idx="${idx}">${m.image_url ? '✅ Imagen' : '📁 Imagen'}</button>
-      <input type="file" class="hidden wm-img-file" data-idx="${idx}" accept="image/png,image/jpeg,image/jpg,image/webp" />
+      <button type="button" class="btn-media-picker wm-media-btn" data-idx="${idx}">Biblioteca</button>
+      <input type="file" class="hidden wm-img-file" data-idx="${idx}" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
       <input type="number" class="modal-input wm-qty" data-idx="${idx}" data-f="qty" value="${m.qty ?? 1}" min="1" />
       <button type="button" class="enchant-remove" data-idx="${idx}">🗑</button>
     </div>`).join('');
@@ -326,6 +328,20 @@ function renderRecipeMaterialsEditor() {
         btn.textContent = list[idx].image_url ? '✅ Imagen' : '📁 Imagen';
         showToast(err.message, 'error');
       }
+    });
+  });
+  container.querySelectorAll('.wm-media-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.idx);
+      openMediaPicker({
+        title: 'Seleccionar imagen de material',
+        allowedKinds: ['image'],
+        currentUrl: list[idx]?.image_url || '',
+        onSelect: ({ url }) => {
+          list[idx].image_url = url;
+          renderRecipeMaterialsEditor();
+        },
+      });
     });
   });
   container.querySelectorAll('.enchant-remove').forEach(btn => {
@@ -473,6 +489,12 @@ export function initWeaponModals() {
     const w = state.weapons.find(x => x.id === state.editingWeaponId);
     return w ? (w.image_url || '') : '';
   });
+  attachMediaPickerButton({
+    targetInputId: 'weapon-image-input',
+    insertAfterId: 'weapon-image-upload-btn',
+    title: 'Seleccionar imagen de arma',
+    onSelect: ({ url }) => updateAssetPreview('weapon', url),
+  });
   document.getElementById('weapon-image-clear-btn').addEventListener('click', () => {
     document.getElementById('weapon-image-input').value = '';
     updateAssetPreview('weapon', '');
@@ -494,6 +516,12 @@ export function initWeaponModals() {
   initImageUploader('weapon-rank', 'weapon-ranks', () => {
     const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === state.editingWeaponRankId);
     return rank ? (rank.image_url || '') : '';
+  });
+  attachMediaPickerButton({
+    targetInputId: 'weapon-rank-image-input',
+    insertAfterId: 'weapon-rank-image-upload-btn',
+    title: 'Seleccionar imagen de rango',
+    onSelect: ({ url }) => updateAssetPreview('weapon-rank', url),
   });
   document.getElementById('weapon-rank-image-clear-btn').addEventListener('click', () => {
     document.getElementById('weapon-rank-image-input').value = '';
@@ -548,6 +576,18 @@ export function initWeaponModals() {
       }
     });
   }
+  attachMediaPickerButton({
+    targetInputId: 'weapon-recipe-result-image-input',
+    insertAfterId: 'weapon-recipe-result-image-upload-btn',
+    title: 'Seleccionar imagen de resultado',
+    onSelect: ({ url }) => {
+      recipeResultHidden.value = url;
+      if (recipeResultImgName) {
+        recipeResultImgName.textContent = '✅ Imagen lista';
+        recipeResultImgName.classList.remove('hidden');
+      }
+    },
+  });
 
   document.getElementById('close-weapon-section-modal').addEventListener('click', () => document.getElementById('weapon-section-modal').classList.add('hidden'));
   document.getElementById('weapon-section-kind-input').addEventListener('change', toggleWeaponSectionKindUI);

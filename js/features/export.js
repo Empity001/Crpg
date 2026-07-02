@@ -12,6 +12,7 @@ import { RELEVANCE_LABELS, TIER_COLUMNS, getCategory, state } from '../core/stat
 import { loadCategoriesData } from './categories.js';
 import { loadLogsData } from './logs-data.js';
 import { loadTierlist } from './tierlist.js';
+import { isMediaInfrastructureMissing, listMediaAssets } from '../core/media.js';
 import { asArray, formatDate, showToast } from '../core/utils.js';
 import { fetchWeaponsDataForExport } from './weapons-data.js';
 
@@ -51,6 +52,16 @@ function formatLibreFieldsText(fields) {
 
 function timestamp() {
   return new Date().toISOString().slice(0, 10);
+}
+
+
+async function getMediaAssetsForExport() {
+  const { data, error } = await listMediaAssets({ includeArchived: true });
+  if (error) {
+    if (!isMediaInfrastructureMissing(error)) console.warn('Media export skipped:', error);
+    return [];
+  }
+  return data || [];
 }
 
 
@@ -333,6 +344,40 @@ function buildTierlistSheets() {
 }
 
 
+function buildMediaSheet(mediaAssets) {
+  const headers = [
+    'ID', 'Nombre visible', 'Tipo', 'Origen', 'MIME', 'Tamaño bytes',
+    'Hash', 'Carpeta', 'Storage Path', 'URL', 'Tags', 'Descripción',
+    'Fit', 'Posición', 'Repetición', 'Opacidad', 'Archivado', 'Creado', 'Actualizado',
+  ];
+  const rows = mediaAssets.map(asset => {
+    const presentation = asset.presentation || {};
+    return [
+      asset.id || '',
+      asset.display_name || '',
+      asset.media_kind || '',
+      asset.source_type || '',
+      asset.mime_type || '',
+      asset.file_size ?? '',
+      asset.file_hash || '',
+      asset.folder || '',
+      asset.storage_path || '',
+      asset.url || '',
+      asArray(asset.tags).join(', '),
+      asset.description || '',
+      presentation.fit || '',
+      presentation.position || '',
+      presentation.repeat || '',
+      presentation.opacity ?? '',
+      asset.is_archived ? 'Sí' : 'No',
+      asset.created_at || '',
+      asset.updated_at || '',
+    ];
+  });
+  return buildXlSheet(`🗂️ Multimedia (${rows.length})`, headers, rows, [5,15], [12,28,12,12,20,14,38,16,32,45,26,34,12,18,14,10,10,22,22]);
+}
+
+
 function exportTierlistXlsx() {
   const { wsRows, wsItems } = buildTierlistSheets();
 
@@ -360,6 +405,7 @@ async function exportAllXlsx() {
 
   // Obtener datos de armas sin disparar ningún render de la guía
   const weaponData = await fetchWeaponsDataForExport();
+  const mediaAssets = await getMediaAssetsForExport();
 
   const wb = XLSX.utils.book_new();
   wb.Props = { Title: 'Culones RPG — Backup Completo', Subject: 'Exportación completa', CreatedDate: new Date() };
@@ -378,6 +424,7 @@ async function exportAllXlsx() {
     ['Armas',            weaponData.weapons.length,                                         now],
     ['Categorías Armas', weaponData.categories.length,                                      now],
     ['Tipos de Armas',   weaponData.types.length,                                           now],
+    ['Multimedia',       mediaAssets.length,                                                now],
   ];
   const wsSummary = buildXlSheet('📊 Resumen del Backup', summaryHeaders, summaryRows, [1], [28, 24, 28]);
 
@@ -446,6 +493,7 @@ async function exportAllXlsx() {
     });
   });
   const wsCfg = buildXlSheet(`⚙️ Configuración de Campos (${cfgRows.length})`, cfgHeaders, cfgRows, [4], [14,20,28,12,8]);
+  const wsMedia = buildMediaSheet(mediaAssets);
 
   // --- Ensamblar workbook ---
   XLSX.utils.book_append_sheet(wb, wsSummary,  'Resumen');
@@ -460,10 +508,11 @@ async function exportAllXlsx() {
   XLSX.utils.book_append_sheet(wb, wsRanks,    'Versiones Armas');
   XLSX.utils.book_append_sheet(wb, wsWCats,    'Categorías Armas');
   XLSX.utils.book_append_sheet(wb, wsWTypes,   'Tipos Armas');
+  XLSX.utils.book_append_sheet(wb, wsMedia,    'Multimedia');
   XLSX.utils.book_append_sheet(wb, wsCfg,      'Configuración');
 
   downloadXlsx(wb, `culones-backup-${timestamp()}.xlsx`);
-  showToast('Backup completo exportado a Excel (13 hojas)', 'success');
+  showToast('Backup completo exportado a Excel (14 hojas)', 'success');
 }
 
 // ---------------------------------------------------------
@@ -503,6 +552,7 @@ export async function exportData(type, format) {
       await loadCategoriesData();
       if (!state.tierlistLoaded) await loadTierlist();
       const weaponData = await fetchWeaponsDataForExport();
+      const mediaAssets = await getMediaAssetsForExport();
       const logsWithBlocks = state.logs.map(log => ({
         ...log,
         mobs:  state.mobsByLog[log.id]  || [],
@@ -518,6 +568,7 @@ export async function exportData(type, format) {
         weapon_categories: weaponData.categories,
         weapon_types: weaponData.types,
         weapon_ranks: weaponData.ranksByWeapon,
+        media_assets: mediaAssets,
         field_config: state.fieldConfig,
       };
       downloadFile(JSON.stringify(backup, null, 2), `culones-backup-${timestamp()}.json`, 'application/json');

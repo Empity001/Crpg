@@ -10,6 +10,7 @@ import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { uploadImageToStorage } from '../core/storage.js';
 import { escapeHtml, showToast } from '../core/utils.js';
+import { openMediaPicker } from './media-library.js';
 
 const ABOUT_BLOCK_KINDS = {
   heading:   { label: '🔤 Título',     icon: '🔤' },
@@ -79,7 +80,8 @@ function renderAboutEditorBlocks() {
       <div class="about-block-image-upload-row">
         ${block.url ? `<img src="${escapeHtml(block.url)}" alt="" class="about-block-image-thumb" />` : ''}
         <button type="button" class="btn-upload-zone btn-upload-zone-sm about-block-img-btn" data-idx="${idx}">${block.url ? '✅ Imagen' : '📁 Elegir imagen'}</button>
-        <input type="file" class="hidden about-block-img-file" data-idx="${idx}" accept="image/png,image/jpeg,image/jpg,image/webp" />
+        <button type="button" class="btn-media-picker about-block-media-btn" data-idx="${idx}">Biblioteca</button>
+        <input type="file" class="hidden about-block-img-file" data-idx="${idx}" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
         ${block.url ? `<button type="button" class="link-btn about-block-img-clear" data-idx="${idx}">✕ Quitar</button>` : ''}
       </div>
       <input type="text" class="modal-input about-block-field" data-idx="${idx}" data-field="caption" value="${escapeHtml(block.caption||'')}" placeholder="Pie de foto (opcional)" /></div>${btns}</div>`;
@@ -109,6 +111,20 @@ function renderAboutEditorBlocks() {
         btn.textContent = state.aboutEditorBlocks[idx].url ? '✅ Imagen' : '📁 Elegir imagen';
         showToast(err.message, 'error');
       }
+    });
+  });
+  container.querySelectorAll('.about-block-media-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.idx);
+      openMediaPicker({
+        title: 'Seleccionar imagen de bloque',
+        allowedKinds: ['image'],
+        currentUrl: state.aboutEditorBlocks[idx]?.url || '',
+        onSelect: ({ url }) => {
+          state.aboutEditorBlocks[idx].url = url;
+          renderAboutEditorBlocks();
+        },
+      });
     });
   });
   container.querySelectorAll('.about-block-img-clear').forEach(btn => {

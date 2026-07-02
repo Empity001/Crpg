@@ -11,6 +11,7 @@ import { initTierlistRealtime } from '../app/realtime.js';
 import { state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
 import { registerAdminUiRefreshHandler } from '../features/auth.js';
+import { attachMediaPickerButton } from '../features/media-library.js';
 import {
   initTierItemDropzone, loadTierlist, openTierItemModal, openTierRowModal, renderTierlist,
   submitTierItem, submitTierMove, submitTierRow, syncTierDropzoneState,
@@ -33,6 +34,15 @@ function initTierlistModals() {
   initImageUploader('tier-item', 'tierlist', () => {
     const item = state.editingTierItemId ? state.tierItems.find(i => i.id === state.editingTierItemId) : null;
     return item ? (item.image_url || '') : '';
+  });
+  attachMediaPickerButton({
+    targetInputId: 'tier-item-image-input',
+    insertAfterId: 'tier-item-dropzone',
+    title: 'Seleccionar imagen de tierlist',
+    onSelect: ({ url }) => {
+      updateAssetPreview('tier-item', url);
+      syncTierDropzoneState(url);
+    },
   });
 
   document.getElementById('close-tier-move-modal').addEventListener('click', () => document.getElementById('tier-move-modal').classList.add('hidden'));

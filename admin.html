@@ -27,6 +27,41 @@
       <button class="btn-secondary-admin hidden" id="open-action-log-btn" type="button">🕒 Acciones</button>
     </div>
 
+    <!-- Biblioteca Multimedia -->
+    <div class="admin-section media-library-section" id="media-library-section">
+      <div class="admin-section-head media-library-head">
+        <h2 class="admin-section-title">Biblioteca Multimedia</h2>
+        <div class="media-section-actions">
+          <button type="button" class="media-action-primary" id="media-library-upload-btn">Subir recurso</button>
+          <button type="button" class="media-action-btn" id="media-library-index-btn">Indexar usados</button>
+          <button type="button" class="media-action-btn" id="media-library-refresh-btn">Actualizar</button>
+        </div>
+      </div>
+      <input
+        type="file"
+        id="media-library-file-input"
+        class="hidden"
+        multiple
+        accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng,video/mp4,video/webm"
+      />
+      <div class="media-toolbar">
+        <input type="search" id="media-library-search" class="media-input" placeholder="Buscar recurso..." />
+        <select id="media-library-kind-filter" class="media-input">
+          <option value="all">Todos los tipos</option>
+          <option value="image">Imágenes</option>
+          <option value="video">Videos</option>
+        </select>
+        <select id="media-library-source-filter" class="media-input">
+          <option value="all">Todos los orígenes</option>
+          <option value="storage">Storage</option>
+        </select>
+      </div>
+      <p id="media-library-status" class="media-status">Preparando biblioteca...</p>
+      <div id="media-library-grid" class="media-grid">
+        <p class="media-empty">Cargando biblioteca...</p>
+      </div>
+    </div>
+
     <!-- Borradores -->
     <div class="admin-section">
       <div class="admin-section-head">
@@ -67,7 +102,7 @@
             <button type="button" class="btn-export" data-export="all" data-format="json">Backup completo (JSON)</button>
             <button type="button" class="btn-export btn-export-excel" data-export="all" data-format="xlsx">📊 Excel completo (.xlsx)</button>
           </div>
-          <p class="export-option-hint">El Excel completo incluye todas las hojas: Resumen, Logs, Mobs, Items, Bloques Libres, Tierlist, Armas, Categorías y Configuración.</p>
+          <p class="export-option-hint">El Excel completo incluye todas las hojas: Resumen, Logs, Mobs, Items, Bloques Libres, Tierlist, Armas, Categorías, Multimedia y Configuración.</p>
         </div>
       </div>
     </div>
@@ -98,11 +133,11 @@
 
       <label class="field-label">Imagen de fondo</label>
       <div class="tier-img-dropzone" id="bg-dropzone">
-        <input type="file" id="bg-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
+        <input type="file" id="bg-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
         <input type="hidden" id="bg-image-input" />
         <div class="tier-img-dropzone-icon" id="bg-dropzone-icon">🖼</div>
         <p class="tier-img-dropzone-label" id="bg-dropzone-label">Arrastrá una imagen aquí o hacé click para elegir</p>
-        <p class="tier-img-dropzone-hint">PNG, JPG o WEBP · máx. 3 MB</p>
+        <p class="tier-img-dropzone-hint">PNG, JPG, WEBP, GIF, SVG o APNG · máx. 8 MB</p>
         <div class="tier-img-uploading hidden" id="bg-upload-progress">
           <span class="tier-img-spinner"></span> Subiendo…
         </div>
@@ -154,11 +189,11 @@
         <div class="favicon-preview" id="favicon-preview">?</div>
         <div style="flex:1;">
           <div class="tier-img-dropzone favicon-dropzone" id="favicon-dropzone">
-            <input type="file" id="favicon-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
+            <input type="file" id="favicon-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
             <input type="hidden" id="favicon-image-input" />
             <div class="tier-img-dropzone-icon" id="favicon-dropzone-icon">🖼</div>
             <p class="tier-img-dropzone-label" id="favicon-dropzone-label">Arrastrá una imagen aquí o hacé click para elegir</p>
-            <p class="tier-img-dropzone-hint">PNG, JPG o WEBP cuadrado · máx. 3 MB</p>
+            <p class="tier-img-dropzone-hint">PNG, JPG, WEBP, GIF, SVG o APNG cuadrado · máx. 8 MB</p>
             <div class="tier-img-uploading hidden" id="favicon-upload-progress">
               <span class="tier-img-spinner"></span> Subiendo…
             </div>

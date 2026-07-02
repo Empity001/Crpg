@@ -9,6 +9,16 @@
 // =========================================================
 
 import { supabaseClient } from '../config.js';
+import {
+  MEDIA_BUCKET,
+  MEDIA_IMAGE_MIME_TYPES,
+  MEDIA_UPLOAD_MIME_TYPES,
+  findDuplicateMediaAsset,
+  formatFileSize,
+  hashFile,
+  mediaKindFromMime,
+  registerUploadedMediaAsset,
+} from './media.js';
 import { escapeHtml, safeUrl, showToast } from './utils.js';
 
 export function renderBlockAssetHtml(url, title) {
@@ -58,46 +68,82 @@ export function updateAssetPreview(prefix, url) {
   btn.dataset.assetTitle = document.getElementById(`${prefix}-name-input`)?.value ?? '';
 }
 
-// Sube un archivo de imagen al bucket "culones" de Supabase Storage.
-// folder: carpeta destino ('mobs', 'items', 'tierlist', 'weapons', 'weapon-ranks', 'recipes')
+// Sube un archivo al bucket "culones" de Supabase Storage.
+// folder: carpeta destino ('mobs', 'items', 'tierlist', 'weapons', 'weapon-ranks', 'recipes', 'media')
 // oldUrl: URL previa (si viene de Storage) — se borra para no dejar huérfanos.
-// Devuelve la URL pública de la imagen subida, o lanza error.
+// Devuelve la URL pública subida/reutilizada, o lanza error.
 
-const STORAGE_MAX_BYTES = 3 * 1024 * 1024; // 3 MB
-const STORAGE_ALLOWED   = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-const STORAGE_BUCKET    = 'culones';
+const IMAGE_STORAGE_MAX_BYTES = 8 * 1024 * 1024; // 8 MB
+const MEDIA_STORAGE_MAX_BYTES = 25 * 1024 * 1024; // 25 MB
 
+function extensionForFile(file) {
+  const byName = String(file.name || '').split('.').pop().toLowerCase();
+  if (byName && byName !== file.name) return byName.replace(/[^a-z0-9]/g, '').slice(0, 8);
+  const byMime = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+    'image/svg+xml': 'svg',
+    'image/apng': 'apng',
+    'video/mp4': 'mp4',
+    'video/webm': 'webm',
+  };
+  return byMime[file.type] || 'bin';
+}
 
-export async function uploadImageToStorage(file, folder, oldUrl = '') {
-  if (!STORAGE_ALLOWED.includes(file.type)) {
-    throw new Error('Solo se permiten imágenes PNG, JPG o WEBP.');
+function removeOldStorageObject(oldUrl, nextUrl = '') {
+  if (!oldUrl || oldUrl === nextUrl || !oldUrl.includes(`/storage/v1/object/public/${MEDIA_BUCKET}/`)) return;
+  const oldPath = oldUrl.split(`/storage/v1/object/public/${MEDIA_BUCKET}/`)[1];
+  if (oldPath) {
+    supabaseClient.storage.from(MEDIA_BUCKET).remove([oldPath]).catch(() => {});
   }
-  if (file.size > STORAGE_MAX_BYTES) {
-    throw new Error('El archivo supera el límite de 3 MB.');
+}
+
+export async function uploadMediaToStorage(file, folder = 'media', oldUrl = '', options = {}) {
+  const imageOnly = !!options.imageOnly;
+  const allowed = imageOnly ? MEDIA_IMAGE_MIME_TYPES : MEDIA_UPLOAD_MIME_TYPES;
+  const maxBytes = imageOnly ? IMAGE_STORAGE_MAX_BYTES : MEDIA_STORAGE_MAX_BYTES;
+  if (!allowed.includes(file.type)) {
+    throw new Error(imageOnly
+      ? 'Solo se permiten imágenes PNG, JPG, WEBP, GIF, SVG o APNG.'
+      : 'Solo se permiten PNG, JPG, WEBP, GIF, SVG, APNG, MP4 o WEBM.');
+  }
+  if (file.size > maxBytes) {
+    throw new Error(`El archivo supera el límite de ${formatFileSize(maxBytes)}.`);
   }
 
-  // Nombre único basado en timestamp — evita colisiones y cachés viejas.
-  const ext  = file.name.split('.').pop().toLowerCase().replace('jpg', 'jpeg');
-  const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const fileHash = await hashFile(file);
+  if (fileHash) {
+    const { data: duplicate, error: duplicateError } = await findDuplicateMediaAsset({ hash: fileHash });
+    if (!duplicateError && duplicate?.url) {
+      removeOldStorageObject(oldUrl, duplicate.url);
+      return duplicate.url;
+    }
+  }
+
+  const kind = mediaKindFromMime(file.type);
+  const targetFolder = folder || (kind === 'video' ? 'videos' : 'media');
+  const ext = extensionForFile(file);
+  const path = `${targetFolder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
   const { error: upErr } = await supabaseClient.storage
-    .from(STORAGE_BUCKET)
+    .from(MEDIA_BUCKET)
     .upload(path, file, { upsert: false, contentType: file.type });
 
   if (upErr) throw new Error('Error al subir: ' + upErr.message);
 
-  const { data } = supabaseClient.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+  const { data } = supabaseClient.storage.from(MEDIA_BUCKET).getPublicUrl(path);
 
-  // Borrar imagen antigua del Storage (solo si era de nuestro mismo bucket).
-  if (oldUrl && oldUrl.includes(`/storage/v1/object/public/${STORAGE_BUCKET}/`)) {
-    const oldPath = oldUrl.split(`/storage/v1/object/public/${STORAGE_BUCKET}/`)[1];
-    if (oldPath) {
-      // Fire-and-forget: si falla el borrado no bloqueamos la subida nueva.
-      supabaseClient.storage.from(STORAGE_BUCKET).remove([oldPath]).catch(() => {});
-    }
-  }
+  removeOldStorageObject(oldUrl, data.publicUrl);
+  await registerUploadedMediaAsset({ url: data.publicUrl, file, folder: targetFolder, path, hash: fileHash }).catch(() => {});
 
   return data.publicUrl;
+}
+
+export async function uploadImageToStorage(file, folder, oldUrl = '') {
+  return uploadMediaToStorage(file, folder, oldUrl, { imageOnly: true });
 }
 
 // ---------------------------------------------------------
@@ -157,7 +203,7 @@ export function initGenericImageDropzone(prefix, folder, getOldUrl = () => '', o
       urlInput.value = publicUrl;
       syncGenericDropzoneState(prefix, publicUrl);
       onChange(publicUrl);
-      showToast('Imagen subida correctamente', 'success');
+      showToast('Recurso subido correctamente', 'success');
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
