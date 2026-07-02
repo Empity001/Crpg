@@ -9,6 +9,7 @@ Registro de sesiones de desarrollo. Cada entrada resume qué se hizo, qué qued�
 ## Arquitectura general
 
 - **Web**: sitio estático multipágina (MPA) HTML/CSS/JS. Sin backend propio, sin bundler, sin build step. Desplegado en GitHub Pages.
+- **Deploy temporal**: GitHub Pages está atascado en `deployment_queued` al 2026-07-02. No tocar configuración de deploy por ahora; la QA de P2/P3 se hace localmente con Live Server.
 - **JS**: ES Modules nativos (`<script type="module">`). Ver **"Arquitectura de páginas (sesión 20)"** para la navegación real entre `.html`, y **"Arquitectura del código JS (sesión 19)"** para el detalle de los módulos de `js/features/` y `js/core/` (siguen intactos, solo cambió *quién* los importa).
 - **Base de datos**: Supabase (Postgres). Toda la lógica sensible protegida por RLS + funciones RPC con `security definer` que validan el código de admin antes de actuar.
 - **Multimedia**: Supabase Storage, bucket `culones` (público de lectura) + tabla `media_assets` para recursos propios. Los campos actuales siguen guardando URLs (`image_url` o equivalentes), pero ahora pueden subir o reutilizar recursos desde la Biblioteca Multimedia. Las URLs externas volvieron como valores por uso desde el selector, sin entrar en la biblioteca interna.
@@ -266,7 +267,7 @@ Si en el futuro se agrega un módulo nuevo, conviene repetir el paso 3 (import d
 - `sql/migration_011_media_library.sql`: crea `media_assets`, amplía MIME/tamaño del bucket `culones`, y expone RPCs protegidas por `validate_admin_code`.
 - `sql/migration_012_media_library_archive_cleanup.sql`: agrega RPC admin-gated para borrado definitivo de registros multimedia archivados.
 - Biblioteca en **Herramientas**: búsqueda, filtros por tipo/origen, orden, vista previa, nombre visible, MIME, tamaño, hash, tags, descripción, archivado/restauración, borrado definitivo, listado de usos detectados, render progresivo y modo minimizado.
-- Selector multimedia reutilizable: disponible en Logs (mob/item/libre), Tierlist, Guía de Armas (arma/rango/receta/materiales), About, fondo de página y favicon.
+- Selector multimedia reutilizable: disponible en Logs (mob/item/libre), Tierlist, Guía de Armas (arma/rango/receta/materiales), About, fondo de página y favicon. El picker usa cache temporal, tarjetas compactas, búsqueda con debounce y paginación incremental para no renderizar demasiados assets al abrir.
 - Recursos externos: vuelven como URLs temporales por uso desde el selector; no se guardan en `media_assets` ni aparecen en la biblioteca interna. El modal intenta detectar MIME/tipo y generar vista previa antes de aceptar, con fallback manual si CORS/HEAD no permite detección.
 - Duplicados: los uploads calculan hash y reutilizan el recurso existente si ya fue registrado.
 - Usos detectados: la biblioteca indexa URLs actuales en Logs, Tierlist, Armas, recetas, fondo, favicon y bloques de About.
@@ -468,6 +469,7 @@ Implementado en repo:
 - [x] Fondo guarda `background_config.presentation` por uso para aplicar fit, posición, repetición y opacidad.
 - [x] Biblioteca Multimedia tiene vista de Archivados con restauración, borrado definitivo, modal propio de confirmación y advertencia de usos.
 - [x] Biblioteca minimizable y render progresivo para evitar pintar listas grandes completas.
+- [x] Selector multimedia optimizado para uso real: cache temporal, sin indexar usos al abrir, tarjetas compactas, `loading="lazy"`/`decoding="async"`, búsqueda con debounce y carga incremental sin reconstruir todo al pulsar "Mostrar mas".
 - [x] Export/import de backup completo incluye `media_assets`; Excel completo añade hoja `Multimedia`.
 - [x] UI nueva de P2 ya usa identidad visual de P3: negros profundos, blanco principal y morado `#7C3AED`.
 - [x] Compatibilidad mantenida con `image_url`: los formularios siguen guardando URLs.
@@ -486,6 +488,7 @@ Checklist manual para comprobar:
 - [x] Editar nombre, descripción, tags y opciones de presentación de un recurso.
 - [ ] Elegir un fondo desde la biblioteca y comprobar fit, posición, repetición y opacidad.
 - [ ] Minimizar la Biblioteca Multimedia, confirmar que desaparece el grid, expandir y comprobar búsqueda/filtros/orden.
+- [ ] Con Live Server, abrir el selector multimedia desde Logs, Tierlist, Guía de Armas, About, fondo y favicon; comprobar que abre fluido, muestra tarjetas compactas, filtra/busca sin lag perceptible y "Mostrar mas" agrega recursos sin parpadeo completo.
 - [ ] Archivar un recurso, verlo en Archivados, restaurarlo y comprobar que vuelve a la biblioteca principal.
 - [ ] Intentar eliminar definitivamente un recurso archivado con usos y confirmar que el modal advierte dónde se usa.
 - [x] Exportar backup JSON/XLSX completo y confirmar `media_assets` / hoja `Multimedia`.
