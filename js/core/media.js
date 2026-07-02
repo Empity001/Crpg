@@ -79,7 +79,6 @@ export function isMediaInfrastructureMissing(error) {
     || msg.includes('list_media_assets')
     || msg.includes('upsert_media_asset')
     || msg.includes('find_media_duplicate')
-    || msg.includes('delete_media_asset')
     || msg.includes('could not find the function')
     || msg.includes('schema cache');
 }
@@ -149,14 +148,6 @@ export async function archiveMediaAsset(id, archived = true) {
   const { error } = await supabaseClient.rpc('archive_media_asset', withAdminCode({
     input_id: id,
     input_archived: archived,
-  }));
-  return { error };
-}
-
-export async function deleteMediaAsset(id) {
-  if (!state.adminCode) return { error: new Error('Admin requerido') };
-  const { error } = await supabaseClient.rpc('delete_media_asset', withAdminCode({
-    input_id: id,
   }));
   return { error };
 }

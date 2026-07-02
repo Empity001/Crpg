@@ -93,7 +93,7 @@ export const state = {
   fieldConfigDraft: { mob: [], item: [] },
   aboutBlocks: null,
   aboutEditorBlocks: [],
-  backgroundConfig: { image_url: '', mode: 'fixed', tabs: [], presentation: null, opacity: 1 },
+  backgroundConfig: { image_url: '', mode: 'fixed', tabs: [] },
   faviconUrl: '',
   // Comentarios: cache plano del log abierto + likes + respuesta activa
   commentsFlat: [],

@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>PROJECT_MEMORY — culones-rpg | culones-rpg</title>
+<meta name="generator" content="Jekyll v3.10.0" />
+<meta property="og:title" content="PROJECT_MEMORY — culones-rpg" />
+<meta property="og:locale" content="en_US" />
+<link rel="canonical" href="https://empity001.github.io/culones-rpg/PROJECT_MEMORY.html" />
+<meta property="og:url" content="https://empity001.github.io/culones-rpg/PROJECT_MEMORY.html" />
+<meta property="og:site_name" content="culones-rpg" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="PROJECT_MEMORY — culones-rpg" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","headline":"PROJECT_MEMORY — culones-rpg","url":"https://empity001.github.io/culones-rpg/PROJECT_MEMORY.html"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="stylesheet" href="/culones-rpg/assets/css/style.css?v=d07ed16eb70403c760cdfec2f1f9099a2950ed44">
+    <!-- start custom head snippets, customize with your own _includes/head-custom.html file -->
+
+<!-- Setup Google Analytics -->
+
+
+
+<!-- You can set your favicon here -->
+<!-- link rel="shortcut icon" type="image/x-icon" href="/culones-rpg/favicon.ico" -->
+
+<!-- end custom head snippets -->
+
+  </head>
+  <body>
+    <div class="container-lg px-3 my-5 markdown-body">
+      
+      <h1><a href="https://empity001.github.io/culones-rpg/">culones-rpg</a></h1>
+      
+
+      <h1 id="project_memory--culones-rpg">PROJECT_MEMORY — culones-rpg</h1>
+
+<p>Registro de sesiones de desarrollo. Cada entrada resume qué se hizo, qué quedó pendiente y qué problemas se conocen. Pensado para que cualquier sesión futura pueda retomar el proyecto sin releer todo el código.</p>
+
+<hr />
+
+<h1 id="estado-actual-del-proyecto-tras-auditoría-local-post-refactor">Estado actual del proyecto (tras auditoría local post-refactor)</h1>
+
+<h2 id="arquitectura-general">Arquitectura general</h2>
+
+<ul>
+  <li><strong>Web</strong>: sitio estático multipágina (MPA) HTML/CSS/JS. Sin backend propio, sin bundler, sin build step. Desplegado en GitHub Pages.</li>
+  <li><strong>JS</strong>: ES Modules nativos (<code class="language-plaintext highlighter-rouge">&lt;script type="module"&gt;</code>). Ver <strong>“Arquitectura de páginas (sesión 20)”</strong> para la navegación real entre <code class="language-plaintext highlighter-rouge">.html</code>, y <strong>“Arquitectura del código JS (sesión 19)”</strong> para el detalle de los módulos de <code class="language-plaintext highlighter-rouge">js/features/</code> y <code class="language-plaintext highlighter-rouge">js/core/</code> (siguen intactos, solo cambió <em>quién</em> los importa).</li>
+  <li><strong>Base de datos</strong>: Supabase (Postgres). Toda la lógica sensible protegida por RLS + funciones RPC con <code class="language-plaintext highlighter-rouge">security definer</code> que validan el código de admin antes de actuar.</li>
+  <li><strong>Multimedia</strong>: Supabase Storage, bucket <code class="language-plaintext highlighter-rouge">culones</code> (público de lectura) + tabla <code class="language-plaintext highlighter-rouge">media_assets</code> para recursos propios. Los campos actuales siguen guardando URLs (<code class="language-plaintext highlighter-rouge">image_url</code> o equivalentes), pero ahora pueden subir o reutilizar recursos desde la Biblioteca Multimedia. Las URLs externas volvieron como valores por uso desde el selector, sin entrar en la biblioteca interna.</li>
+  <li><strong>Bot de Discord</strong>: Node.js + discord.js, desplegado en Railway. Se conecta a Supabase directamente con <code class="language-plaintext highlighter-rouge">service_role</code>.</li>
+  <li><strong>Autenticación de admin</strong>: código de 8 caracteres generado por el bot cada 24h, guardado en la tabla <code class="language-plaintext highlighter-rouge">admin_codes</code> con fecha de expiración, persistido en <code class="language-plaintext highlighter-rouge">localStorage</code> (<code class="language-plaintext highlighter-rouge">state.adminCode</code>) — por eso la sesión de admin sobrevive a la navegación entre páginas sin tener que volver a loguearse.</li>
+</ul>
+
+<hr />
+
+<h2 id="arquitectura-de-páginas-sesión-20">Arquitectura de páginas (sesión 20)</h2>
+
+<p><strong>Motivo</strong>: hasta la sesión 19 la web era una única página (<code class="language-plaintext highlighter-rouge">index.html</code>) con 5 <code class="language-plaintext highlighter-rouge">&lt;section class="tab-panel"&gt;</code> que se mostraban/ocultaban por JS (sistema de “pestañas falsas”). Cada carga de <code class="language-plaintext highlighter-rouge">index.html</code> traía <strong>todo</strong> el HTML y (transitivamente, vía <code class="language-plaintext highlighter-rouge">js/app/main.js</code>) <strong>todo</strong> el JS de las 5 secciones, aunque la persona solo quisiera ver los Logs. Se migró a un sitio multipágina real: cada sección es ahora un archivo <code class="language-plaintext highlighter-rouge">.html</code> independiente, con su propio <code class="language-plaintext highlighter-rouge">&lt;script type="module"&gt;</code> de entrada que importa solo lo que esa página necesita.</p>
+
+<h3 id="páginas">Páginas</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Archivo</th>
+      <th>Sección</th>
+      <th>Acceso</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">index.html</code></td>
+      <td>📜 Logs (portada)</td>
+      <td>Todos</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">weapons.html</code></td>
+      <td>⚔️ Guía de Armas</td>
+      <td>Todos</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tierlist.html</code></td>
+      <td>🏆 Tierlist</td>
+      <td>Todos</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">about.html</code></td>
+      <td>🎮 Acerca del Server</td>
+      <td>Todos</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">admin.html</code></td>
+      <td>🛠 Herramientas</td>
+      <td>Solo admin — link oculto en el nav para visitantes, y la propia página redirige a <code class="language-plaintext highlighter-rouge">index.html</code> si se accede sin sesión de admin activa (por URL directa, por ejemplo)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">asset-view.html</code> (visor de imágenes a pantalla completa) ya existía desde antes como página independiente — sirvió de precedente para este patrón.</p>
+
+<h3 id="componentes-compartidos-partials--jsappshelljs">Componentes compartidos: <code class="language-plaintext highlighter-rouge">partials/</code> + <code class="language-plaintext highlighter-rouge">js/app/shell.js</code></h3>
+
+<p>Al no haber build step ni server-side includes (GitHub Pages sirve archivos estáticos tal cual), reutilizar HTML entre páginas se resuelve con <strong>fetch en runtime</strong>:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>partials/
+├── header.html   # crt-overlay + bg-grid + &lt;header class="hud-top"&gt; + &lt;nav class="browser-tabs"&gt;
+└── footer.html   # modal de login de admin + contenedor de toasts
+</code></pre></div></div>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">js/app/include.js</code> expone <code class="language-plaintext highlighter-rouge">loadPartial(url, targetId)</code> y <code class="language-plaintext highlighter-rouge">loadSharedShell()</code>, que hacen <code class="language-plaintext highlighter-rouge">fetch()</code> de esos dos archivos y los inyectan en <code class="language-plaintext highlighter-rouge">&lt;div id="shell-header"&gt;&lt;/div&gt;</code> / <code class="language-plaintext highlighter-rouge">&lt;div id="shell-footer"&gt;&lt;/div&gt;</code> — presentes al principio/final del <code class="language-plaintext highlighter-rouge">&lt;body&gt;</code> de <strong>las 5 páginas</strong>, sin excepción.</li>
+  <li><code class="language-plaintext highlighter-rouge">js/app/shell.js</code> expone <code class="language-plaintext highlighter-rouge">bootShell(pageKey)</code>, la función que <strong>todas</strong> las páginas llaman primero en su <code class="language-plaintext highlighter-rouge">init()</code>:
+    <ol>
+      <li>Inyecta header/footer (<code class="language-plaintext highlighter-rouge">loadSharedShell()</code>).</li>
+      <li>Marca la pestaña activa del nav (<code class="language-plaintext highlighter-rouge">.is-active</code> sobre el <code class="language-plaintext highlighter-rouge">&lt;a data-page="..."&gt;</code> que coincide con <code class="language-plaintext highlighter-rouge">pageKey</code>) y actualiza el texto <code class="language-plaintext highlighter-rouge">culones-rpg.gg/&lt;pageKey&gt;</code> de la barra falsa de URL.</li>
+      <li>Cablea el modal de login de admin (botón ADMIN del header, que ahora vive en el partial compartido).</li>
+      <li>Cablea la delegación global de <code class="language-plaintext highlighter-rouge">.js-open-asset</code> (abrir imágenes a pantalla completa) — se usa desde casi todas las páginas.</li>
+      <li>Llama a <code class="language-plaintext highlighter-rouge">updateAdminUI()</code> (ver más abajo) y a <code class="language-plaintext highlighter-rouge">loadAppSettings()</code> (fondo, favicon, config de fichas y bloques de “about” — son datos globales, se cargan siempre aunque la página actual no los muestre todos).</li>
+    </ol>
+  </li>
+</ul>
+
+<p>El nav de <code class="language-plaintext highlighter-rouge">partials/header.html</code> usa <code class="language-plaintext highlighter-rouge">&lt;a href="..."&gt;</code> reales en vez de <code class="language-plaintext highlighter-rouge">&lt;button data-tab="..."&gt;</code> — la navegación entre pestañas ahora es navegación de browser de verdad, no un cambio de <code class="language-plaintext highlighter-rouge">display</code> por JS. Se mantiene la clase <code class="language-plaintext highlighter-rouge">.tab-item</code> y toda su CSS (con el único agregado de <code class="language-plaintext highlighter-rouge">text-decoration: none</code> para que un link no se vea subrayado), así que visualmente es idéntico a antes. El fade-in de <code class="language-plaintext highlighter-rouge">.tab-panel.is-active</code> se sigue disparando en cada carga de página, así que la transición se “siente” igual.</p>
+
+<h3 id="cada-página-carga-solo-lo-suyo">Cada página carga solo lo suyo</h3>
+
+<p>Se creó <code class="language-plaintext highlighter-rouge">js/pages/</code> con un entry point por página (distinto de <code class="language-plaintext highlighter-rouge">js/features/</code>, que sigue teniendo la lógica de negocio reutilizable):</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>js/pages/
+├── logs.js      # index.html     — modal de log, mob, item, libre, categorías, config de fichas, detalle+comentarios
+├── tierlist.js  # tierlist.html  — modal de fila, elemento y "mover" (móvil)
+├── weapons.js   # weapons.html   — initWeaponModals() (ya estaba 100% autocontenido en weapons-admin.js)
+├── about.js     # about.html     — editor de bloques de "Acerca del Server"
+└── admin.js     # admin.html     — borradores, export, import, fondo, favicon, bitácora de acciones
+</code></pre></div></div>
+
+<p>Cada uno importa únicamente los módulos de <code class="language-plaintext highlighter-rouge">js/features/</code> que le corresponden y cablea únicamente los modales presentes en <strong>su propio</strong> HTML. Por ejemplo, <code class="language-plaintext highlighter-rouge">weapons.js</code> nunca importa <code class="language-plaintext highlighter-rouge">js/features/tierlist.js</code>, y <code class="language-plaintext highlighter-rouge">js/pages/logs.js</code> nunca importa nada de <code class="language-plaintext highlighter-rouge">weapons-*</code>.</p>
+
+<p><code class="language-plaintext highlighter-rouge">js/app/realtime.js</code> se partió en tres funciones (<code class="language-plaintext highlighter-rouge">initLogsRealtime</code>, <code class="language-plaintext highlighter-rouge">initTierlistRealtime</code>, <code class="language-plaintext highlighter-rouge">initWeaponsRealtime</code>) en vez de una única <code class="language-plaintext highlighter-rouge">initRealtime()</code> que suscribía los 3 canales de una — cada página ahora solo se suscribe al canal que le sirve. <code class="language-plaintext highlighter-rouge">admin.html</code> y <code class="language-plaintext highlighter-rouge">about.html</code> no necesitan Realtime y no lo cargan.</p>
+
+<h3 id="reubicaciones-de-piezas-que-estaban-mal-clasificadas">Reubicaciones de piezas que estaban “mal clasificadas”</h3>
+
+<p>Al separar por página se detectaron dos casos donde una función vivía dentro de <code class="language-plaintext highlighter-rouge">admin-panel.js</code> (pensado como “todo lo de Herramientas”) pero en realidad pertenecía a la UI del <strong>modal de log</strong>, que ahora vive solo en <code class="language-plaintext highlighter-rouge">index.html</code>:</p>
+
+<ul>
+  <li>El botón “💾 Guardar borrador” (<code class="language-plaintext highlighter-rouge">draft-manual-save-btn</code>) y el aviso de “hay cambios sin guardar” al cerrar la pestaña (<code class="language-plaintext highlighter-rouge">initBeforeUnload()</code>) se movieron de <code class="language-plaintext highlighter-rouge">admin-panel.js</code> a <code class="language-plaintext highlighter-rouge">js/pages/logs.js</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">initAboutEditor()</code> (el editor de bloques de “Acerca del Server”) se movió de <code class="language-plaintext highlighter-rouge">admin-panel.js</code> a <code class="language-plaintext highlighter-rouge">js/pages/about.js</code> — el botón que lo abre siempre vivió visualmente en la propia página de About, nunca en Herramientas.</li>
+</ul>
+
+<p>Y un caso de acoplamiento cruzado entre páginas: el listado de borradores en Herramientas tenía un botón “Abrir” que llamaba directamente a <code class="language-plaintext highlighter-rouge">openEditLogModal()</code>/<code class="language-plaintext highlighter-rouge">openNewLogModal()</code> de <code class="language-plaintext highlighter-rouge">logs.js</code> — eso ya no es posible (ni deseable) porque el modal de log no existe en <code class="language-plaintext highlighter-rouge">admin.html</code>. Se cambió por navegación real: el botón arma una URL <code class="language-plaintext highlighter-rouge">index.html?draftKey=...&amp;logId=...</code> y <code class="language-plaintext highlighter-rouge">js/pages/logs.js</code>, al cargar, detecta esos parámetros, abre el modal correspondiente y restaura el borrador automáticamente (<code class="language-plaintext highlighter-rouge">checkIncomingDraftLink()</code> en <code class="language-plaintext highlighter-rouge">logs.js</code>).</p>
+
+<h3 id="correcciones-necesarias-para-que-la-carga-solo-de-datos-no-rompiera">Correcciones necesarias para que la carga “solo de datos” no rompiera</h3>
+
+<p>Algunas funciones asumían que su HTML siempre estaba presente en el documento (porque antes SIEMPRE lo estaba, todo vivía en el mismo <code class="language-plaintext highlighter-rouge">index.html</code>). Al dejar de ser cierto, se agregaron guards:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">renderLogs()</code> (<code class="language-plaintext highlighter-rouge">logs.js</code>): ahora retorna temprano si <code class="language-plaintext highlighter-rouge">#logs-grid</code> no existe.</li>
+  <li><code class="language-plaintext highlighter-rouge">renderTierlist()</code> (<code class="language-plaintext highlighter-rouge">tierlist.js</code>): ahora retorna temprano si <code class="language-plaintext highlighter-rouge">#tierlist-board</code>/<code class="language-plaintext highlighter-rouge">#tierlist-bench-columns</code> no existen. Esto además habilita que <code class="language-plaintext highlighter-rouge">admin.html</code> pueda llamar a <code class="language-plaintext highlighter-rouge">loadTierlist()</code> (usado por la exportación “Backup completo”) sin necesitar el tablero visual en el DOM.</li>
+  <li><code class="language-plaintext highlighter-rouge">updateAdminUI()</code> (<code class="language-plaintext highlighter-rouge">auth.js</code>): reescrita para no asumir que los botones admin-only (<code class="language-plaintext highlighter-rouge">open-new-log-btn</code>, <code class="language-plaintext highlighter-rouge">open-new-tier-row-btn</code>, <code class="language-plaintext highlighter-rouge">open-new-weapon-btn</code>, etc.) existen todos a la vez — cada uno se busca y se oculta/muestra solo si está presente en la página actual. También reemplaza el viejo hack de “si cierro sesión estando en la pestaña admin, hago click en la pestaña logs” por una redirección real: <code class="language-plaintext highlighter-rouge">if (!admin &amp;&amp; state.activeTab === 'admin') window.location.href = 'index.html'</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">loadWeaponsCatalog()</code> ahora marca <code class="language-plaintext highlighter-rouge">state.weaponsLoaded = true</code> internamente (antes lo hacía <code class="language-plaintext highlighter-rouge">app/tabs.js</code>, que ya no existe).</li>
+  <li><code class="language-plaintext highlighter-rouge">loadTierlist()</code> ahora marca <code class="language-plaintext highlighter-rouge">state.tierlistLoaded = true</code> internamente por la misma razón.</li>
+  <li><code class="language-plaintext highlighter-rouge">loadLogsData()</code> concentra la carga pura de Logs/Mobs/Items sin renderizar UI. <code class="language-plaintext highlighter-rouge">logs.js</code> la usa y luego llama a <code class="language-plaintext highlighter-rouge">renderLogs()</code>, mientras que <code class="language-plaintext highlighter-rouge">admin.html</code> la usa desde export/import sin arrastrar modales de Logs.</li>
+  <li><code class="language-plaintext highlighter-rouge">loadCategoriesData()</code> hace lo mismo para categorías: carga datos sin tocar filtros/selects/modales. <code class="language-plaintext highlighter-rouge">loadCategories()</code> sigue siendo la versión con render para la página de Logs.</li>
+  <li><code class="language-plaintext highlighter-rouge">drafts-list.js</code> separa el listado de borradores de Herramientas del autoguardado/restauración del formulario de Logs (<code class="language-plaintext highlighter-rouge">drafts.js</code>). Admin ya no importa el formulario de Logs solo para mostrar la lista de borradores.</li>
+  <li><code class="language-plaintext highlighter-rouge">updateAdminUI()</code> expone <code class="language-plaintext highlighter-rouge">registerAdminUiRefreshHandler()</code> para que cada página registre su propio refresco admin-only sin que <code class="language-plaintext highlighter-rouge">auth.js</code> importe directamente <code class="language-plaintext highlighter-rouge">logs.js</code>, <code class="language-plaintext highlighter-rouge">tierlist.js</code> o módulos de Armas.</li>
+  <li><code class="language-plaintext highlighter-rouge">field-config.js</code> expone <code class="language-plaintext highlighter-rouge">setFieldConfigSavedHandler()</code> para notificar a Logs cuando se guardan campos de fichas, sin importar <code class="language-plaintext highlighter-rouge">renderLogs()</code> directamente.</li>
+</ul>
+
+<h3 id="qué-se-eliminó">Qué se eliminó</h3>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">js/app/tabs.js</code> — la carga perezosa por click de pestaña ya no tiene sentido: cada página carga sus datos una sola vez en su propio <code class="language-plaintext highlighter-rouge">init()</code>, apenas se entra a esa URL.</li>
+  <li><code class="language-plaintext highlighter-rouge">js/app/main.js</code> — reemplazado por los 5 archivos de <code class="language-plaintext highlighter-rouge">js/pages/</code> + <code class="language-plaintext highlighter-rouge">js/app/shell.js</code>.</li>
+  <li>El sistema de <code class="language-plaintext highlighter-rouge">display:none</code>/<code class="language-plaintext highlighter-rouge">display:block</code> entre <code class="language-plaintext highlighter-rouge">.tab-panel</code> — cada página ahora tiene un único <code class="language-plaintext highlighter-rouge">.tab-panel.is-active</code>, no hay nada que ocultar.</li>
+</ul>
+
+<h3 id="qué-no-cambió">Qué NO cambió</h3>
+
+<ul>
+  <li>Ningún archivo SQL, ninguna tabla, ninguna función RPC.</li>
+  <li>El bot de Discord.</li>
+  <li>El contenido y la lógica interna de <code class="language-plaintext highlighter-rouge">js/features/*</code> y <code class="language-plaintext highlighter-rouge">js/core/*</code> — se movieron <em>quién los llama</em>, no <em>qué hacen</em>. Las únicas ediciones de código dentro de <code class="language-plaintext highlighter-rouge">features/</code> fueron los guards de DOM listados arriba y la reubicación de las dos piezas mal clasificadas.</li>
+  <li>El diseño visual, la tipografía, las animaciones (incluido el fade-in al entrar a una sección) y el comportamiento de cada funcionalidad: autenticación de admin, Logs, Tierlist, Guía de Armas, borradores, exportación/importación, Storage, Realtime, comentarios, likes — todo se comporta exactamente igual que antes, solo que cada pieza vive en su propio archivo <code class="language-plaintext highlighter-rouge">.html</code>.</li>
+</ul>
+
+<h3 id="cómo-se-verificó">Cómo se verificó</h3>
+
+<ol>
+  <li><strong>IDs referenciados vs. IDs presentes</strong>: se extrajeron todos los <code class="language-plaintext highlighter-rouge">getElementById('...')</code> de cada módulo de <code class="language-plaintext highlighter-rouge">js/features/</code> y <code class="language-plaintext highlighter-rouge">js/pages/</code>, y se compararon contra los <code class="language-plaintext highlighter-rouge">id="..."</code> realmente presentes en la página (+ partials) donde ese módulo se usa. En los módulos enfocados por página no quedan IDs faltantes reales; el único falso positivo global esperado es <code class="language-plaintext highlighter-rouge">load-more-btn</code>, que se crea dinámicamente por JS y no vive en el HTML.</li>
+  <li><strong>Grafo de imports</strong>: todos los <code class="language-plaintext highlighter-rouge">import { x } from '...'</code> se resolvieron contra exports reales de cada archivo (script de Python que compara nombres importados vs. <code class="language-plaintext highlighter-rouge">export function/const</code> del módulo destino). Cero desajustes reales (un único falso positivo: un comentario dentro de <code class="language-plaintext highlighter-rouge">config.js</code> que menciona <code class="language-plaintext highlighter-rouge">'../config.js'</code> como ejemplo de sintaxis).</li>
+  <li><strong>Sintaxis</strong>: <code class="language-plaintext highlighter-rouge">node --check</code> sobre los ~35 archivos <code class="language-plaintext highlighter-rouge">.js</code> del proyecto.</li>
+  <li><strong>HTML bien formado</strong>: parseo de las 5 páginas + los 2 partials con <code class="language-plaintext highlighter-rouge">html.parser</code> de Python, verificando que cada tag abierto tenga su cierre correspondiente.</li>
+</ol>
+
+<hr />
+
+<p><strong>Motivo</strong>: hasta la sesión 18, toda la lógica del frontend (~4875 líneas) vivía en un único archivo <code class="language-plaintext highlighter-rouge">js/app.js</code>. Se dividió en módulos ES por responsabilidad para que sea mantenible y escalable, <strong>sin cambiar ningún comportamiento visible</strong>. La única corrección funcional necesaria fue mover la variable de paginación <code class="language-plaintext highlighter-rouge">_logsPage</code> a <code class="language-plaintext highlighter-rouge">state.logsPage</code> (ver “Decisiones técnicas” abajo) — todo lo demás es exactamente el mismo código, solo movido de lugar.</p>
+
+<h3 id="cómo-se-cargan-los-módulos">Cómo se cargan los módulos</h3>
+
+<blockquote>
+  <p><strong>Nota (sesión 20)</strong>: esta sección describe la división interna de <code class="language-plaintext highlighter-rouge">js/features/</code> y <code class="language-plaintext highlighter-rouge">js/core/</code>, que sigue igual. Lo que cambió es <em>qué archivo hace de punto de entrada</em> — ya no es un único <code class="language-plaintext highlighter-rouge">js/app/main.js</code> para toda la web, sino un entry point por página en <code class="language-plaintext highlighter-rouge">js/pages/</code> (ver “Arquitectura de páginas (sesión 20)” más arriba). El patrón de carga es el mismo en las 5 páginas, por ejemplo en <code class="language-plaintext highlighter-rouge">index.html</code>:</p>
+</blockquote>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="nt">&lt;script </span><span class="na">type=</span><span class="s">"module"</span> <span class="na">src=</span><span class="s">"js/pages/logs.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">js/pages/logs.js</code> importa (directa o transitivamente) todos los módulos que la página de Logs necesita, así que no hace falta ningún <code class="language-plaintext highlighter-rouge">&lt;script&gt;</code> adicional en el HTML. Los scripts de terceros (<code class="language-plaintext highlighter-rouge">supabase-js</code> en las 5 páginas, <code class="language-plaintext highlighter-rouge">xlsx</code> de SheetJS solo en <code class="language-plaintext highlighter-rouge">admin.html</code>) se siguen cargando como <code class="language-plaintext highlighter-rouge">&lt;script&gt;</code> clásico antes del módulo, y sus globals (<code class="language-plaintext highlighter-rouge">window.supabase</code>, <code class="language-plaintext highlighter-rouge">XLSX</code>) se usan tal cual desde dentro de los módulos.</p>
+
+<p><code class="language-plaintext highlighter-rouge">js/config.js</code> exporta <code class="language-plaintext highlighter-rouge">supabaseClient</code> (antes era una variable global <code class="language-plaintext highlighter-rouge">const</code> suelta) — es el único módulo que lee <code class="language-plaintext highlighter-rouge">window.supabase</code>.</p>
+
+<h3 id="árbol-de-carpetas">Árbol de carpetas</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>js/
+├── config.js                    # Supabase client (URL + anon key)
+├── core/                        # Fundacional: sin lógica de negocio propia
+│   ├── state.js                 # Objeto `state` global + constantes compartidas
+│   ├── utils.js                 # Helpers puros sin dependencias de dominio
+│   ├── storage.js               # Supabase Storage: subida/preview/dropzones de imagen
+│   └── media.js                 # Núcleo de Biblioteca Multimedia: MIME, hash, duplicados y RPCs
+├── features/                    # Un módulo por responsabilidad de producto
+│   ├── categories.js            # Categorías dinámicas de logs
+│   ├── field-config.js          # Config de campos de fichas Mob/Item (+ carga de app_settings)
+│   ├── action-log.js            # Bitácora de acciones (solo lectura admin)
+│   ├── logs.js                  # CRUD de logs + tarjetas + orden/paginación
+│   ├── comments.js              # Comentarios: carga, respuestas, likes, moderación
+│   ├── blocks-display.js        # Render de solo-lectura de fichas Mob/Item/Libre
+│   ├── blocks-editor.js         # Edición admin de fichas dentro del form de log
+│   ├── drafts.js                # Borradores en localStorage (autoguardado + listado)
+│   ├── auth.js                  # Login/logout de admin
+│   ├── tierlist.js              # Tierlist completa (filas, elementos, drag&amp;drop, banco)
+│   ├── weapons-state.js         # Selectores puros sobre el estado de armas
+│   ├── weapons-data.js          # Carga de datos de armas desde Supabase
+│   ├── weapons-catalog.js       # Catálogo público: filtros + grid
+│   ├── weapons-catalog-admin.js # CRUD de categorías/tipos de arma
+│   ├── weapons-detail.js        # Vista de detalle de un arma (rangos, habilidades, receta)
+│   ├── weapons-admin.js         # CRUD de armas/rangos + cableado de todos sus modales
+│   ├── about.js                 # "Acerca del Server": render público + editor admin
+│   ├── background.js            # Fondo de página configurable
+│   ├── favicon.js               # Favicon configurable
+│   ├── export.js                # Exportación a Excel (SheetJS) y JSON
+│   ├── import.js                # Importación de JSON + detección de conflictos
+│   ├── media-library.js         # Biblioteca Multimedia + selector reutilizable
+│   └── admin-panel.js           # Cableado de la página 🛠 Herramientas (export/import/drafts/fondo/favicon/multimedia)
+├── app/                         # Orquestación / bootstrap compartido por TODAS las páginas
+│   ├── include.js                # Carga partials/header.html y partials/footer.html vía fetch
+│   ├── shell.js                  # bootShell(pageKey): header/nav/admin-modal/updateAdminUI/app_settings
+│   └── realtime.js               # 3 funciones separadas: initLogsRealtime/initTierlistRealtime/initWeaponsRealtime
+└── pages/                        # Un entry point por página .html (sesión 20)
+    ├── logs.js                   # index.html
+    ├── tierlist.js                # tierlist.html
+    ├── weapons.js                 # weapons.html
+    ├── about.js                   # about.html
+    └── admin.js                   # admin.html
+</code></pre></div></div>
+
+<h3 id="reglas-de-dependencia">Reglas de dependencia</h3>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">core/</code> no depende de <code class="language-plaintext highlighter-rouge">features/</code> ni <code class="language-plaintext highlighter-rouge">app/</code> (solo entre sí: <code class="language-plaintext highlighter-rouge">state.js</code> usa <code class="language-plaintext highlighter-rouge">utils.js</code>; <code class="language-plaintext highlighter-rouge">storage.js</code> usa <code class="language-plaintext highlighter-rouge">utils.js</code>).</li>
+  <li><code class="language-plaintext highlighter-rouge">features/*</code> puede depender de <code class="language-plaintext highlighter-rouge">core/*</code> y de otros <code class="language-plaintext highlighter-rouge">features/*</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">app/*</code> es la capa de bootstrap compartido: importa de <code class="language-plaintext highlighter-rouge">features/*</code> y <code class="language-plaintext highlighter-rouge">core/*</code> para cablear el header/nav/admin-modal comunes a las 5 páginas.</li>
+  <li><code class="language-plaintext highlighter-rouge">pages/*</code> es la capa más externa, específica de cada página: importa <code class="language-plaintext highlighter-rouge">app/shell.js</code> + <code class="language-plaintext highlighter-rouge">app/realtime.js</code> + solo los <code class="language-plaintext highlighter-rouge">features/*</code> que esa página necesita, y cablea el resto del DOM de esa página en concreto.</li>
+  <li>Cada archivo exporta explícitamente (<code class="language-plaintext highlighter-rouge">export function</code>/<code class="language-plaintext highlighter-rouge">export const</code>) todo lo que otro módulo necesita — no hay nada colgado de <code class="language-plaintext highlighter-rouge">window</code> salvo lo que ya venía de terceros (<code class="language-plaintext highlighter-rouge">window.supabase</code>, <code class="language-plaintext highlighter-rouge">XLSX</code>).</li>
+</ul>
+
+<h3 id="dependencias-circulares-intencionales--conocidas">Dependencias circulares (intencionales / conocidas)</h3>
+
+<p>La auditoría post-refactor confirmó que no hay imports rotos ni módulos huérfanos. También se eliminaron dos ciclos innecesarios del área de Logs (<code class="language-plaintext highlighter-rouge">logs.js</code> ↔ <code class="language-plaintext highlighter-rouge">blocks-editor.js</code> y <code class="language-plaintext highlighter-rouge">logs.js</code> ↔ <code class="language-plaintext highlighter-rouge">categories.js</code>). Los ciclos que quedan están acotados al subsistema de Guía de Armas, donde la UI tiene un ciclo real render↔acción: abrir el detalle de un arma dispara acciones admin que a su vez recargan datos y vuelven a renderizar el catálogo/detalle.</p>
+
+<p>En la misma auditoría se limpió la superficie pública de los módulos: las funciones/constantes que solo se usan dentro de su propio archivo dejaron de exportarse. El grafo queda con <strong>0 imports rotos</strong>, <strong>0 módulos huérfanos</strong> y <strong>0 exports sobrantes</strong>.</p>
+
+<p>ES Modules soporta estos ciclos porque las referencias cruzadas se usan dentro de funciones, no durante la evaluación inicial del módulo. Aun así, quedan registrados como deuda técnica de arquitectura:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">weapons-detail.js</code> ↔ <code class="language-plaintext highlighter-rouge">weapons-admin.js</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">weapons-catalog.js</code> ↔ <code class="language-plaintext highlighter-rouge">weapons-detail.js</code> ↔ <code class="language-plaintext highlighter-rouge">weapons-admin.js</code>.</li>
+  <li>Ciclos más largos entre <code class="language-plaintext highlighter-rouge">weapons-data.js</code>, <code class="language-plaintext highlighter-rouge">weapons-catalog.js</code>, <code class="language-plaintext highlighter-rouge">weapons-catalog-admin.js</code>, <code class="language-plaintext highlighter-rouge">weapons-detail.js</code> y <code class="language-plaintext highlighter-rouge">weapons-admin.js</code>.</li>
+</ul>
+
+<p>No se consideran bloqueantes ahora mismo, pero si la Guía de Armas crece conviene introducir una capa de eventos/callbacks o un pequeño coordinador para separar render, carga de datos y acciones admin.</p>
+
+<h3 id="decisiones-técnicas">Decisiones técnicas</h3>
+
+<ul>
+  <li><strong><code class="language-plaintext highlighter-rouge">_logsPage</code> → <code class="language-plaintext highlighter-rouge">state.logsPage</code></strong>: en el <code class="language-plaintext highlighter-rouge">app.js</code> original, <code class="language-plaintext highlighter-rouge">_logsPage</code> era un <code class="language-plaintext highlighter-rouge">let</code> de módulo reasignado desde tres sitios distintos (orden, filtro de categoría, “cargar más”). Un binding <code class="language-plaintext highlighter-rouge">import</code> en ES Modules es de <strong>solo lectura</strong> desde el módulo que importa — no se puede hacer <code class="language-plaintext highlighter-rouge">_logsPage = 1</code> fuera de <code class="language-plaintext highlighter-rouge">state.js</code>. Se resolvió moviéndolo a una propiedad mutable del objeto <code class="language-plaintext highlighter-rouge">state</code> (<code class="language-plaintext highlighter-rouge">state.logsPage</code>), que si se puede mutar desde cualquier módulo porque <code class="language-plaintext highlighter-rouge">state</code> en sí es un <code class="language-plaintext highlighter-rouge">const</code> (el binding no cambia, solo sus propiedades). Es el único cambio de comportamiento interno del refactor, y es 100% transparente para el usuario.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">initModals()</code> (histórico, sesión 19)</strong>: originalmente vivía entera en <code class="language-plaintext highlighter-rouge">app/main.js</code> y ataba botones de todos los dominios contra sus <code class="language-plaintext highlighter-rouge">open*</code>/<code class="language-plaintext highlighter-rouge">submit*</code>. Desde la sesión 20 ya no existe como una única función — se partió en un <code class="language-plaintext highlighter-rouge">initXModals()</code> por página dentro de cada <code class="language-plaintext highlighter-rouge">js/pages/*.js</code> (ver “Arquitectura de páginas (sesión 20)”), porque ahora cada página solo tiene en su DOM los modales que le corresponden.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">blocks-display.js</code> vs <code class="language-plaintext highlighter-rouge">blocks-editor.js</code></strong>: las fichas de Mob/Item/Libre se separaron en “cómo se muestran” (solo lectura, usado por logs y por la vista de detalle) vs “cómo se editan” (modales admin, usado solo dentro del form de log). Antes vivían mezcladas en el mismo bloque de funciones.</li>
+  <li><strong>Dropzone de imagen de la tierlist</strong> (<code class="language-plaintext highlighter-rouge">syncTierDropzoneState</code>, <code class="language-plaintext highlighter-rouge">initTierItemDropzone</code>) se movió de la zona genérica de Storage a <code class="language-plaintext highlighter-rouge">tierlist.js</code>, porque es específica de ese modal — la parte genérica reutilizable (<code class="language-plaintext highlighter-rouge">initGenericImageDropzone</code>, <code class="language-plaintext highlighter-rouge">initImageUploader</code>) se quedó en <code class="language-plaintext highlighter-rouge">core/storage.js</code>.</li>
+  <li>Ningún archivo SQL, CSS, HTML (salvo la etiqueta <code class="language-plaintext highlighter-rouge">&lt;script&gt;</code> de carga) ni el bot de Discord se tocaron — el refactor es exclusivamente de <code class="language-plaintext highlighter-rouge">js/app.js</code> → módulos.</li>
+</ul>
+
+<h3 id="cómo-verificar-el-refactor">Cómo verificar el refactor</h3>
+
+<p>No hay entorno de browser automatizado en este repo, así que la validación se hizo así:</p>
+<ol>
+  <li><strong>Diff de contenido</strong>: se extrajo cada línea de código real (sin comentarios/blancos) del <code class="language-plaintext highlighter-rouge">app.js</code> original y de todos los módulos nuevos, y se comparó como multiset — la única diferencia son las 6 líneas de <code class="language-plaintext highlighter-rouge">_logsPage</code> → <code class="language-plaintext highlighter-rouge">state.logsPage</code> explicadas arriba. Cero código perdido, cero código duplicado.</li>
+  <li><strong>Sintaxis</strong>: <code class="language-plaintext highlighter-rouge">node --check</code> sobre cada archivo <code class="language-plaintext highlighter-rouge">.js</code>.</li>
+  <li><strong>Grafo de imports</strong> <em>(histórico — el archivo <code class="language-plaintext highlighter-rouge">app/main.js</code> referenciado acá ya no existe desde la sesión 20; ver la sección “Cómo se verificó” de la sesión 20 para el método actualizado)</em>: <code class="language-plaintext highlighter-rouge">import('./app/main.js')</code> con globals de <code class="language-plaintext highlighter-rouge">document</code>/<code class="language-plaintext highlighter-rouge">window</code>/<code class="language-plaintext highlighter-rouge">localStorage</code> mockeados — confirma que todos los <code class="language-plaintext highlighter-rouge">import</code>/<code class="language-plaintext highlighter-rouge">export</code> resuelven correctamente y no hay ciclos rotos.</li>
+</ol>
+
+<p>Si en el futuro se agrega un módulo nuevo, conviene repetir el paso 3 (import dinámico del árbol completo) antes de dar por buena la integración.</p>
+
+<hr />
+
+<h2 id="páginas-de-la-web">Páginas de la web</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Página</th>
+      <th>Archivo</th>
+      <th><code class="language-plaintext highlighter-rouge">data-page</code></th>
+      <th>Visible para</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>📜 Logs</td>
+      <td><code class="language-plaintext highlighter-rouge">index.html</code></td>
+      <td><code class="language-plaintext highlighter-rouge">logs</code></td>
+      <td>Todos</td>
+    </tr>
+    <tr>
+      <td>⚔️ Guía de Armas</td>
+      <td><code class="language-plaintext highlighter-rouge">weapons.html</code></td>
+      <td><code class="language-plaintext highlighter-rouge">weapons</code></td>
+      <td>Todos</td>
+    </tr>
+    <tr>
+      <td>🏆 Tierlist</td>
+      <td><code class="language-plaintext highlighter-rouge">tierlist.html</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tierlist</code></td>
+      <td>Todos</td>
+    </tr>
+    <tr>
+      <td>🎮 Acerca del Server</td>
+      <td><code class="language-plaintext highlighter-rouge">about.html</code></td>
+      <td><code class="language-plaintext highlighter-rouge">about</code></td>
+      <td>Todos</td>
+    </tr>
+    <tr>
+      <td>🛠 Herramientas</td>
+      <td><code class="language-plaintext highlighter-rouge">admin.html</code></td>
+      <td><code class="language-plaintext highlighter-rouge">admin</code></td>
+      <td>Solo admin (link oculto en el nav; la página redirige a <code class="language-plaintext highlighter-rouge">index.html</code> si se accede sin sesión)</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="tablas-en-supabase">Tablas en Supabase</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tabla</th>
+      <th>Descripción</th>
+      <th>Migración</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">logs</code></td>
+      <td>Logs principales del servidor</td>
+      <td>schema.sql</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">comments</code></td>
+      <td>Comentarios por log (con <code class="language-plaintext highlighter-rouge">parent_id</code> para respuestas, <code class="language-plaintext highlighter-rouge">hidden</code> para moderación)</td>
+      <td>schema.sql</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">admin_codes</code></td>
+      <td>Códigos temporales de admin (generados por el bot)</td>
+      <td>schema.sql</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">log_likes</code></td>
+      <td>Un registro por (log_id, client_id) para evitar likes duplicados</td>
+      <td>schema.sql</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">categories</code></td>
+      <td>Categorías dinámicas de logs (slug, label, emoji, color)</td>
+      <td>002</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">log_mobs</code></td>
+      <td>Fichas de mobs adjuntas a un log (vida, daño, armor, equipamiento)</td>
+      <td>003</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">log_items</code></td>
+      <td>Fichas de items adjuntas a un log (nombre, rango, tipo, fuente)</td>
+      <td>003</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">comment_likes</code></td>
+      <td>Likes de comentarios (con RPC admin para moderar)</td>
+      <td>004</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">app_settings</code></td>
+      <td>Configuración de la app (campos de fichas de mob/item, etc.)</td>
+      <td>004</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">action_log</code></td>
+      <td>Bitácora de acciones de admin (solo inserción, lectura admin-gated)</td>
+      <td>005</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tierlist_rows</code></td>
+      <td>Filas de la tierlist (nombre, color, sort_order)</td>
+      <td>006</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tierlist_items</code></td>
+      <td>Elementos de la tierlist (row_id nullable=banco, column_key, image_url)</td>
+      <td>006</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">drafts</code></td>
+      <td>Borradores guardados en Supabase (actualmente no se usa — ver nota abajo)</td>
+      <td>007</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">weapon_categories</code></td>
+      <td>Categorías de armas (label, color)</td>
+      <td>008</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">weapon_types</code></td>
+      <td>Tipos de armas (label)</td>
+      <td>008</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">weapons</code></td>
+      <td>Armas (name, image_url, published, category_id, type_id)</td>
+      <td>008</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">weapon_ranks</code></td>
+      <td>Rangos por arma (name, description, image_url, stats jsonb, abilities jsonb, upgrade_recipe jsonb, extra_sections jsonb)</td>
+      <td>008</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">media_assets</code></td>
+      <td>Índice reutilizable de recursos propios de Storage: MIME, hash, metadatos, presentación y archivado</td>
+      <td>011</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="sistema-multimedia-estado-actual-prioridad-2">Sistema Multimedia (estado actual, Prioridad 2)</h2>
+
+<p><strong>Implementado:</strong> Biblioteca Multimedia reutilizable sobre Supabase Storage + metadatos en <code class="language-plaintext highlighter-rouge">media_assets</code>, manteniendo compatibilidad con los campos actuales basados en URL (<code class="language-plaintext highlighter-rouge">image_url</code>, <code class="language-plaintext highlighter-rouge">background_config.image_url</code>, <code class="language-plaintext highlighter-rouge">favicon_url</code>, bloques de About, recetas, etc.).</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">js/core/media.js</code>: núcleo del sistema. Define MIME soportados, tipo dinámico (<code class="language-plaintext highlighter-rouge">image</code>, <code class="language-plaintext highlighter-rouge">video</code>, <code class="language-plaintext highlighter-rouge">audio</code>, <code class="language-plaintext highlighter-rouge">document</code>, <code class="language-plaintext highlighter-rouge">other</code>), hash SHA-256, detección de duplicados, helpers de Storage y RPCs admin-gated (<code class="language-plaintext highlighter-rouge">listMediaAssets</code>, <code class="language-plaintext highlighter-rouge">upsertMediaAsset</code>, <code class="language-plaintext highlighter-rouge">archiveMediaAsset</code>, etc.).</li>
+  <li><code class="language-plaintext highlighter-rouge">js/core/storage.js</code>: conserva <code class="language-plaintext highlighter-rouge">uploadImageToStorage()</code> para no romper llamadas existentes, pero ahora delega en <code class="language-plaintext highlighter-rouge">uploadMediaToStorage()</code>. Campos de imagen aceptan PNG, JPG/JPEG, WEBP, GIF, SVG y APNG hasta 8 MB; la biblioteca acepta además MP4 y WEBM hasta 25 MB.</li>
+  <li><code class="language-plaintext highlighter-rouge">sql/migration_011_media_library.sql</code>: crea <code class="language-plaintext highlighter-rouge">media_assets</code>, amplía MIME/tamaño del bucket <code class="language-plaintext highlighter-rouge">culones</code>, y expone RPCs protegidas por <code class="language-plaintext highlighter-rouge">validate_admin_code</code>.</li>
+  <li>Biblioteca en <strong>Herramientas</strong>: búsqueda, filtros por tipo/origen, orden por fecha descendente, vista previa, nombre visible, MIME, tamaño, hash, tags, descripción, archivado y listado de usos detectados.</li>
+  <li>Selector multimedia reutilizable: disponible en Logs (mob/item/libre), Tierlist, Guía de Armas (arma/rango/receta/materiales), About, fondo de página y favicon.</li>
+  <li>Recursos externos: vuelven como URLs temporales por uso desde el selector; no se guardan en <code class="language-plaintext highlighter-rouge">media_assets</code> ni aparecen en la biblioteca interna.</li>
+  <li>Duplicados: los uploads calculan hash y reutilizan el recurso existente si ya fue registrado.</li>
+  <li>Usos detectados: la biblioteca indexa URLs actuales en Logs, Tierlist, Armas, recetas, fondo, favicon y bloques de About.</li>
+  <li>Presentación preparada: cada recurso guarda <code class="language-plaintext highlighter-rouge">presentation</code> con <code class="language-plaintext highlighter-rouge">fit</code>, <code class="language-plaintext highlighter-rouge">position</code>, <code class="language-plaintext highlighter-rouge">repeat</code> y <code class="language-plaintext highlighter-rouge">opacity</code>; el selector devuelve esos datos para usos futuros.</li>
+  <li>Export/import: el backup completo JSON incluye <code class="language-plaintext highlighter-rouge">media_assets</code>; el Excel completo añade hoja <code class="language-plaintext highlighter-rouge">Multimedia</code>.</li>
+  <li>Identidad visual de P3 aplicada desde P2: la biblioteca, picker, modales, botones, filtros, estados y previews usan negros profundos, blanco para información principal y morado <code class="language-plaintext highlighter-rouge">#7C3AED</code>.</li>
+</ul>
+
+<hr />
+
+<h2 id="sistema-de-borradores-estado-real">Sistema de borradores (estado real)</h2>
+
+<p><strong>Importante</strong>: hay <strong>dos sistemas</strong> de borradores que coexisten de forma no completamente integrada:</p>
+
+<ol>
+  <li><strong>localStorage</strong> (el que se usa activamente): <code class="language-plaintext highlighter-rouge">draftKey(logId)</code> → <code class="language-plaintext highlighter-rouge">'culones_draft_log_new'</code> o <code class="language-plaintext highlighter-rouge">'culones_draft_log_${id}'</code>. Captura título, descripción, categoría, relevancia, fecha, mobs, items, libres. Autoguardado cada 30s mientras el modal de log está abierto, y al cerrar el modal. Se muestra en la pestaña 🛠 Herramientas como lista de borradores recuperables. <strong>Funciona completamente, solo para logs.</strong></li>
+  <li><strong>Supabase (tabla <code class="language-plaintext highlighter-rouge">drafts</code>)</strong>: la tabla existe (migration_007) con RPC <code class="language-plaintext highlighter-rouge">save_draft</code>, <code class="language-plaintext highlighter-rouge">list_drafts</code>, <code class="language-plaintext highlighter-rouge">delete_draft</code>. Pero <strong>ninguna función del frontend actual llama a estas RPCs</strong> — el frontend usa localStorage. La tabla fue diseñada para sincronizar borradores entre dispositivos, pero no está conectada.</li>
+</ol>
+
+<p><strong>Pendiente</strong>: conectar el sistema de borradores de localStorage al de Supabase, o decidir que solo se usa localStorage (más simple, pero no sincroniza entre dispositivos).</p>
+
+<hr />
+
+<h2 id="sistema-de-comentarios">Sistema de comentarios</h2>
+
+<ul>
+  <li>Comentarios por log con alias libre (sin login).</li>
+  <li><strong>Respuestas</strong>: un nivel de anidación. <code class="language-plaintext highlighter-rouge">parent_id</code> en la tabla <code class="language-plaintext highlighter-rouge">comments</code>. Se activan con botón “Responder” en el modal de detalle.</li>
+  <li><strong>Likes de comentarios</strong>: tabla <code class="language-plaintext highlighter-rouge">comment_likes</code>, con RPC para togglear.</li>
+  <li><strong>Moderación admin</strong>: botones ocultar/mostrar (RPC <code class="language-plaintext highlighter-rouge">set_comment_hidden</code>) y borrar definitivo. Los comentarios ocultos muestran tag <code class="language-plaintext highlighter-rouge">[OCULTO]</code> solo para el admin.</li>
+</ul>
+
+<hr />
+
+<h2 id="guía-de-armas">Guía de Armas</h2>
+
+<ul>
+  <li>Catálogo de armas con categorías y tipos dinámicos.</li>
+  <li>Cada arma tiene múltiples rangos (<code class="language-plaintext highlighter-rouge">weapon_ranks</code>), y cada rango contiene en JSONB: <code class="language-plaintext highlighter-rouge">stats</code> (pares clave/valor), <code class="language-plaintext highlighter-rouge">abilities</code> (habilidades con nivel, stats propios), <code class="language-plaintext highlighter-rouge">upgrade_recipe</code> (materiales → resultado), <code class="language-plaintext highlighter-rouge">extra_sections</code> (secciones libres de contenido futuro).</li>
+  <li>Admin puede publicar/ocultar armas (campo <code class="language-plaintext highlighter-rouge">published</code>). Las armas no publicadas solo las ve el admin.</li>
+  <li><code class="language-plaintext highlighter-rouge">saveRankPatch(rankId, patch)</code> envía el objeto completo del rango en cada edición parcial — funciona pero es frágil (ver problemas conocidos).</li>
+  <li><strong>Vista de detalle</strong> inline dentro del panel de weapons (no es un modal separado) con <code class="language-plaintext highlighter-rouge">openWeaponDetail()</code> / <code class="language-plaintext highlighter-rouge">closeWeaponDetail()</code>.</li>
+</ul>
+
+<hr />
+
+<h2 id="tierlist">Tierlist</h2>
+
+<ul>
+  <li>Filas dinámicas (nombre, color, sort_order) × 3 columnas fijas (<code class="language-plaintext highlighter-rouge">weapon</code>, <code class="language-plaintext highlighter-rouge">subweapon</code>, <code class="language-plaintext highlighter-rouge">accessory</code>).</li>
+  <li><code class="language-plaintext highlighter-rouge">row_id = null</code> → elemento en el banco “Sin clasificar”.</li>
+  <li>Drag &amp; drop en PC (eventos nativos HTML5), botón “↕ Mover a…” en móvil.</li>
+  <li>Imágenes en pixel-art (<code class="language-plaintext highlighter-rouge">image-rendering: pixelated</code>) — pensadas para sprites de Minecraft.</li>
+  <li>El nombre de cada elemento se muestra debajo de su miniatura (<code class="language-plaintext highlighter-rouge">.tier-chip-name</code>).</li>
+</ul>
+
+<hr />
+
+<h2 id="pestaña--herramientas-solo-admin">Pestaña 🛠 Herramientas (solo admin)</h2>
+
+<p>Contiene:</p>
+<ul>
+  <li><strong>Biblioteca Multimedia</strong>: índice reusable de recursos internos de Storage, selector, buscador, filtros, metadatos, duplicados e indexado de usos.</li>
+  <li><strong>📝 Borradores</strong>: lista de borradores de log guardados en localStorage en este dispositivo. Botón “Limpiar todos”.</li>
+  <li><strong>📤 Exportar</strong>: exportación a Excel (.xlsx) o JSON. Excel genera archivos con múltiples hojas (Logs, Mobs, Items, Libres para la sección de logs; Filas y Elementos para tierlist; Todo combina todo, incluida hoja/lista <code class="language-plaintext highlighter-rouge">Multimedia</code>). También export de armas en <code class="language-plaintext highlighter-rouge">exportAllXlsx</code>.</li>
+  <li><strong>📥 Importar</strong>: importación de JSON. Analiza conflictos antes de aplicar y muestra modal de confirmación con lista de conflictos detectados, incluyendo <code class="language-plaintext highlighter-rouge">media_assets</code> en backups completos.</li>
+  <li><strong>🕒 Acciones</strong>: botón discreto en la cabecera del panel admin que abre el modal de bitácora (<code class="language-plaintext highlighter-rouge">action_log</code>).</li>
+</ul>
+
+<hr />
+
+<h2 id="realtime-supabase">Realtime (Supabase)</h2>
+
+<p>Se escuchan cambios en tiempo real en 3 canales:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">logs-changes</code>: tablas <code class="language-plaintext highlighter-rouge">logs</code>, <code class="language-plaintext highlighter-rouge">log_mobs</code>, <code class="language-plaintext highlighter-rouge">log_items</code>, <code class="language-plaintext highlighter-rouge">comments</code></li>
+  <li><code class="language-plaintext highlighter-rouge">tierlist-changes</code>: tablas <code class="language-plaintext highlighter-rouge">tierlist_rows</code>, <code class="language-plaintext highlighter-rouge">tierlist_items</code></li>
+  <li><code class="language-plaintext highlighter-rouge">weapons-changes</code>: tablas <code class="language-plaintext highlighter-rouge">weapons</code>, <code class="language-plaintext highlighter-rouge">weapon_ranks</code>, <code class="language-plaintext highlighter-rouge">weapon_categories</code>, <code class="language-plaintext highlighter-rouge">weapon_types</code></li>
+</ul>
+
+<p>Cada canal tiene un flag de supresión (<code class="language-plaintext highlighter-rouge">_suppressRealtimeReload</code>, etc.) para evitar que el propio admin que está editando vea un reload innecesario inmediatamente después de guardar.</p>
+
+<hr />
+
+<h2 id="bot-de-discord-estado-actual">Bot de Discord (estado actual)</h2>
+
+<p>Comandos disponibles:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">/ping</code>: latencia del bot y Supabase.</li>
+  <li><code class="language-plaintext highlighter-rouge">/getcode</code>: envía el código admin por DM. Solo IDs en <code class="language-plaintext highlighter-rouge">AUTHORIZED_USER_IDS</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">/setlogchannel #canal</code>: configura canal de anuncios de logs. Solo IDs autorizados.</li>
+  <li><code class="language-plaintext highlighter-rouge">/screenshot tierlist columna:&lt;Arma|Sub-arma|Accesorio&gt; [canal]</code>: genera imagen de la columna.</li>
+  <li><code class="language-plaintext highlighter-rouge">/screenshot logs [cantidad] [canal]</code>: imagen con los logs más recientes.</li>
+  <li><code class="language-plaintext highlighter-rouge">/screenshot arma nombre:&lt;autocompletado&gt; [canal]</code>: una imagen por cada rango del arma.</li>
+</ul>
+
+<p>Procesos automáticos:</p>
+<ul>
+  <li>Rotación de código admin cada 24h (cron a las 00:00 UTC).</li>
+  <li>Watcher Realtime en <code class="language-plaintext highlighter-rouge">logs</code>: al insertar → publica embed en el canal configurado; al actualizar → edita el mensaje existente; al borrar el mensaje manualmente → publica uno nuevo.</li>
+</ul>
+
+<hr />
+
+<h2 id="migraciones-sql-orden-de-aplicación">Migraciones SQL (orden de aplicación)</h2>
+
+<ol>
+  <li><code class="language-plaintext highlighter-rouge">schema.sql</code> — tablas base</li>
+  <li><code class="language-plaintext highlighter-rouge">migration_002_categories_and_dates.sql</code> — categorías dinámicas + fecha editable en logs</li>
+  <li><code class="language-plaintext highlighter-rouge">migration_003_mob_item_blocks.sql</code> — fichas de mob/item/bloque libre</li>
+  <li><code class="language-plaintext highlighter-rouge">migration_004_advanced_features.sql</code> — comment_likes, app_settings, campos configurables</li>
+  <li><code class="language-plaintext highlighter-rouge">migration_005_action_log.sql</code> — bitácora de acciones</li>
+  <li><code class="language-plaintext highlighter-rouge">migration_006_tierlist.sql</code> — tierlist_rows + tierlist_items</li>
+  <li><code class="language-plaintext highlighter-rouge">migration_007_drafts.sql</code> — tabla drafts (existe pero frontend usa localStorage)</li>
+  <li><code class="language-plaintext highlighter-rouge">migration_008_weapons.sql</code> — guía de armas completa</li>
+  <li><code class="language-plaintext highlighter-rouge">migration_009_fix_create_category_slug.sql</code> — fix de normalización de slugs de categoría</li>
+  <li><code class="language-plaintext highlighter-rouge">migration_010_storage.sql</code> — bucket <code class="language-plaintext highlighter-rouge">culones</code> + políticas RLS de Storage</li>
+  <li><code class="language-plaintext highlighter-rouge">migration_011_media_library.sql</code> — Biblioteca Multimedia (<code class="language-plaintext highlighter-rouge">media_assets</code>) + MIME ampliados + RPCs admin-gated</li>
+</ol>
+
+<hr />
+
+<h2 id="problemas-conocidos">Problemas conocidos</h2>
+
+<ul>
+  <li><strong>Ciclos restantes en módulos de Armas</strong>: el grafo de imports ya no tiene módulos huérfanos ni imports rotos, pero quedan 5 ciclos internos entre <code class="language-plaintext highlighter-rouge">weapons-data.js</code>, <code class="language-plaintext highlighter-rouge">weapons-catalog.js</code>, <code class="language-plaintext highlighter-rouge">weapons-detail.js</code>, <code class="language-plaintext highlighter-rouge">weapons-admin.js</code> y <code class="language-plaintext highlighter-rouge">weapons-catalog-admin.js</code>. Funcionan hoy, pero conviene partir datos/UI/admin en una pasada dedicada antes de crecer mucho esa sección.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">saveRankPatch</code> envía objeto completo</strong>: en vez de hacer un PATCH parcial, manda todos los campos del rango en cada edición. Funciona bien ahora que el <code class="language-plaintext highlighter-rouge">SELECT</code> trae todos los campos, pero si se agrega una columna nueva a <code class="language-plaintext highlighter-rouge">weapon_ranks</code> y se olvida añadirla al <code class="language-plaintext highlighter-rouge">select()</code> de <code class="language-plaintext highlighter-rouge">reloadWeaponData()</code>, puede causar pérdida silenciosa de datos al guardar. Solución correcta: cambiar a updates parciales por campo.</li>
+  <li><strong>Modal de habilidades hace demasiadas consultas</strong>: cada edición de habilidad recarga todo el arma.</li>
+  <li><strong>Borradores no sincronizados entre dispositivos</strong>: la tabla <code class="language-plaintext highlighter-rouge">drafts</code> en Supabase existe pero no está conectada al frontend. Los borradores solo existen en localStorage del navegador actual.</li>
+</ul>
+
+<hr />
+
+<h2 id="roadmap-y-prioridades">Roadmap y prioridades</h2>
+
+<h3 id="prioridad-1--auditoría-y-limpieza-post-refactor">Prioridad 1 — Auditoría y limpieza post-refactor</h3>
+
+<p>Objetivo: cerrar la etapa de modularización/multipágina dejando el repo limpio, documentado y verificable antes de construir sistemas nuevos encima.</p>
+
+<ul>
+  <li>Eliminar referencias antiguas a <code class="language-plaintext highlighter-rouge">app.js</code>, <code class="language-plaintext highlighter-rouge">app/main.js</code>, <code class="language-plaintext highlighter-rouge">app/tabs.js</code>, pestañas falsas y URLs externas ya removidas.</li>
+  <li>Limpiar comentarios obsoletos en HTML, CSS, JS, README y memoria del proyecto.</li>
+  <li>Revisar HTML y README para que describan el estado real multipágina.</li>
+  <li>Buscar y eliminar código muerto dejado por el refactor.</li>
+  <li>Revisar arquitectura, dependencias entre módulos, duplicación, rendimiento y consultas.</li>
+  <li>Probar todas las páginas: Logs, Tierlist, Guía de Armas, Acerca del Server y Admin.</li>
+  <li>Probar flujos críticos: exportaciones, importaciones, Storage, Realtime, login admin, comentarios, likes, borradores y cambios desde admin.</li>
+  <li>Verificar integración con el bot de Discord: comandos, screenshots, publicación/edición de logs y rotación del código admin.</li>
+  <li>Actualizar completamente <code class="language-plaintext highlighter-rouge">PROJECT_MEMORY.md</code> al terminar la auditoría.</li>
+  <li>Confirmar que README, memoria y comentarios del código queden sincronizados con el estado actual.</li>
+</ul>
+
+<p>Pendientes técnicos incluidos en esta prioridad:</p>
+
+<ul>
+  <li>Decidir si los borradores seguirán solo en localStorage o si se conectarán a la tabla <code class="language-plaintext highlighter-rouge">drafts</code> de Supabase.</li>
+  <li>Verificar que las hojas de Excel de exportación de Tierlist y “Todo” reflejan las columnas actuales.</li>
+  <li>Optimizar el modal de habilidades de armas para no recargar todo el arma en cada edición.</li>
+  <li>Cambiar <code class="language-plaintext highlighter-rouge">saveRankPatch()</code> a updates parciales por campo para evitar pérdida silenciosa de datos si <code class="language-plaintext highlighter-rouge">weapon_ranks</code> crece en el futuro.</li>
+</ul>
+
+<h4 id="checklist-de-auditoría-local">Checklist de auditoría local</h4>
+
+<p>Completado en repo:</p>
+
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Referencias antiguas a <code class="language-plaintext highlighter-rouge">app.js</code>, <code class="language-plaintext highlighter-rouge">js/app/main.js</code>, <code class="language-plaintext highlighter-rouge">js/app/tabs.js</code>, tabs falsas y URLs obsoletas revisadas/limpiadas en README, HTML, CSS, SQL y memoria.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Comentarios obsoletos principales limpiados o reescritos para describir el estado multipágina real.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />HTML y README revisados contra la arquitectura actual de páginas reales (<code class="language-plaintext highlighter-rouge">index.html</code>, <code class="language-plaintext highlighter-rouge">weapons.html</code>, <code class="language-plaintext highlighter-rouge">tierlist.html</code>, <code class="language-plaintext highlighter-rouge">about.html</code>, <code class="language-plaintext highlighter-rouge">admin.html</code>).</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Imports rotos: 0.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Módulos huérfanos: 0.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Exports públicos sin uso: 0 tras ocultar helpers internos que no se importan desde otros módulos.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Ciclos eliminados fuera de Armas: Logs/Auth/Field Config quedaron desacoplados por callbacks (<code class="language-plaintext highlighter-rouge">registerAdminUiRefreshHandler</code>, <code class="language-plaintext highlighter-rouge">setCategoryFiltersChangedHandler</code>, <code class="language-plaintext highlighter-rouge">setFieldConfigSavedHandler</code>).</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><code class="language-plaintext highlighter-rouge">drafts-list.js</code> separa la lista de borradores de Admin del formulario/autoguardado de Logs.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><code class="language-plaintext highlighter-rouge">logs-data.js</code> separa carga pura de datos de Logs del render de tarjetas/modales.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><code class="language-plaintext highlighter-rouge">loadCategoriesData()</code> separa carga pura de categorías del render de filtros/selects.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Exportaciones desde Admin ya no asumen que Logs, Categorías o Armas fueron cargados por otra página: <code class="language-plaintext highlighter-rouge">exportData()</code> carga datos frescos antes de JSON/XLSX.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Importaciones desde Admin cargan datos base antes de detectar conflictos, para evitar falsos “no hay conflicto” en multipágina.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />CSS auditado: 15 clases marcadas como posibles no usadas, todas dinámicas o condicionales conocidas (<code class="language-plaintext highlighter-rouge">toast-success</code>, <code class="language-plaintext highlighter-rouge">toast-error</code>, <code class="language-plaintext highlighter-rouge">is-liked</code>, <code class="language-plaintext highlighter-rouge">is-conflict</code>, <code class="language-plaintext highlighter-rouge">wm-image</code>, etc.); no se eliminó CSS inseguro.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />HTML básico validado para las 5 páginas, <code class="language-plaintext highlighter-rouge">asset-view.html</code> y los 2 partials.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Servidor local estático levantado en <code class="language-plaintext highlighter-rouge">http://127.0.0.1:4173/</code>.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />HTTP 200 verificado en páginas, partials, entrypoints JS y <code class="language-plaintext highlighter-rouge">css/style.css</code>.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><code class="language-plaintext highlighter-rouge">node --check</code> pasa en todos los <code class="language-plaintext highlighter-rouge">.js</code>.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><code class="language-plaintext highlighter-rouge">git diff --check</code> pasa sin errores de whitespace.</li>
+</ul>
+
+<p>Verificado por scripts/local:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">node --check</code> sobre todos los JS.</li>
+  <li><code class="language-plaintext highlighter-rouge">work/audit-imports.cjs</code>: <code class="language-plaintext highlighter-rouge">IMPORT_PROBLEMS 0</code>, <code class="language-plaintext highlighter-rouge">ORPHAN_MODULES 0</code>, <code class="language-plaintext highlighter-rouge">CYCLES 5</code> (los 5 ciclos conocidos de Armas).</li>
+  <li><code class="language-plaintext highlighter-rouge">work/audit-exports.cjs</code>: <code class="language-plaintext highlighter-rouge">UNUSED_EXPORTED_SYMBOLS 0</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">work/check-html.cjs</code>: todas las páginas y partials <code class="language-plaintext highlighter-rouge">OK</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">work/audit-css.cjs</code>: sin eliminación segura pendiente.</li>
+  <li>Cierre real de dependencias de <code class="language-plaintext highlighter-rouge">js/pages/admin.js</code>: 28 módulos, <code class="language-plaintext highlighter-rouge">drafts.js</code> ya no está incluido; solo <code class="language-plaintext highlighter-rouge">drafts-list.js</code>.</li>
+</ul>
+
+<p>Pendiente porque requiere navegador vivo, credenciales admin o servicios externos:</p>
+
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Smoke test manual completo en navegador real. El navegador interno de Codex se intentó dos veces contra <code class="language-plaintext highlighter-rouge">127.0.0.1:4173</code>, pero quedó bloqueado por timeout de herramienta; no se usó como verificación final.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Login admin con código real del bot.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Crear/editar/borrar Log con mobs/items/bloques libres y confirmar Realtime desde otra pestaña.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Likes y comentarios con datos reales de Supabase.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Storage: subir/quitar imágenes en Logs, Tierlist, Armas, fondo y favicon.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Exportar JSON/XLSX de Logs, Tierlist y Todo, abrir el XLSX en Excel/Google Sheets y validar hojas visualmente.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Importar JSON con conflictos reales y confirmar resolución overwrite/skip.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Discord Bot: <code class="language-plaintext highlighter-rouge">/ping</code>, <code class="language-plaintext highlighter-rouge">/getcode</code>, <code class="language-plaintext highlighter-rouge">/setlogchannel</code>, screenshots de logs/tierlist/arma, publicación/edición automática de logs y rotación diaria del código.</li>
+</ul>
+
+<h3 id="prioridad-2--sistema-multimedia">Prioridad 2 — Sistema Multimedia</h3>
+
+<p>Objetivo: convertir el manejo de imágenes actual en una infraestructura multimedia centralizada, reutilizable y preparada para crecer. Esta prioridad no debe tratarse como un simple “subidor de imágenes”, sino como una capa base del proyecto.</p>
+
+<p>Implementado en repo:</p>
+
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><code class="language-plaintext highlighter-rouge">sql/migration_011_media_library.sql</code> crea <code class="language-plaintext highlighter-rouge">media_assets</code>, amplía MIME/tamaño del bucket y agrega RPCs admin-gated.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><code class="language-plaintext highlighter-rouge">js/core/media.js</code> centraliza MIME, tipo dinámico, hash SHA-256, duplicados, Storage path helpers y RPCs.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" /><code class="language-plaintext highlighter-rouge">js/core/storage.js</code> mantiene <code class="language-plaintext highlighter-rouge">uploadImageToStorage()</code> compatible y agrega <code class="language-plaintext highlighter-rouge">uploadMediaToStorage()</code>.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Biblioteca Multimedia en <code class="language-plaintext highlighter-rouge">admin.html</code> con buscador, filtros, vista previa, metadatos, usos detectados, archivado y subida de recursos propios.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Selector multimedia reutilizable en Logs, Tierlist, Guía de Armas, About, fondo y favicon.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Soporte de imagen ampliado: PNG, JPG/JPEG, WEBP, GIF, SVG y APNG.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Modelo y bucket preparados para MP4/WEBM desde la biblioteca.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Duplicados por hash al subir archivos registrados.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Recursos externos reintroducidos desde el selector como URL temporal por uso, sin registro permanente en biblioteca.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Presentación guardada por recurso: <code class="language-plaintext highlighter-rouge">fit</code>, <code class="language-plaintext highlighter-rouge">position</code>, <code class="language-plaintext highlighter-rouge">repeat</code>, <code class="language-plaintext highlighter-rouge">opacity</code>.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Export/import de backup completo incluye <code class="language-plaintext highlighter-rouge">media_assets</code>; Excel completo añade hoja <code class="language-plaintext highlighter-rouge">Multimedia</code>.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />UI nueva de P2 ya usa identidad visual de P3: negros profundos, blanco principal y morado <code class="language-plaintext highlighter-rouge">#7C3AED</code>.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Compatibilidad mantenida con <code class="language-plaintext highlighter-rouge">image_url</code>: los formularios siguen guardando URLs.</li>
+</ul>
+
+<p>Checklist manual para comprobar:</p>
+
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Ejecutar <code class="language-plaintext highlighter-rouge">sql/migration_011_media_library.sql</code> en Supabase.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Entrar a Herramientas con código admin real y verificar que la Biblioteca Multimedia carga sin aviso de migración faltante.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Subir PNG, JPG/JPEG, WEBP, GIF, SVG y APNG desde la biblioteca.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Subir dos veces el mismo archivo y confirmar que se reutiliza por duplicado/hash.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Registrar una URL externa y comprobar MIME/tipo/fallback.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Usar el selector en mob, item, bloque libre, tierlist, arma, rango, material de receta, resultado de receta, About, fondo y favicon.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Pulsar “Indexar usados” y confirmar que muestra usos actuales.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Editar nombre, descripción, tags y opciones de presentación de un recurso.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Archivar un recurso y confirmar que desaparece de la lista normal sin borrar el archivo.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Exportar backup JSON/XLSX completo y confirmar <code class="language-plaintext highlighter-rouge">media_assets</code> / hoja <code class="language-plaintext highlighter-rouge">Multimedia</code>.</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" checked="checked" />Importar un backup completo con multimedia y revisar resolución de conflictos.</li>
+</ul>
+
+<h4 id="visión">Visión</h4>
+
+<p>El Sistema Multimedia debe ser una de las bases de Culones RPG.</p>
+
+<p>No quiero volver a crear un sistema de subida de imágenes para cada módulo. Quiero una única infraestructura reutilizable que gestione todos los recursos multimedia del proyecto.</p>
+
+<p>A partir de esta implementación, ningún módulo debería preocuparse por cómo se obtiene un recurso. Logs, Guía de Armas, Tierlist, Fondo, Favicon, Acerca del Server y cualquier sección futura deberán utilizar la misma capa multimedia.</p>
+
+<p>El sistema debe ser cómodo para el administrador, claro para el usuario, fácil de mantener para el desarrollador y preparado para crecer sin rediseñar la arquitectura.</p>
+
+<h4 id="filosofía">Filosofía</h4>
+
+<p>No quiero un simple selector de imágenes.</p>
+
+<p>Quiero una Biblioteca Multimedia profesional, parecida al gestor de recursos de un CMS moderno.</p>
+
+<p>Debe existir un único lugar donde se administren todos los recursos propios del proyecto.</p>
+
+<p>Toda nueva sección que necesite imágenes, GIFs, vídeos, iconos, fondos o cualquier otro recurso deberá reutilizar esta misma infraestructura.</p>
+
+<h4 id="relación-con-la-prioridad-3">Relación con la Prioridad 3</h4>
+
+<p>Todo componente visual nuevo del Sistema Multimedia forma parte del entorno administrativo y debe respetar desde el inicio la identidad visual definida en la Prioridad 3.</p>
+
+<p>La Biblioteca Multimedia, modales, botones, buscadores, filtros, tarjetas, formularios, previews, estados de carga, errores y confirmaciones deben usar desde ahora la estética del modo administrador:</p>
+
+<ul>
+  <li>Negros profundos.</li>
+  <li>Blanco para información principal.</li>
+  <li>Morado principal <code class="language-plaintext highlighter-rouge">#7C3AED</code>.</li>
+  <li>Variaciones moradas para profundidad y dinamismo.</li>
+</ul>
+
+<p>La Prioridad 3 deberá perfeccionar y ampliar esa experiencia, no reconstruir la interfaz multimedia desde cero.</p>
+
+<h4 id="dos-sistemas-independientes">Dos sistemas independientes</h4>
+
+<p>El Sistema Multimedia debe dividirse en dos conceptos separados:</p>
+
+<ol>
+  <li>Biblioteca Multimedia.</li>
+  <li>Recursos Externos.</li>
+</ol>
+
+<p>Ambos se eligen desde la misma interfaz, pero no significan lo mismo.</p>
+
+<h5 id="biblioteca-multimedia">Biblioteca Multimedia</h5>
+
+<p>La Biblioteca Multimedia contiene únicamente recursos propios del proyecto.</p>
+
+<p>Todo recurso de la biblioteca debe:</p>
+
+<ul>
+  <li>Estar almacenado en Supabase Storage.</li>
+  <li>Tener un registro en la base de datos.</li>
+  <li>Poder reutilizarse.</li>
+  <li>Poder editarse.</li>
+  <li>Poder buscarse.</li>
+  <li>Poder filtrarse.</li>
+  <li>Poder seleccionarse desde cualquier módulo.</li>
+</ul>
+
+<p>Nunca debería ser necesario subir dos veces el mismo recurso si ya existe en la biblioteca.</p>
+
+<h5 id="recursos-externos">Recursos Externos</h5>
+
+<p>Los Recursos Externos son enlaces pegados manualmente por el administrador.</p>
+
+<p>No pertenecen a la Biblioteca Multimedia.</p>
+
+<p>Solo representan un enlace utilizado por un elemento concreto.</p>
+
+<p>No deben:</p>
+
+<ul>
+  <li>aparecer en la biblioteca,</li>
+  <li>aparecer en búsquedas internas,</li>
+  <li>ocupar espacio en Supabase Storage,</li>
+  <li>reutilizarse automáticamente,</li>
+  <li>generar registros multimedia permanentes.</li>
+</ul>
+
+<p>Su objetivo es ofrecer flexibilidad.</p>
+
+<p>Ejemplos:</p>
+
+<ul>
+  <li>Video de YouTube.</li>
+  <li>Imagen externa.</li>
+  <li>GIF externo.</li>
+  <li>PDF externo.</li>
+  <li>Enlace web.</li>
+  <li>Cualquier recurso que el administrador quiera usar bajo su responsabilidad.</li>
+</ul>
+
+<h4 id="selector-multimedia">Selector Multimedia</h4>
+
+<p>Todos los módulos deben usar el mismo selector reutilizable.</p>
+
+<p>No deben existir selectores distintos para Logs, Armas, Tierlist, About o Fondo.</p>
+
+<p>Cuando el administrador necesite escoger un recurso, debe aparecer una interfaz con dos opciones:</p>
+
+<ul>
+  <li>Biblioteca Multimedia.</li>
+  <li>Recurso Externo.</li>
+</ul>
+
+<p>Si elige Biblioteca Multimedia, se abre el explorador de recursos.</p>
+
+<p>Si elige Recurso Externo, aparece un campo para pegar un enlace y generar una vista previa.</p>
+
+<h4 id="modal-biblioteca-multimedia">Modal Biblioteca Multimedia</h4>
+
+<p>El modal de Biblioteca Multimedia debe ser un componente reutilizable.</p>
+
+<p>Desde este modal el administrador podrá:</p>
+
+<ul>
+  <li>Buscar recursos.</li>
+  <li>Filtrar por tipo.</li>
+  <li>Ordenar.</li>
+  <li>Ver los más recientes primero por defecto.</li>
+  <li>Seleccionar un recurso existente.</li>
+  <li>Subir un recurso nuevo.</li>
+  <li>Editar metadatos.</li>
+  <li>Eliminar recursos cuando sea seguro.</li>
+  <li>Ver vista previa.</li>
+  <li>Ver información del archivo.</li>
+  <li>Ver dónde se utiliza.</li>
+  <li>Reutilizar recursos existentes.</li>
+</ul>
+
+<p>Todo debe poder hacerse sin abandonar el modal.</p>
+
+<h4 id="modelo-de-datos">Modelo de datos</h4>
+
+<p>Internamente, el sistema no debe pensar en imágenes.</p>
+
+<p>Debe pensar en Recursos Multimedia.</p>
+
+<p>Cada recurso debería almacenar al menos:</p>
+
+<ul>
+  <li>ID.</li>
+  <li>Nombre visible.</li>
+  <li>MIME Type.</li>
+  <li>Tipo.</li>
+  <li>Descripción opcional.</li>
+  <li>URL interna.</li>
+  <li>Origen.</li>
+  <li>Fecha de subida.</li>
+  <li>Tamaño.</li>
+  <li>Dimensiones.</li>
+  <li>Hash.</li>
+  <li>Metadatos.</li>
+  <li>Usuario creador, si en el futuro existe sistema de usuarios.</li>
+</ul>
+
+<p>El nombre visible nunca debe depender del nombre real del archivo.</p>
+
+<h4 id="tipos-dinámicos">Tipos dinámicos</h4>
+
+<p>Los tipos de recursos no deben estar escritos de forma fija en el código.</p>
+
+<p>Deben ser dinámicos y administrables.</p>
+
+<p>Ejemplos:</p>
+
+<ul>
+  <li>Fondo.</li>
+  <li>Logo.</li>
+  <li>Banner.</li>
+  <li>Arma.</li>
+  <li>NPC.</li>
+  <li>Enemigo.</li>
+  <li>Evento.</li>
+  <li>Icono.</li>
+  <li>Decoración.</li>
+  <li>Otro.</li>
+</ul>
+
+<p>El administrador debe poder crear nuevos tipos en el futuro.</p>
+
+<h4 id="formatos-soportados">Formatos soportados</h4>
+
+<p>El sistema debe identificar el contenido mediante MIME Type.</p>
+
+<p>No debe depender únicamente de la extensión del archivo.</p>
+
+<p>Compatibilidad inicial:</p>
+
+<ul>
+  <li>PNG.</li>
+  <li>JPG.</li>
+  <li>JPEG.</li>
+  <li>WEBP.</li>
+  <li>GIF.</li>
+  <li>SVG.</li>
+  <li>APNG.</li>
+</ul>
+
+<p>Preparado para:</p>
+
+<ul>
+  <li>MP4.</li>
+  <li>WEBM.</li>
+  <li>Audio.</li>
+  <li>PDF.</li>
+  <li>Modelos 3D.</li>
+  <li>Otros formatos soportados por el navegador.</li>
+</ul>
+
+<h4 id="vista-previa-inteligente">Vista previa inteligente</h4>
+
+<p>La vista previa debe adaptarse automáticamente al tipo de recurso.</p>
+
+<ul>
+  <li>Imagen → miniatura.</li>
+  <li>GIF → reproducción.</li>
+  <li>Vídeo → preview o reproductor.</li>
+  <li>PDF → icono o miniatura.</li>
+  <li>Página web → tarjeta cuando sea posible.</li>
+  <li>Tipo desconocido → tarjeta genérica con metadatos básicos.</li>
+</ul>
+
+<p>El administrador no debería tener que indicar manualmente cómo se muestra cada recurso.</p>
+
+<h4 id="reutilización-y-duplicados">Reutilización y duplicados</h4>
+
+<p>Uno de los objetivos principales es evitar duplicados.</p>
+
+<p>Idealmente el sistema detectará duplicados mediante hash.</p>
+
+<p>Si un archivo ya existe, debe avisar:</p>
+
+<blockquote>
+  <p>Este recurso ya existe. ¿Deseas reutilizarlo?</p>
+</blockquote>
+
+<p>Esto evita llenar Supabase Storage con copias innecesarias del mismo archivo.</p>
+
+<h4 id="dónde-se-utiliza-cada-recurso">Dónde se utiliza cada recurso</h4>
+
+<p>Cada recurso debe poder indicar dónde se está usando.</p>
+
+<p>Ejemplos:</p>
+
+<ul>
+  <li>Log #31.</li>
+  <li>Tierlist.</li>
+  <li>Arma MK V.</li>
+  <li>Fondo principal.</li>
+  <li>Bloque de About.</li>
+</ul>
+
+<p>Esto ayuda a evitar eliminar recursos importantes por accidente.</p>
+
+<h4 id="configuración-por-uso">Configuración por uso</h4>
+
+<p>El recurso multimedia nunca debe guardar información de presentación global.</p>
+
+<p>La configuración visual pertenece al lugar donde se usa el recurso, no al recurso en sí.</p>
+
+<p>Cada uso podrá definir:</p>
+
+<ul>
+  <li>Opacidad.</li>
+  <li>Fit.</li>
+  <li>Posición.</li>
+  <li>Repetición.</li>
+  <li>Escala en el futuro.</li>
+  <li>Velocidad para GIF o vídeo cuando sea posible.</li>
+  <li>Otros comportamientos futuros.</li>
+</ul>
+
+<p>Ejemplo: una misma imagen puede usarse como icono, fondo o banner con configuraciones distintas.</p>
+
+<h4 id="compatibilidad-con-el-sistema-actual">Compatibilidad con el sistema actual</h4>
+
+<p>No romper el sistema actual.</p>
+
+<p>Durante la transición, los campos actuales basados en <code class="language-plaintext highlighter-rouge">image_url</code> deben seguir funcionando.</p>
+
+<p>La migración debe ser progresiva.</p>
+
+<p>Los formularios existentes deben poder recibir una URL devuelta por el nuevo selector multimedia sin romper su flujo actual.</p>
+
+<h4 id="escalabilidad">Escalabilidad</h4>
+
+<p>La arquitectura debe permitir integrar en el futuro:</p>
+
+<ul>
+  <li>Videos.</li>
+  <li>Audio.</li>
+  <li>Modelos 3D.</li>
+  <li>Embeds.</li>
+  <li>Sketchfab.</li>
+  <li>YouTube.</li>
+  <li>Spotify.</li>
+  <li>Twitch.</li>
+  <li>Otros proveedores externos.</li>
+</ul>
+
+<p>Esto debe poder hacerse sin rediseñar el sistema.</p>
+
+<h4 id="resultado-esperado">Resultado esperado</h4>
+
+<p>El Sistema Multimedia debe convertirse en la fuente oficial de recursos del proyecto.</p>
+
+<p>Si en el futuro se añade un nuevo módulo, la respuesta nunca debe ser “crear otro sistema de imágenes”, sino reutilizar el Sistema Multimedia existente.</p>
+
+<hr />
+
+<h3 id="prioridad-3--rediseño-completo-de-la-interfaz-del-administrador">Prioridad 3 — Rediseño completo de la Interfaz del Administrador</h3>
+
+<p>Objetivo: mejorar la experiencia visual y de uso del modo administrador sin modificar la lógica real de autenticación, Supabase, RPC, permisos ni bot de Discord.</p>
+
+<h4 id="objetivo-visual">Objetivo visual</h4>
+
+<p>El modo administrador debe sentirse como una experiencia claramente diferenciada del resto de la página.</p>
+
+<p>No debe sentirse como un simple formulario de login.</p>
+
+<p>Debe sentirse como el acceso a un entorno exclusivo de administración, transmitiendo:</p>
+
+<ul>
+  <li>Seguridad.</li>
+  <li>Control.</li>
+  <li>Profesionalismo.</li>
+  <li>Tecnología.</li>
+  <li>Exclusividad.</li>
+</ul>
+
+<p>Esta prioridad se centra en UX y UI, no en cambiar la lógica interna del sistema.</p>
+
+<h4 id="identidad-visual">Identidad visual</h4>
+
+<p>Inspiración:</p>
+
+<ul>
+  <li>Consola futurista.</li>
+  <li>Panel de control premium.</li>
+  <li>HUD tecnológico.</li>
+  <li>Terminal moderna.</li>
+</ul>
+
+<p>No debe parecer una terminal hacker clásica con texto verde sobre fondo negro.</p>
+
+<p>La apariencia debe ser limpia, elegante y consistente con Culones RPG.</p>
+
+<h4 id="paleta-de-colores">Paleta de colores</h4>
+
+<p>Color principal:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>#7C3AED
+</code></pre></div></div>
+
+<p>Usar el morado principal para:</p>
+
+<ul>
+  <li>Bordes activos.</li>
+  <li>Botones principales.</li>
+  <li>Indicadores.</li>
+  <li>Focus.</li>
+  <li>Glow.</li>
+  <li>Barras de progreso.</li>
+  <li>Estados activos.</li>
+  <li>Elementos interactivos.</li>
+  <li>Animaciones de éxito.</li>
+</ul>
+
+<p>Variaciones permitidas:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>#6D28D9
+#8B5CF6
+#A78BFA
+</code></pre></div></div>
+
+<p>Estas variaciones deben sentirse como niveles de iluminación del mismo color, no como colores distintos.</p>
+
+<p>Fondos recomendados:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>#0B0B0F
+#111018
+#161322
+</code></pre></div></div>
+
+<p>Usar negros profundos con matiz morado.</p>
+
+<p>El blanco debe reservarse para:</p>
+
+<ul>
+  <li>Texto principal.</li>
+  <li>Iconografía.</li>
+  <li>Información importante.</li>
+  <li>Estados críticos.</li>
+</ul>
+
+<h4 id="login-tipo-terminal">Login tipo terminal</h4>
+
+<p>Al pulsar <strong>Admin</strong>, debe abrirse un modal dedicado, no un formulario común.</p>
+
+<p>El modal debe mostrar una pequeña secuencia:</p>
+
+<ul>
+  <li>Inicializando sistema…</li>
+  <li>Conectando…</li>
+  <li>Verificando permisos…</li>
+  <li>Esperando autenticación…</li>
+</ul>
+
+<p>Después aparece el campo para introducir el código generado por el bot.</p>
+
+<h4 id="estados-del-campo-de-código">Estados del campo de código</h4>
+
+<p>Normal:</p>
+
+<ul>
+  <li>Borde oscuro.</li>
+  <li>Sin efectos llamativos.</li>
+</ul>
+
+<p>Focus:</p>
+
+<ul>
+  <li>Borde morado.</li>
+  <li>Glow morado suave.</li>
+</ul>
+
+<p>Error:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ACCESS DENIED
+</code></pre></div></div>
+
+<p>Debe incluir:</p>
+
+<ul>
+  <li>Destello rojo.</li>
+  <li>Pequeña vibración.</li>
+  <li>Mensaje corto.</li>
+  <li>Nada de errores largos.</li>
+</ul>
+
+<p>Correcto:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ACCESS GRANTED
+</code></pre></div></div>
+
+<p>Debe incluir:</p>
+
+<ul>
+  <li>Iluminación morada.</li>
+  <li>Animación breve.</li>
+  <li>Cierre suave del modal.</li>
+  <li>Transición al modo administrador.</li>
+</ul>
+
+<h4 id="modo-administrador">Modo Administrador</h4>
+
+<p>Cuando el usuario esté autenticado, la interfaz debe comunicar claramente que está en modo administrador.</p>
+
+<p>Agregar:</p>
+
+<ul>
+  <li>Badge “Administrator Mode”.</li>
+  <li>Indicador permanente.</li>
+  <li>Detalles morados distribuidos en la interfaz.</li>
+  <li>Estados visuales especiales en elementos admin-only.</li>
+</ul>
+
+<p>Debe sentirse premium, pero no exagerado.</p>
+
+<h4 id="botones-administrativos">Botones administrativos</h4>
+
+<p>Todos los botones de administración deben compartir el mismo lenguaje visual.</p>
+
+<p>Hover:</p>
+
+<ul>
+  <li>Borde morado.</li>
+  <li>Glow suave.</li>
+  <li>Transición breve.</li>
+</ul>
+
+<p>Click:</p>
+
+<ul>
+  <li>Ligera reducción de escala.</li>
+  <li>Feedback inmediato.</li>
+</ul>
+
+<p>Loading:</p>
+
+<ul>
+  <li>Spinner morado.</li>
+  <li>Botón deshabilitado temporalmente.</li>
+</ul>
+
+<p>Success:</p>
+
+<ul>
+  <li>Toast o confirmación visual consistente.</li>
+</ul>
+
+<h4 id="acciones-críticas">Acciones críticas</h4>
+
+<p>Acciones como:</p>
+
+<ul>
+  <li>Eliminar.</li>
+  <li>Limpiar.</li>
+  <li>Importar.</li>
+  <li>Sobrescribir.</li>
+  <li>Restaurar.</li>
+</ul>
+
+<p>deben usar modales propios del proyecto.</p>
+
+<p>No usar <code class="language-plaintext highlighter-rouge">alert()</code> del navegador.</p>
+
+<h4 id="animaciones">Animaciones</h4>
+
+<p>Priorizar animaciones discretas:</p>
+
+<ul>
+  <li>Opacidad.</li>
+  <li>Escala.</li>
+  <li>Glow.</li>
+  <li>Fade.</li>
+  <li>Desplazamientos cortos.</li>
+</ul>
+
+<p>Duración recomendada:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>150ms – 300ms
+</code></pre></div></div>
+
+<p>Evitar animaciones largas o innecesarias.</p>
+
+<h4 id="consistencia-técnica">Consistencia técnica</h4>
+
+<p>No modificar:</p>
+
+<ul>
+  <li>Sistema de autenticación.</li>
+  <li>Bot de Discord.</li>
+  <li>Funciones RPC.</li>
+  <li>Supabase.</li>
+  <li>Flujo de permisos.</li>
+  <li>Arquitectura principal.</li>
+</ul>
+
+<p>El objetivo es mejorar exclusivamente la presentación y la experiencia.</p>
+
+<h4 id="relación-con-el-sistema-multimedia">Relación con el Sistema Multimedia</h4>
+
+<p>Todo componente nuevo del Sistema Multimedia debe seguir esta identidad visual desde su primera implementación.</p>
+
+<p>La Biblioteca Multimedia debe sentirse como una herramienta del entorno administrador, no como un modal genérico desconectado del resto.</p>
+
+<h4 id="resultado-esperado-1">Resultado esperado</h4>
+
+<p>El administrador debe sentir que ha desbloqueado una versión avanzada de la aplicación.</p>
+
+<p>La interfaz debe transmitir exclusividad, profesionalismo, seguridad y tecnología, manteniendo la identidad visual de Culones RPG sin alterar la arquitectura existente.</p>
+
+<h3 id="prioridad-4--v2x">Prioridad 4 — v2.x</h3>
+
+<p>Objetivo: mejoras de capa superior una vez cerradas auditoría, multimedia y admin UX.</p>
+
+<ul>
+  <li>GSAP para microanimaciones.</li>
+  <li>Dashboard con estadísticas.</li>
+  <li>Ampliar Sistema Multimedia con vídeo, audio u otros tipos.</li>
+  <li>PWA / caché offline como mejora opcional.</li>
+</ul>
+
+
+      
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/anchor-js/4.1.0/anchor.min.js" integrity="sha256-lZaRhKri35AyJSypXXs4o6OPFTbTmUoltBbDCbdzegg=" crossorigin="anonymous"></script>
+    <script>anchors.add();</script>
+  </body>
+</html>

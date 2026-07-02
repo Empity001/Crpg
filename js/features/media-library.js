@@ -9,7 +9,6 @@
 import {
   DEFAULT_MEDIA_PRESENTATION,
   archiveMediaAsset,
-  deleteMediaAsset,
   detectExternalMime,
   folderFromStoragePath,
   formatFileSize,
@@ -24,63 +23,28 @@ import {
 import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { uploadMediaToStorage } from '../core/storage.js';
-import { asArray, debounce, escapeHtml, safeUrl, showToast } from '../core/utils.js';
-
-const MEDIA_RENDER_PAGE_SIZE = 60;
+import { asArray, escapeHtml, safeUrl, showToast } from '../core/utils.js';
 
 let mediaAssets = [];
-let archivedMediaAssets = [];
 let mediaUsageIndex = new Map();
 let mediaInfrastructureReady = true;
 let panelInitialized = false;
 let pickerState = null;
-let pickerVisibleLimit = MEDIA_RENDER_PAGE_SIZE;
-let externalPreviewToken = 0;
-
-const panelState = {
-  view: 'active',
-  minimized: false,
-  visibleLimit: MEDIA_RENDER_PAGE_SIZE,
-  scrollY: 0,
-};
 
 const panelFilters = {
   search: '',
   kind: 'all',
   source: 'all',
-  sort: 'recent',
 };
 
 const pickerFilters = {
   search: '',
   kind: 'all',
   source: 'all',
-  sort: 'recent',
 };
 
 function normalizePresentation(presentation = {}) {
-  const merged = { ...DEFAULT_MEDIA_PRESENTATION, ...(presentation || {}) };
-  const opacity = Number(merged.opacity);
-  const positionMap = { 'top center': 'center top', 'bottom center': 'center bottom', 'center left': 'left center', 'center right': 'right center' };
-  const mappedPosition = positionMap[merged.position] || merged.position || DEFAULT_MEDIA_PRESENTATION.position;
-  const position = ['center center', 'center top', 'center bottom', 'left center', 'right center'].includes(mappedPosition)
-    ? mappedPosition
-    : DEFAULT_MEDIA_PRESENTATION.position;
-  return {
-    fit: ['contain', 'cover', 'fill', 'none', 'scale-down'].includes(merged.fit) ? merged.fit : DEFAULT_MEDIA_PRESENTATION.fit,
-    position,
-    repeat: ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'].includes(merged.repeat) ? merged.repeat : DEFAULT_MEDIA_PRESENTATION.repeat,
-    opacity: Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : DEFAULT_MEDIA_PRESENTATION.opacity,
-  };
-}
-
-function presentationStyle(presentation = {}) {
-  const p = normalizePresentation(presentation);
-  return [
-    `object-fit:${p.fit}`,
-    `object-position:${p.position}`,
-    `opacity:${p.opacity}`,
-  ].join(';');
+  return { ...DEFAULT_MEDIA_PRESENTATION, ...(presentation || {}) };
 }
 
 function parseTags(value) {
@@ -106,12 +70,11 @@ function kindLabel(kind) {
 function renderMediaPreview(asset, className = 'media-thumb-preview') {
   const safe = safeUrl(asset.url);
   if (!safe) return `<div class="${className} is-empty">?</div>`;
-  const style = presentationStyle(asset.presentation);
   if (asset.media_kind === 'image') {
-    return `<img src="${escapeHtml(safe)}" alt="${escapeHtml(asset.display_name || '')}" class="${className}" loading="lazy" style="${style}" />`;
+    return `<img src="${escapeHtml(safe)}" alt="${escapeHtml(asset.display_name || '')}" class="${className}" loading="lazy" />`;
   }
   if (asset.media_kind === 'video') {
-    return `<video src="${escapeHtml(safe)}" class="${className}" muted playsinline controls style="${style}"></video>`;
+    return `<video src="${escapeHtml(safe)}" class="${className}" muted playsinline controls></video>`;
   }
   return `<div class="${className} is-file">${escapeHtml(kindLabel(asset.media_kind))}</div>`;
 }
@@ -133,37 +96,16 @@ function assetMatchesFilters(asset, filters, allowedKinds = null) {
   return haystack.includes(q);
 }
 
-function sortedMediaList(list, sort = 'recent') {
-  return [...list].sort((a, b) => {
-    if (sort === 'oldest') return String(a.created_at || '').localeCompare(String(b.created_at || ''));
-    if (sort === 'name') return String(a.display_name || assetFileName(a)).localeCompare(String(b.display_name || assetFileName(b)), 'es');
-    if (sort === 'size') return Number(b.file_size || 0) - Number(a.file_size || 0);
-    return String(b.created_at || '').localeCompare(String(a.created_at || ''));
-  });
-}
-
-function currentPanelAssets() {
-  return panelState.view === 'archived' ? archivedMediaAssets : mediaAssets;
-}
-
-function setPanelStatus(text) {
-  const status = document.getElementById('media-library-status');
-  if (status) status.textContent = text;
-}
-
 async function reloadMediaAssets() {
-  const { data, error } = await listMediaAssets({ includeArchived: true });
+  const { data, error } = await listMediaAssets();
   if (error) {
     mediaInfrastructureReady = !isMediaInfrastructureMissing(error);
     mediaAssets = [];
-    archivedMediaAssets = [];
     return { data: [], error };
   }
   mediaInfrastructureReady = true;
-  const storageAssets = (data || []).filter(asset => asset.source_type !== 'external');
-  mediaAssets = storageAssets.filter(asset => !asset.is_archived);
-  archivedMediaAssets = storageAssets.filter(asset => asset.is_archived);
-  return { data: storageAssets, error: null };
+  mediaAssets = (data || []).filter(asset => asset.source_type !== 'external');
+  return { data: mediaAssets, error: null };
 }
 
 function addUsage(map, url, label) {
@@ -239,14 +181,9 @@ function renderUsageList(asset) {
     </ul>`;
 }
 
-function findMediaAsset(id) {
-  return [...mediaAssets, ...archivedMediaAssets].find(a => a.id === id);
-}
-
 function renderMediaCard(asset, mode = 'panel') {
   const usages = mediaUsageIndex.get(safeUrl(asset.url)) || [];
   const tags = (asset.tags || []).slice(0, 3);
-  const archivedMode = mode === 'panel-archived';
   return `
     <article class="media-card" data-media-id="${asset.id}">
       <div class="media-thumb">
@@ -260,7 +197,7 @@ function renderMediaCard(asset, mode = 'panel') {
         ${tags.length ? `<div class="media-tags">${tags.map(t => `<span>${escapeHtml(t)}</span>`).join('')}</div>` : ''}
         <div class="media-usage-row">
           <span>${usages.length} uso(s)</span>
-          ${mode !== 'picker' ? renderUsageList(asset) : ''}
+          ${mode === 'panel' ? renderUsageList(asset) : ''}
         </div>
       </div>
       <div class="media-card-actions">
@@ -268,9 +205,6 @@ function renderMediaCard(asset, mode = 'panel') {
         <button type="button" class="media-action-btn" data-media-copy="${asset.id}">Copiar URL</button>
         ${mode === 'panel' ? `<button type="button" class="media-action-btn" data-media-edit="${asset.id}">Editar</button>
         <button type="button" class="media-action-danger" data-media-archive="${asset.id}">Archivar</button>` : ''}
-        ${archivedMode ? `<button type="button" class="media-action-primary" data-media-restore="${asset.id}">Restaurar</button>
-        <button type="button" class="media-action-btn" data-media-edit="${asset.id}">Info</button>
-        <button type="button" class="media-action-danger" data-media-delete="${asset.id}">Eliminar definitivo</button>` : ''}
       </div>
     </article>`;
 }
@@ -278,7 +212,7 @@ function renderMediaCard(asset, mode = 'panel') {
 function bindMediaCardActions(root, mode = 'panel') {
   root.querySelectorAll('[data-media-copy]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const asset = findMediaAsset(btn.dataset.mediaCopy);
+      const asset = mediaAssets.find(a => a.id === btn.dataset.mediaCopy);
       if (!asset) return;
       await navigator.clipboard?.writeText(asset.url).catch(() => {});
       showToast('URL copiada', 'success');
@@ -287,51 +221,19 @@ function bindMediaCardActions(root, mode = 'panel') {
 
   root.querySelectorAll('[data-media-edit]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const asset = findMediaAsset(btn.dataset.mediaEdit);
+      const asset = mediaAssets.find(a => a.id === btn.dataset.mediaEdit);
       if (asset) openMediaEditModal(asset);
     });
   });
 
   root.querySelectorAll('[data-media-archive]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const asset = findMediaAsset(btn.dataset.mediaArchive);
-      if (!asset || !(await confirmMediaAction({
-        title: 'Archivar recurso',
-        asset,
-        actionLabel: 'Archivar',
-        danger: false,
-        message: 'El recurso saldrá de la biblioteca principal, pero seguirá existiendo en el proyecto y podrás restaurarlo desde Archivados.',
-      }))) return;
+      const asset = mediaAssets.find(a => a.id === btn.dataset.mediaArchive);
+      if (!asset || !confirm(`¿Archivar "${asset.display_name}"? No borra el archivo, solo lo oculta de la biblioteca.`)) return;
       const { error } = await archiveMediaAsset(asset.id, true);
       if (error) { showToast(error.message, 'error'); return; }
       showToast('Recurso archivado', 'success');
       await loadAndRenderMediaLibrary();
-    });
-  });
-
-  root.querySelectorAll('[data-media-restore]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const asset = findMediaAsset(btn.dataset.mediaRestore);
-      if (!asset) return;
-      const { error } = await archiveMediaAsset(asset.id, false);
-      if (error) { showToast(error.message, 'error'); return; }
-      showToast('Recurso restaurado', 'success');
-      panelState.view = 'active';
-      await loadAndRenderMediaLibrary();
-    });
-  });
-
-  root.querySelectorAll('[data-media-delete]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const asset = findMediaAsset(btn.dataset.mediaDelete);
-      if (!asset || !(await confirmMediaAction({
-        title: 'Eliminar definitivamente',
-        asset,
-        actionLabel: 'Eliminar definitivo',
-        danger: true,
-        message: 'Esta acción borrará el registro de la Biblioteca Multimedia e intentará borrar el archivo de Storage. No es lo mismo que archivar.',
-      }))) return;
-      await deleteArchivedMediaAsset(asset);
     });
   });
 
@@ -349,33 +251,13 @@ function bindMediaCardActions(root, mode = 'panel') {
 }
 
 function renderMediaGrid(container, filters, mode = 'panel', allowedKinds = null) {
-  if (!container) return;
-  const source = mode === 'picker' ? mediaAssets : currentPanelAssets();
-  const limit = mode === 'picker' ? pickerVisibleLimit : panelState.visibleLimit;
-  const list = sortedMediaList(
-    source.filter(asset => assetMatchesFilters(asset, filters, allowedKinds)),
-    filters.sort,
-  );
+  const list = mediaAssets.filter(asset => assetMatchesFilters(asset, filters, allowedKinds));
   if (!list.length) {
     container.innerHTML = '<p class="media-empty">No hay recursos con esos filtros.</p>';
     return;
   }
-  const visible = list.slice(0, limit);
-  const renderMode = mode === 'panel' && panelState.view === 'archived' ? 'panel-archived' : mode;
-  container.innerHTML = visible.map(asset => renderMediaCard(asset, renderMode)).join('')
-    + (visible.length < list.length ? `
-      <div class="media-load-more-row">
-        <button type="button" class="media-action-btn" data-media-load-more="${mode}">Mostrar ${Math.min(MEDIA_RENDER_PAGE_SIZE, list.length - visible.length)} más</button>
-        <span>${visible.length} de ${list.length}</span>
-      </div>` : '');
+  container.innerHTML = list.map(asset => renderMediaCard(asset, mode)).join('');
   bindMediaCardActions(container, mode);
-  container.querySelectorAll('[data-media-load-more]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.mediaLoadMore === 'picker') pickerVisibleLimit += MEDIA_RENDER_PAGE_SIZE;
-      else panelState.visibleLimit += MEDIA_RENDER_PAGE_SIZE;
-      renderMediaGrid(container, filters, mode, allowedKinds);
-    });
-  });
 }
 
 function renderMediaInfrastructureError(container) {
@@ -386,84 +268,10 @@ function renderMediaInfrastructureError(container) {
     </div>`;
 }
 
-function ensureMediaConfirmModal() {
-  let modal = document.getElementById('media-confirm-modal');
-  if (modal) return modal;
-  modal = document.createElement('div');
-  modal.className = 'modal-overlay hidden media-modal-overlay';
-  modal.id = 'media-confirm-modal';
-  modal.innerHTML = `
-    <div class="modal-box media-modal-box">
-      <button class="modal-close" id="close-media-confirm-modal" aria-label="Cerrar">✕</button>
-      <h3 class="modal-title media-modal-title" id="media-confirm-title"></h3>
-      <div id="media-confirm-preview"></div>
-      <p class="modal-hint media-modal-hint" id="media-confirm-message"></p>
-      <div class="media-confirm-usage" id="media-confirm-usage"></div>
-      <div class="media-confirm-actions">
-        <button type="button" class="media-action-btn" id="media-confirm-cancel-btn">Cancelar</button>
-        <button type="button" class="media-action-danger" id="media-confirm-action-btn"></button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-  return modal;
-}
-
-function confirmMediaAction({ title, asset, message, actionLabel, danger = false }) {
-  return new Promise(resolve => {
-    const modal = ensureMediaConfirmModal();
-    const usages = mediaUsageIndex.get(safeUrl(asset.url)) || [];
-    document.getElementById('media-confirm-title').textContent = title;
-    document.getElementById('media-confirm-preview').innerHTML = `<div class="media-edit-preview">${renderMediaPreview(asset)}</div>`;
-    document.getElementById('media-confirm-message').textContent = message;
-    document.getElementById('media-confirm-usage').innerHTML = usages.length
-      ? `<div class="${danger ? 'media-delete-warning' : 'media-system-warning'}"><strong>${usages.length} uso(s) detectado(s)</strong>${renderUsageList(asset)}</div>`
-      : '<p class="media-usage-empty">No hay usos detectados actualmente.</p>';
-    const actionBtn = document.getElementById('media-confirm-action-btn');
-    const cancelBtn = document.getElementById('media-confirm-cancel-btn');
-    const closeBtn = document.getElementById('close-media-confirm-modal');
-    actionBtn.textContent = actionLabel;
-    actionBtn.className = danger ? 'media-action-danger' : 'media-action-primary';
-
-    const cleanup = (value) => {
-      modal.classList.add('hidden');
-      actionBtn.onclick = null;
-      cancelBtn.onclick = null;
-      closeBtn.onclick = null;
-      modal.onclick = null;
-      resolve(value);
-    };
-    actionBtn.onclick = () => cleanup(true);
-    cancelBtn.onclick = () => cleanup(false);
-    closeBtn.onclick = () => cleanup(false);
-    modal.onclick = (e) => { if (e.target === modal) cleanup(false); };
-    modal.classList.remove('hidden');
-  });
-}
-
-async function deleteArchivedMediaAsset(asset) {
-  const bucket = asset.bucket || 'culones';
-  const path = asset.storage_path || storagePathFromPublicUrl(asset.url);
-  if (path) {
-    const { error: storageError } = await supabaseClient.storage.from(bucket).remove([path]);
-    if (storageError) {
-      showToast('No se pudo borrar el archivo de Storage: ' + storageError.message, 'error');
-      return;
-    }
-  }
-  const { error } = await deleteMediaAsset(asset.id);
-  if (error) { showToast(error.message, 'error'); return; }
-  showToast('Recurso eliminado definitivamente', 'success');
-  await loadAndRenderMediaLibrary();
-}
-
 async function loadAndRenderMediaLibrary() {
   const grid = document.getElementById('media-library-grid');
+  const status = document.getElementById('media-library-status');
   if (!grid) return;
-  if (panelState.minimized) {
-    grid.innerHTML = '';
-    setPanelStatus('Biblioteca minimizada. Los recursos no están renderizados.');
-    return;
-  }
   grid.innerHTML = '<p class="media-empty">Cargando biblioteca...</p>';
   const { error } = await reloadMediaAssets();
   if (error) {
@@ -471,15 +279,8 @@ async function loadAndRenderMediaLibrary() {
     else grid.innerHTML = `<p class="media-empty">No se pudo cargar la biblioteca: ${escapeHtml(error.message)}</p>`;
     return;
   }
-  const count = panelState.view === 'archived' ? archivedMediaAssets.length : mediaAssets.length;
-  setPanelStatus(`${count} recurso(s) en ${panelState.view === 'archived' ? 'Archivados' : 'Biblioteca principal'}`);
-  document.querySelectorAll('[data-media-view]').forEach(btn => btn.classList.toggle('is-active', btn.dataset.mediaView === panelState.view));
+  if (status) status.textContent = `${mediaAssets.length} recurso(s) registrados`;
   renderMediaGrid(grid, panelFilters, 'panel');
-  if (panelState.scrollY) {
-    const scrollY = panelState.scrollY;
-    panelState.scrollY = 0;
-    requestAnimationFrame(() => window.scrollTo({ top: scrollY }));
-  }
 }
 
 async function uploadLibraryFiles(files) {
@@ -529,46 +330,18 @@ async function indexUsedMediaAssets() {
 }
 
 function bindPanelFilters() {
-  const rerenderPanel = () => {
-    panelState.visibleLimit = MEDIA_RENDER_PAGE_SIZE;
-    if (panelState.minimized) return;
-    renderMediaGrid(document.getElementById('media-library-grid'), panelFilters, 'panel');
-  };
   document.getElementById('media-library-search')?.addEventListener('input', (e) => {
     panelFilters.search = e.target.value;
-    rerenderPanel();
+    renderMediaGrid(document.getElementById('media-library-grid'), panelFilters, 'panel');
   });
   document.getElementById('media-library-kind-filter')?.addEventListener('change', (e) => {
     panelFilters.kind = e.target.value;
-    rerenderPanel();
+    renderMediaGrid(document.getElementById('media-library-grid'), panelFilters, 'panel');
   });
   document.getElementById('media-library-source-filter')?.addEventListener('change', (e) => {
     panelFilters.source = e.target.value;
-    rerenderPanel();
+    renderMediaGrid(document.getElementById('media-library-grid'), panelFilters, 'panel');
   });
-  document.getElementById('media-library-sort-filter')?.addEventListener('change', (e) => {
-    panelFilters.sort = e.target.value;
-    rerenderPanel();
-  });
-}
-
-function setMediaLibraryMinimized(minimized) {
-  panelState.minimized = minimized;
-  const section = document.getElementById('media-library-section');
-  const grid = document.getElementById('media-library-grid');
-  const toggleBtn = document.getElementById('media-library-toggle-btn');
-  section?.classList.toggle('is-minimized', minimized);
-  if (toggleBtn) {
-    toggleBtn.textContent = minimized ? 'Expandir' : 'Minimizar';
-    toggleBtn.setAttribute('aria-expanded', minimized ? 'false' : 'true');
-  }
-  if (minimized) {
-    panelState.scrollY = window.scrollY;
-    if (grid) grid.innerHTML = '';
-    setPanelStatus('Biblioteca minimizada. Los recursos no están renderizados.');
-  } else {
-    loadAndRenderMediaLibrary();
-  }
 }
 
 export function initMediaLibraryPanel() {
@@ -580,15 +353,6 @@ export function initMediaLibraryPanel() {
   document.getElementById('media-library-refresh-btn')?.addEventListener('click', loadAndRenderMediaLibrary);
   document.getElementById('media-library-index-btn')?.addEventListener('click', indexUsedMediaAssets);
   document.getElementById('media-library-upload-btn')?.addEventListener('click', () => document.getElementById('media-library-file-input')?.click());
-  document.getElementById('media-library-toggle-btn')?.addEventListener('click', () => setMediaLibraryMinimized(!panelState.minimized));
-  document.querySelectorAll('[data-media-view]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (panelState.view === btn.dataset.mediaView) return;
-      panelState.view = btn.dataset.mediaView || 'active';
-      panelState.visibleLimit = MEDIA_RENDER_PAGE_SIZE;
-      loadAndRenderMediaLibrary();
-    });
-  });
   document.getElementById('media-library-file-input')?.addEventListener('change', async (e) => {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
@@ -617,67 +381,15 @@ function ensureExternalModal() {
       <select id="media-external-kind" class="modal-select media-input">
         <option value="image">Imagen</option>
         <option value="video">Video</option>
-        <option value="document">Documento</option>
         <option value="other">Otro</option>
       </select>
-      <div class="media-external-preview" id="media-external-preview">
-        <p class="media-usage-empty">Pega una URL para generar vista previa.</p>
-      </div>
-      <p class="media-status" id="media-external-status"></p>
       <div class="modal-error hidden" id="media-external-error"></div>
       <button class="btn-primary media-primary-btn" id="save-media-external-btn">Usar URL</button>
     </div>`;
   document.body.appendChild(modal);
   document.getElementById('close-media-external-modal').addEventListener('click', () => modal.classList.add('hidden'));
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
-  const updatePreview = debounce(() => previewExternalUrl(), 350);
-  document.getElementById('media-external-url').addEventListener('input', updatePreview);
-  document.getElementById('media-external-kind').addEventListener('change', () => previewExternalUrl());
   return modal;
-}
-
-async function previewExternalUrl() {
-  const url = document.getElementById('media-external-url')?.value.trim() || '';
-  const preview = document.getElementById('media-external-preview');
-  const status = document.getElementById('media-external-status');
-  const fallbackKind = document.getElementById('media-external-kind')?.value || 'image';
-  const token = ++externalPreviewToken;
-  if (!preview || !status) return null;
-  if (!url) {
-    preview.innerHTML = '<p class="media-usage-empty">Pega una URL para generar vista previa.</p>';
-    status.textContent = '';
-    return null;
-  }
-  const safe = safeUrl(url);
-  if (!safe) {
-    preview.innerHTML = '<p class="media-empty">La URL debe ser http/https válida.</p>';
-    status.textContent = '';
-    return null;
-  }
-  status.textContent = 'Detectando recurso externo...';
-  const mime = await detectExternalMime(safe);
-  if (token !== externalPreviewToken) return null;
-  const urlKind = mediaKindFromUrlFallback(safe);
-  const mediaKind = mime ? mediaKindFromMime(mime) : (urlKind === 'other' ? fallbackKind : urlKind);
-  const asset = {
-    id: '',
-    source_type: 'external',
-    url: safe,
-    display_name: document.getElementById('media-external-name')?.value.trim() || assetFileName({ url: safe }),
-    mime_type: mime,
-    media_kind: mediaKind,
-    tags: [],
-    presentation: DEFAULT_MEDIA_PRESENTATION,
-    metadata: { external_temporary: true, external_detection: mime ? 'head' : 'manual-or-url-fallback' },
-  };
-  preview.innerHTML = `<div class="media-edit-preview">${renderMediaPreview(asset)}</div>`;
-  status.textContent = mime
-    ? `${kindLabel(mediaKind)} detectado (${mime}).`
-    : `${kindLabel(mediaKind)} por respaldo. No se pudo detectar MIME automáticamente.`;
-  preview.dataset.mediaKind = mediaKind;
-  preview.dataset.mimeType = mime || '';
-  preview.dataset.safeUrl = safe;
-  return asset;
 }
 
 function openExternalMediaModal(onCreated = () => {}) {
@@ -688,8 +400,6 @@ function openExternalMediaModal(onCreated = () => {}) {
     if (el) el.value = '';
   });
   document.getElementById('media-external-kind').value = 'image';
-  document.getElementById('media-external-preview').innerHTML = '<p class="media-usage-empty">Pega una URL para generar vista previa.</p>';
-  document.getElementById('media-external-status').textContent = '';
   errorBox.classList.add('hidden');
   modal.classList.remove('hidden');
   document.getElementById('save-media-external-btn').onclick = async () => {
@@ -703,15 +413,13 @@ function openExternalMediaModal(onCreated = () => {}) {
     const btn = document.getElementById('save-media-external-btn');
     btn.disabled = true;
     btn.textContent = 'Detectando...';
-    const previewAsset = await previewExternalUrl();
-    const mime = previewAsset?.mime_type || '';
+    const mime = await detectExternalMime(url);
     const fallbackKind = document.getElementById('media-external-kind').value;
-    const urlKind = mediaKindFromUrlFallback(url);
-    const mediaKind = previewAsset?.media_kind || (mime ? mediaKindFromMime(mime) : (urlKind === 'other' ? fallbackKind : urlKind));
+    const mediaKind = mime ? mediaKindFromMime(mime) : (fallbackKind || mediaKindFromUrlFallback(url));
     const asset = {
       id: '',
       source_type: 'external',
-      url: safeUrl(url),
+      url,
       display_name: displayName,
       mime_type: mime,
       media_kind: mediaKind,
@@ -793,7 +501,7 @@ function renderPresentationControls(prefix) {
   return `
     <div class="media-presentation-grid">
       <label><span>Fit</span><select id="${prefix}-media-fit" class="modal-select media-input"><option value="contain">Contain</option><option value="cover">Cover</option><option value="fill">Fill</option></select></label>
-      <label><span>Posición</span><select id="${prefix}-media-position" class="modal-select media-input"><option value="center center">Centro</option><option value="center top">Arriba</option><option value="center bottom">Abajo</option><option value="left center">Izquierda</option><option value="right center">Derecha</option></select></label>
+      <label><span>Posición</span><select id="${prefix}-media-position" class="modal-select media-input"><option value="center center">Centro</option><option value="top center">Arriba</option><option value="bottom center">Abajo</option><option value="center left">Izquierda</option><option value="center right">Derecha</option></select></label>
       <label><span>Repetición</span><select id="${prefix}-media-repeat" class="modal-select media-input"><option value="no-repeat">No repetir</option><option value="repeat">Repetir</option><option value="repeat-x">Horizontal</option><option value="repeat-y">Vertical</option></select></label>
       <label><span>Opacidad</span><input type="range" id="${prefix}-media-opacity" min="0" max="1" step="0.05" value="1" /></label>
     </div>`;
@@ -841,12 +549,6 @@ function ensurePickerModal() {
           <option value="all">Origen</option>
           <option value="storage">Storage</option>
         </select>
-        <select id="media-picker-sort-filter" class="modal-select media-input">
-          <option value="recent">Más recientes</option>
-          <option value="oldest">Más antiguos</option>
-          <option value="name">Nombre A-Z</option>
-          <option value="size">Más pesados</option>
-        </select>
       </div>
       <div class="media-picker-actions">
         <button type="button" class="media-action-primary" id="media-picker-upload-btn">Subir recurso</button>
@@ -861,22 +563,14 @@ function ensurePickerModal() {
   modal.addEventListener('click', (e) => { if (e.target === modal) closeMediaPicker(); });
   document.getElementById('media-picker-search').addEventListener('input', (e) => {
     pickerFilters.search = e.target.value;
-    pickerVisibleLimit = MEDIA_RENDER_PAGE_SIZE;
     renderPickerGrid();
   });
   document.getElementById('media-picker-kind-filter').addEventListener('change', (e) => {
     pickerFilters.kind = e.target.value;
-    pickerVisibleLimit = MEDIA_RENDER_PAGE_SIZE;
     renderPickerGrid();
   });
   document.getElementById('media-picker-source-filter').addEventListener('change', (e) => {
     pickerFilters.source = e.target.value;
-    pickerVisibleLimit = MEDIA_RENDER_PAGE_SIZE;
-    renderPickerGrid();
-  });
-  document.getElementById('media-picker-sort-filter').addEventListener('change', (e) => {
-    pickerFilters.sort = e.target.value;
-    pickerVisibleLimit = MEDIA_RENDER_PAGE_SIZE;
     renderPickerGrid();
   });
   document.getElementById('media-picker-upload-btn').addEventListener('click', () => document.getElementById('media-picker-file-input').click());
@@ -917,13 +611,10 @@ export async function openMediaPicker({ title = 'Biblioteca Multimedia', allowed
   pickerFilters.search = '';
   pickerFilters.kind = allowedKinds.length === 1 ? allowedKinds[0] : 'all';
   pickerFilters.source = 'all';
-  pickerFilters.sort = 'recent';
-  pickerVisibleLimit = MEDIA_RENDER_PAGE_SIZE;
   document.getElementById('media-picker-title').textContent = title;
   document.getElementById('media-picker-search').value = '';
   document.getElementById('media-picker-kind-filter').value = pickerFilters.kind;
   document.getElementById('media-picker-source-filter').value = 'all';
-  document.getElementById('media-picker-sort-filter').value = 'recent';
   document.getElementById('media-picker-file-input').accept = allowedKinds.includes('video')
     ? 'image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng,video/mp4,video/webm'
     : 'image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng';

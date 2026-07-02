@@ -8,7 +8,7 @@
 
 import { supabaseClient } from '../config.js';
 import { renderAboutContent } from './about.js';
-import { applyCustomBackground, normalizeBackgroundOpacity, normalizeBackgroundPresentation, populateBackgroundForm } from './background.js';
+import { applyCustomBackground, populateBackgroundForm } from './background.js';
 import { applyFavicon, populateFaviconForm } from './favicon.js';
 import { DEFAULT_ITEM_FIELDS, DEFAULT_MOB_FIELDS, state } from '../core/state.js';
 import { escapeHtml, showToast } from '../core/utils.js';
@@ -22,7 +22,7 @@ export function setFieldConfigSavedHandler(handler) {
 export async function loadAppSettings() {
   state.fieldConfig = { mob: DEFAULT_MOB_FIELDS, item: DEFAULT_ITEM_FIELDS };
   state.aboutBlocks = null;
-  state.backgroundConfig = { image_url: '', mode: 'fixed', tabs: [], presentation: null, opacity: 1 };
+  state.backgroundConfig = { image_url: '', mode: 'fixed', tabs: [] };
   state.faviconUrl = '';
 
   const { data, error } = await supabaseClient.from('app_settings').select('key,value');
@@ -46,8 +46,6 @@ export async function loadAppSettings() {
       image_url: bgRow.value.image_url || '',
       mode: ['fixed','continuous','contain'].includes(bgRow.value.mode) ? bgRow.value.mode : 'fixed',
       tabs: Array.isArray(bgRow.value.tabs) ? bgRow.value.tabs : [],
-      presentation: bgRow.value.presentation ? normalizeBackgroundPresentation(bgRow.value.presentation, bgRow.value.opacity ?? 1) : null,
-      opacity: normalizeBackgroundOpacity(bgRow.value.opacity ?? 1),
     };
   }
 
