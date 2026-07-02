@@ -48,8 +48,8 @@ export function suppressNextWeaponsReload() {
 
 export const PAGE_SIZE = 20;
 
-// NOTA DE REFACTOR: `_logsPage` vivía como `let` de módulo en el app.js
-// original. Como varios módulos necesitan reasignarlo (no solo leerlo),
+// NOTA DE REFACTOR: `_logsPage` vivía como `let` en el antiguo monolito
+// JS. Como varios módulos necesitan reasignarlo (no solo leerlo),
 // se expone como propiedad mutable de `state` (`state.logsPage`) en vez
 // de un `let` exportado — los bindings de `import` son de solo lectura,
 // así que un `let` exportado no se puede reasignar desde otro módulo,

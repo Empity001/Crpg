@@ -167,7 +167,7 @@ export function initGenericImageDropzone(prefix, folder, getOldUrl = () => '', o
   }
 }
 
-// Conecta el botón 📁 de un modal al input URL existente.
+// Conecta el botón 📁 de un modal al campo oculto que guarda la URL pública.
 // prefix    : 'mob' | 'item' | 'libre' | 'tier-item' | 'weapon' | 'weapon-rank'
 // folder    : carpeta dentro del bucket ('mobs', 'items', 'tierlist', 'weapons', 'weapon-ranks')
 // getOldUrl : función que devuelve la URL actual guardada (para borrado de huérfanos)

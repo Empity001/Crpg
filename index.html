@@ -25,7 +25,7 @@
     <div class="logs-toolbar">
       <div class="filter-pills" id="category-filters">
         <button class="pill is-active" data-filter="all">Todos</button>
-        <!-- Las categorías dinámicas se inyectan aquí desde app.js -->
+        <!-- Las categorías dinámicas se renderizan desde js/pages/logs.js -->
       </div>
 
       <div class="toolbar-right">
@@ -49,7 +49,7 @@
     </div>
 
     <div class="logs-grid" id="logs-grid">
-      <!-- Las tarjetas de logs se inyectan aquí desde app.js -->
+      <!-- Las tarjetas de logs se renderizan desde js/pages/logs.js -->
       <div class="logs-empty" id="logs-empty">
         <div class="spinner"></div>
         <p>Cargando registros del servidor...</p>
@@ -105,7 +105,7 @@
       <div class="field-col">
         <label class="field-label">Categoría</label>
         <select id="log-category-input" class="modal-select">
-          <!-- Las opciones se inyectan dinámicamente desde app.js -->
+          <!-- Las opciones se renderizan dinámicamente desde js/pages/logs.js -->
         </select>
         <button type="button" class="link-btn" id="open-new-category-btn">+ Crear categoría nueva</button>
       </div>

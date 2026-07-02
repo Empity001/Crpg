@@ -86,7 +86,7 @@ Para todo lo que no encaja como mob ni item: NPCs, estructuras, eventos especial
 ### Elementos comunes a las tres fichas
 
 - **Descripción** (opcional): notas adicionales en texto libre, con saltos de línea respetados.
-- **Imagen de referencia** (opcional): se pega una URL de imagen ya alojada en otro lado (Discord, Imgur, etc. — esta web no almacena archivos). Se muestra una vista previa, y un botón **"⛶ Ver en pantalla completa"** abre la imagen en una pestaña aparte con su propio botón de volver.
+- **Imagen de referencia** (opcional): se elige un archivo desde el navegador y se sube a Supabase Storage. Se muestra una vista previa, se puede quitar antes de guardar, y un botón **"⛶ Ver en pantalla completa"** abre la imagen en una página aparte con su propio botón de volver.
 - **"Algo más"** (solo mob/item, opcional): campos libres clave/valor adicionales, para cualquier dato que no tenga un campo fijo dedicado. Siempre se muestran al final de la ficha, después de los campos fijos.
 
 ---
@@ -136,7 +136,7 @@ Tabla de personajes organizada en **filas dinámicas** (tiers: SSS, SS, S, A... 
 - **Visitantes**: solo pueden ver la tierlist. Sin botones de edición.
 - **Banco "Sin clasificar"**: debajo de la tabla, agrupado también por columna — ahí caen los elementos nuevos hasta que un admin los asigna a una fila.
 - **Mover un elemento**: en computadora, **arrastra y suelta** el elemento a la celda destino (otra fila, otra columna, o el banco). En el celular, donde no hay arrastre, cada elemento tiene un botón **↕ Mover** que abre un selector de fila + columna.
-- **Admin puede**: crear/renombrar/cambiar color/reordenar/borrar filas (al borrar una fila, sus elementos vuelven al banco, no se pierden); crear/editar/borrar elementos con nombre + imagen (URL externa, igual que en los mobs/items de los logs).
+- **Admin puede**: crear/renombrar/cambiar color/reordenar/borrar filas (al borrar una fila, sus elementos vuelven al banco, no se pierden); crear/editar/borrar elementos con nombre + imagen subida a Supabase Storage, igual que en los mobs/items de los logs.
 - Pensado para crecer: cada elemento tiene un campo `extra_fields` libre en la base de datos por si en el futuro quieres agregarle más datos (rareza, nota, etc.) sin tener que migrar de nuevo.
 
 ---

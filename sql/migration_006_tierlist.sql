@@ -1,7 +1,7 @@
 -- =========================================================
 -- CULONES-RPG · Migración 006
 -- Tierlist: filas dinámicas (tiers) + 3 columnas fijas
--- (Arma, Sub-arma, Accesorio) + elementos con imagen por URL.
+-- (Arma, Sub-arma, Accesorio) + elementos con URL pública de imagen.
 -- =========================================================
 -- Ejecutar completo en: Supabase Dashboard → SQL Editor → New query
 -- Seguro de correr sobre una base que ya tiene schema.sql +
@@ -35,7 +35,7 @@ create table if not exists public.tierlist_items (
   row_id       uuid references public.tierlist_rows (id) on delete set null,
   column_key   text not null check (column_key in ('weapon', 'subweapon', 'accessory')),
   name         text not null,
-  image_url    text,              -- URL externa (Imgur, Discord CDN, etc.), igual que mob/item
+  image_url    text,              -- URL pública de imagen, igual que mob/item
   extra_fields jsonb not null default '[]'::jsonb, -- para expandir a futuro sin migrar de nuevo
   sort_order   integer not null default 0,
   created_at   timestamptz not null default now()

@@ -1200,16 +1200,6 @@ button:not(:disabled) {
 }
 .asset-preview .link-btn { padding: 0; }
 
-/* Fila de input URL + botón de subida (modales de mob/item/weapon/etc.) */
-/* image-input-row se mantiene por compatibilidad con código heredado que pudiera quedar */
-.image-input-row {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-wrap: nowrap;
-}
-.image-input-row .modal-input { flex: 1; min-width: 0; }
-
 /* btn-upload-img: ahora oculto en la UI — se mantiene porque
    initImageUploader lo referencia internamente por ID */
 .btn-upload-img {
@@ -1343,25 +1333,6 @@ button:not(:disabled) {
 }
 .favicon-dropzone .tier-img-dropzone-icon { font-size: 20px; }
 .favicon-dropzone .tier-img-dropzone-label { font-size: 11.5px; }
-
-/* URL externa: <details> colapsable debajo de la dropzone */
-.tier-img-url-details {
-  margin-top: 8px;
-}
-.tier-img-url-toggle {
-  font-size: 11.5px;
-  color: var(--ink-600);
-  cursor: pointer;
-  user-select: none;
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  transition: color 0.15s;
-}
-.tier-img-url-toggle::-webkit-details-marker { display: none; }
-.tier-img-url-details[open] .tier-img-url-toggle { color: var(--ink-300); }
-.tier-img-url-toggle:hover { color: var(--cyan); }
 
 /* Preview: botones inline bajo la imagen */
 .asset-preview-actions {
