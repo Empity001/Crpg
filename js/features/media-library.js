@@ -26,7 +26,9 @@ import { state } from '../core/state.js';
 import { uploadMediaToStorage } from '../core/storage.js';
 import { asArray, debounce, escapeHtml, safeUrl, showToast } from '../core/utils.js';
 
-const MEDIA_RENDER_PAGE_SIZE = 60;
+const MEDIA_PANEL_PAGE_SIZE = 60;
+const MEDIA_PICKER_PAGE_SIZE = 32;
+const MEDIA_CACHE_TTL_MS = 60000;
 
 let mediaAssets = [];
 let archivedMediaAssets = [];
@@ -34,13 +36,17 @@ let mediaUsageIndex = new Map();
 let mediaInfrastructureReady = true;
 let panelInitialized = false;
 let pickerState = null;
-let pickerVisibleLimit = MEDIA_RENDER_PAGE_SIZE;
+let pickerVisibleLimit = MEDIA_PICKER_PAGE_SIZE;
+let pickerOpenToken = 0;
+let mediaAssetsLoadedAt = 0;
 let externalPreviewToken = 0;
+const mediaSearchTextCache = new WeakMap();
+const gridRenderState = new WeakMap();
 
 const panelState = {
   view: 'active',
   minimized: false,
-  visibleLimit: MEDIA_RENDER_PAGE_SIZE,
+  visibleLimit: MEDIA_PANEL_PAGE_SIZE,
   scrollY: 0,
 };
 
@@ -103,15 +109,33 @@ function kindLabel(kind) {
   return { image: 'Imagen', video: 'Video', audio: 'Audio', document: 'Documento', other: 'Otro' }[kind] || kind || 'Otro';
 }
 
+function pageSizeForMode(mode) {
+  return mode === 'picker' ? MEDIA_PICKER_PAGE_SIZE : MEDIA_PANEL_PAGE_SIZE;
+}
+
+function assetSearchText(asset) {
+  if (mediaSearchTextCache.has(asset)) return mediaSearchTextCache.get(asset);
+  const text = [
+    asset.display_name,
+    asset.description,
+    asset.mime_type,
+    asset.folder,
+    asset.url,
+    ...(asset.tags || []),
+  ].join(' ').toLowerCase();
+  mediaSearchTextCache.set(asset, text);
+  return text;
+}
+
 function renderMediaPreview(asset, className = 'media-thumb-preview') {
   const safe = safeUrl(asset.url);
   if (!safe) return `<div class="${className} is-empty">?</div>`;
   const style = presentationStyle(asset.presentation);
   if (asset.media_kind === 'image') {
-    return `<img src="${escapeHtml(safe)}" alt="${escapeHtml(asset.display_name || '')}" class="${className}" loading="lazy" style="${style}" />`;
+    return `<img src="${escapeHtml(safe)}" alt="${escapeHtml(asset.display_name || '')}" class="${className}" loading="lazy" decoding="async" fetchpriority="low" style="${style}" />`;
   }
   if (asset.media_kind === 'video') {
-    return `<video src="${escapeHtml(safe)}" class="${className}" muted playsinline controls style="${style}"></video>`;
+    return `<video src="${escapeHtml(safe)}" class="${className}" muted playsinline preload="metadata" style="${style}"></video>`;
   }
   return `<div class="${className} is-file">${escapeHtml(kindLabel(asset.media_kind))}</div>`;
 }
@@ -122,15 +146,7 @@ function assetMatchesFilters(asset, filters, allowedKinds = null) {
   if (filters.source !== 'all' && asset.source_type !== filters.source) return false;
   const q = filters.search.trim().toLowerCase();
   if (!q) return true;
-  const haystack = [
-    asset.display_name,
-    asset.description,
-    asset.mime_type,
-    asset.folder,
-    asset.url,
-    ...(asset.tags || []),
-  ].join(' ').toLowerCase();
-  return haystack.includes(q);
+  return assetSearchText(asset).includes(q);
 }
 
 function sortedMediaList(list, sort = 'recent') {
@@ -151,19 +167,31 @@ function setPanelStatus(text) {
   if (status) status.textContent = text;
 }
 
+function cachedMediaAssets() {
+  return [...mediaAssets, ...archivedMediaAssets];
+}
+
 async function reloadMediaAssets() {
   const { data, error } = await listMediaAssets({ includeArchived: true });
   if (error) {
     mediaInfrastructureReady = !isMediaInfrastructureMissing(error);
     mediaAssets = [];
     archivedMediaAssets = [];
+    mediaAssetsLoadedAt = 0;
     return { data: [], error };
   }
   mediaInfrastructureReady = true;
   const storageAssets = (data || []).filter(asset => asset.source_type !== 'external');
   mediaAssets = storageAssets.filter(asset => !asset.is_archived);
   archivedMediaAssets = storageAssets.filter(asset => asset.is_archived);
+  mediaAssetsLoadedAt = Date.now();
   return { data: storageAssets, error: null };
+}
+
+async function ensureMediaAssets({ force = false } = {}) {
+  const fresh = mediaAssetsLoadedAt && (Date.now() - mediaAssetsLoadedAt) < MEDIA_CACHE_TTL_MS;
+  if (!force && fresh) return { data: cachedMediaAssets(), error: null, fromCache: true };
+  return reloadMediaAssets();
 }
 
 function addUsage(map, url, label) {
@@ -244,6 +272,23 @@ function findMediaAsset(id) {
 }
 
 function renderMediaCard(asset, mode = 'panel') {
+  const title = asset.display_name || assetFileName(asset);
+  if (mode === 'picker') {
+    const isCurrent = pickerState?.currentUrl && safeUrl(asset.url) === safeUrl(pickerState.currentUrl);
+    return `
+      <article class="media-card media-card-picker${isCurrent ? ' is-current' : ''}" data-media-id="${asset.id}">
+        <button type="button" class="media-picker-card-button" data-media-pick="${asset.id}" aria-label="Usar ${escapeHtml(title)}">
+          <div class="media-thumb">
+            ${renderMediaPreview(asset)}
+            <span class="media-kind-badge">${escapeHtml(kindLabel(asset.media_kind))}</span>
+          </div>
+          <div class="media-card-body">
+            <h4 class="media-card-title">${escapeHtml(title)}</h4>
+            <p class="media-card-meta">${escapeHtml(sourceLabel(asset))} &middot; ${escapeHtml(formatFileSize(asset.file_size))}</p>
+          </div>
+        </button>
+      </article>`;
+  }
   const usages = mediaUsageIndex.get(safeUrl(asset.url)) || [];
   const tags = (asset.tags || []).slice(0, 3);
   const archivedMode = mode === 'panel-archived';
@@ -254,7 +299,7 @@ function renderMediaCard(asset, mode = 'panel') {
         <span class="media-kind-badge">${escapeHtml(kindLabel(asset.media_kind))}</span>
       </div>
       <div class="media-card-body">
-        <h4 class="media-card-title">${escapeHtml(asset.display_name || assetFileName(asset))}</h4>
+        <h4 class="media-card-title">${escapeHtml(title)}</h4>
         <p class="media-card-meta">${escapeHtml(sourceLabel(asset))} · ${escapeHtml(asset.mime_type || 'MIME pendiente')} · ${escapeHtml(formatFileSize(asset.file_size))}</p>
         <p class="media-card-file">${escapeHtml(assetFileName(asset))}</p>
         ${tags.length ? `<div class="media-tags">${tags.map(t => `<span>${escapeHtml(t)}</span>`).join('')}</div>` : ''}
@@ -277,6 +322,8 @@ function renderMediaCard(asset, mode = 'panel') {
 
 function bindMediaCardActions(root, mode = 'panel') {
   root.querySelectorAll('[data-media-copy]').forEach(btn => {
+    if (btn.dataset.mediaActionBound === 'true') return;
+    btn.dataset.mediaActionBound = 'true';
     btn.addEventListener('click', async () => {
       const asset = findMediaAsset(btn.dataset.mediaCopy);
       if (!asset) return;
@@ -286,6 +333,8 @@ function bindMediaCardActions(root, mode = 'panel') {
   });
 
   root.querySelectorAll('[data-media-edit]').forEach(btn => {
+    if (btn.dataset.mediaActionBound === 'true') return;
+    btn.dataset.mediaActionBound = 'true';
     btn.addEventListener('click', () => {
       const asset = findMediaAsset(btn.dataset.mediaEdit);
       if (asset) openMediaEditModal(asset);
@@ -293,6 +342,8 @@ function bindMediaCardActions(root, mode = 'panel') {
   });
 
   root.querySelectorAll('[data-media-archive]').forEach(btn => {
+    if (btn.dataset.mediaActionBound === 'true') return;
+    btn.dataset.mediaActionBound = 'true';
     btn.addEventListener('click', async () => {
       const asset = findMediaAsset(btn.dataset.mediaArchive);
       if (!asset || !(await confirmMediaAction({
@@ -310,6 +361,8 @@ function bindMediaCardActions(root, mode = 'panel') {
   });
 
   root.querySelectorAll('[data-media-restore]').forEach(btn => {
+    if (btn.dataset.mediaActionBound === 'true') return;
+    btn.dataset.mediaActionBound = 'true';
     btn.addEventListener('click', async () => {
       const asset = findMediaAsset(btn.dataset.mediaRestore);
       if (!asset) return;
@@ -322,6 +375,8 @@ function bindMediaCardActions(root, mode = 'panel') {
   });
 
   root.querySelectorAll('[data-media-delete]').forEach(btn => {
+    if (btn.dataset.mediaActionBound === 'true') return;
+    btn.dataset.mediaActionBound = 'true';
     btn.addEventListener('click', async () => {
       const asset = findMediaAsset(btn.dataset.mediaDelete);
       if (!asset || !(await confirmMediaAction({
@@ -337,6 +392,8 @@ function bindMediaCardActions(root, mode = 'panel') {
 
   if (mode === 'picker') {
     root.querySelectorAll('[data-media-pick]').forEach(btn => {
+      if (btn.dataset.mediaActionBound === 'true') return;
+      btn.dataset.mediaActionBound = 'true';
       btn.addEventListener('click', () => {
         const asset = mediaAssets.find(a => a.id === btn.dataset.mediaPick);
         if (!asset || !pickerState) return;
@@ -349,33 +406,74 @@ function bindMediaCardActions(root, mode = 'panel') {
 }
 
 function renderMediaGrid(container, filters, mode = 'panel', allowedKinds = null) {
-  if (!container) return;
+  if (!container) return 0;
   const source = mode === 'picker' ? mediaAssets : currentPanelAssets();
   const limit = mode === 'picker' ? pickerVisibleLimit : panelState.visibleLimit;
   const list = sortedMediaList(
     source.filter(asset => assetMatchesFilters(asset, filters, allowedKinds)),
     filters.sort,
   );
+  gridRenderState.set(container, { filters, mode, allowedKinds });
   if (!list.length) {
     container.innerHTML = '<p class="media-empty">No hay recursos con esos filtros.</p>';
-    return;
+    return 0;
   }
   const visible = list.slice(0, limit);
   const renderMode = mode === 'panel' && panelState.view === 'archived' ? 'panel-archived' : mode;
   container.innerHTML = visible.map(asset => renderMediaCard(asset, renderMode)).join('')
     + (visible.length < list.length ? `
       <div class="media-load-more-row">
-        <button type="button" class="media-action-btn" data-media-load-more="${mode}">Mostrar ${Math.min(MEDIA_RENDER_PAGE_SIZE, list.length - visible.length)} más</button>
+        <button type="button" class="media-action-btn" data-media-load-more="${mode}">Mostrar ${Math.min(pageSizeForMode(mode), list.length - visible.length)} mas</button>
         <span>${visible.length} de ${list.length}</span>
       </div>` : '');
   bindMediaCardActions(container, mode);
+  bindMediaLoadMoreButtons(container);
+  return list.length;
+}
+
+function bindMediaLoadMoreButtons(container) {
   container.querySelectorAll('[data-media-load-more]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.mediaLoadMore === 'picker') pickerVisibleLimit += MEDIA_RENDER_PAGE_SIZE;
-      else panelState.visibleLimit += MEDIA_RENDER_PAGE_SIZE;
-      renderMediaGrid(container, filters, mode, allowedKinds);
-    });
+    if (btn.dataset.mediaLoadMoreBound === 'true') return;
+    btn.dataset.mediaLoadMoreBound = 'true';
+    btn.addEventListener('click', () => appendMediaGridPage(container));
   });
+}
+
+function appendMediaGridPage(container) {
+  const renderState = gridRenderState.get(container);
+  if (!renderState) return;
+  const { filters, mode, allowedKinds } = renderState;
+  const oldLimit = mode === 'picker' ? pickerVisibleLimit : panelState.visibleLimit;
+  const pageSize = pageSizeForMode(mode);
+  if (mode === 'picker') pickerVisibleLimit += pageSize;
+  else panelState.visibleLimit += pageSize;
+
+  const source = mode === 'picker' ? mediaAssets : currentPanelAssets();
+  const limit = mode === 'picker' ? pickerVisibleLimit : panelState.visibleLimit;
+  const list = sortedMediaList(
+    source.filter(asset => assetMatchesFilters(asset, filters, allowedKinds)),
+    filters.sort,
+  );
+  const renderMode = mode === 'panel' && panelState.view === 'archived' ? 'panel-archived' : mode;
+  const nextAssets = list.slice(oldLimit, limit);
+  container.querySelector('.media-load-more-row')?.remove();
+  if (nextAssets.length) {
+    container.insertAdjacentHTML('beforeend', nextAssets.map(asset => renderMediaCard(asset, renderMode)).join(''));
+    bindMediaCardActions(container, mode);
+  }
+  const visibleCount = Math.min(limit, list.length);
+  if (mode === 'picker') {
+    const status = document.getElementById('media-picker-status');
+    if (status) status.textContent = list.length ? `${visibleCount} de ${list.length} recurso(s)` : 'Sin resultados con esos filtros.';
+  }
+  if (visibleCount < list.length) {
+    container.insertAdjacentHTML('beforeend', `
+      <div class="media-load-more-row">
+        <button type="button" class="media-action-btn" data-media-load-more="${mode}">Mostrar ${Math.min(pageSize, list.length - visibleCount)} mas</button>
+        <span>${visibleCount} de ${list.length}</span>
+      </div>`);
+    bindMediaLoadMoreButtons(container);
+  }
 }
 
 function renderMediaInfrastructureError(container) {
@@ -482,7 +580,7 @@ async function loadAndRenderMediaLibrary() {
   }
 }
 
-async function uploadLibraryFiles(files) {
+async function uploadLibraryFiles(files, { refreshPanel = true } = {}) {
   const status = document.getElementById('media-library-status');
   if (!files.length) return;
   if (status) status.textContent = `Subiendo ${files.length} recurso(s)...`;
@@ -496,7 +594,7 @@ async function uploadLibraryFiles(files) {
     }
   }
   showToast(`${ok} recurso(s) subido(s)`, ok ? 'success' : 'error');
-  await loadAndRenderMediaLibrary();
+  if (refreshPanel) await loadAndRenderMediaLibrary();
 }
 
 async function indexUsedMediaAssets() {
@@ -530,13 +628,14 @@ async function indexUsedMediaAssets() {
 
 function bindPanelFilters() {
   const rerenderPanel = () => {
-    panelState.visibleLimit = MEDIA_RENDER_PAGE_SIZE;
+    panelState.visibleLimit = MEDIA_PANEL_PAGE_SIZE;
     if (panelState.minimized) return;
     renderMediaGrid(document.getElementById('media-library-grid'), panelFilters, 'panel');
   };
+  const debouncedPanelSearch = debounce(rerenderPanel, 150);
   document.getElementById('media-library-search')?.addEventListener('input', (e) => {
     panelFilters.search = e.target.value;
-    rerenderPanel();
+    debouncedPanelSearch();
   });
   document.getElementById('media-library-kind-filter')?.addEventListener('change', (e) => {
     panelFilters.kind = e.target.value;
@@ -585,7 +684,7 @@ export function initMediaLibraryPanel() {
     btn.addEventListener('click', () => {
       if (panelState.view === btn.dataset.mediaView) return;
       panelState.view = btn.dataset.mediaView || 'active';
-      panelState.visibleLimit = MEDIA_RENDER_PAGE_SIZE;
+      panelState.visibleLimit = MEDIA_PANEL_PAGE_SIZE;
       loadAndRenderMediaLibrary();
     });
   });
@@ -854,36 +953,38 @@ function ensurePickerModal() {
         <input type="file" id="media-picker-file-input" class="hidden" />
       </div>
       ${renderPresentationControls('picker')}
+      <p class="media-status media-picker-status" id="media-picker-status"></p>
       <div class="media-grid media-picker-grid" id="media-picker-grid"></div>
     </div>`;
   document.body.appendChild(modal);
   document.getElementById('close-media-picker-modal').addEventListener('click', closeMediaPicker);
   modal.addEventListener('click', (e) => { if (e.target === modal) closeMediaPicker(); });
+  const rerenderPicker = () => {
+    pickerVisibleLimit = MEDIA_PICKER_PAGE_SIZE;
+    renderPickerGrid();
+  };
+  const debouncedPickerSearch = debounce(rerenderPicker, 150);
   document.getElementById('media-picker-search').addEventListener('input', (e) => {
     pickerFilters.search = e.target.value;
-    pickerVisibleLimit = MEDIA_RENDER_PAGE_SIZE;
-    renderPickerGrid();
+    debouncedPickerSearch();
   });
   document.getElementById('media-picker-kind-filter').addEventListener('change', (e) => {
     pickerFilters.kind = e.target.value;
-    pickerVisibleLimit = MEDIA_RENDER_PAGE_SIZE;
-    renderPickerGrid();
+    rerenderPicker();
   });
   document.getElementById('media-picker-source-filter').addEventListener('change', (e) => {
     pickerFilters.source = e.target.value;
-    pickerVisibleLimit = MEDIA_RENDER_PAGE_SIZE;
-    renderPickerGrid();
+    rerenderPicker();
   });
   document.getElementById('media-picker-sort-filter').addEventListener('change', (e) => {
     pickerFilters.sort = e.target.value;
-    pickerVisibleLimit = MEDIA_RENDER_PAGE_SIZE;
-    renderPickerGrid();
+    rerenderPicker();
   });
   document.getElementById('media-picker-upload-btn').addEventListener('click', () => document.getElementById('media-picker-file-input').click());
   document.getElementById('media-picker-file-input').addEventListener('change', async (e) => {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
-    await uploadLibraryFiles(files);
+    await uploadLibraryFiles(files, { refreshPanel: false });
     await reloadMediaAssets();
     renderPickerGrid();
   });
@@ -898,27 +999,35 @@ function ensurePickerModal() {
 
 function renderPickerGrid() {
   const grid = document.getElementById('media-picker-grid');
+  const status = document.getElementById('media-picker-status');
   if (!grid) return;
   if (!mediaInfrastructureReady) {
     renderMediaInfrastructureError(grid);
+    if (status) status.textContent = '';
     return;
   }
-  renderMediaGrid(grid, pickerFilters, 'picker', pickerState?.allowedKinds || null);
+  const total = renderMediaGrid(grid, pickerFilters, 'picker', pickerState?.allowedKinds || null);
+  if (status) {
+    const visible = Math.min(pickerVisibleLimit, total);
+    status.textContent = total ? `${visible} de ${total} recurso(s)` : 'Sin resultados con esos filtros.';
+  }
 }
 
 function closeMediaPicker() {
   document.getElementById('media-picker-modal')?.classList.add('hidden');
+  pickerOpenToken++;
   pickerState = null;
 }
 
 export async function openMediaPicker({ title = 'Biblioteca Multimedia', allowedKinds = ['image'], currentUrl = '', onSelect = () => {} } = {}) {
   const modal = ensurePickerModal();
-  pickerState = { allowedKinds, currentUrl, onSelect };
+  const token = ++pickerOpenToken;
+  pickerState = { allowedKinds, currentUrl, onSelect, token };
   pickerFilters.search = '';
   pickerFilters.kind = allowedKinds.length === 1 ? allowedKinds[0] : 'all';
   pickerFilters.source = 'all';
   pickerFilters.sort = 'recent';
-  pickerVisibleLimit = MEDIA_RENDER_PAGE_SIZE;
+  pickerVisibleLimit = MEDIA_PICKER_PAGE_SIZE;
   document.getElementById('media-picker-title').textContent = title;
   document.getElementById('media-picker-search').value = '';
   document.getElementById('media-picker-kind-filter').value = pickerFilters.kind;
@@ -929,9 +1038,24 @@ export async function openMediaPicker({ title = 'Biblioteca Multimedia', allowed
     : 'image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng';
   writePresentationControls('picker', DEFAULT_MEDIA_PRESENTATION);
   modal.classList.remove('hidden');
-  document.getElementById('media-picker-grid').innerHTML = '<p class="media-empty">Cargando recursos...</p>';
-  await reloadMediaAssets();
-  if (!mediaUsageIndex.size) buildMediaUsageIndex().then(renderPickerGrid).catch(renderPickerGrid);
+  const grid = document.getElementById('media-picker-grid');
+  const status = document.getElementById('media-picker-status');
+  if (mediaAssetsLoadedAt) {
+    if (status) status.textContent = 'Mostrando biblioteca guardada...';
+    renderPickerGrid();
+  } else {
+    grid.innerHTML = '<p class="media-empty">Cargando recursos...</p>';
+    if (status) status.textContent = 'Cargando biblioteca...';
+  }
+  const { error, fromCache } = await ensureMediaAssets({ force: false });
+  if (!pickerState || pickerState.token !== token) return;
+  if (error) {
+    if (status) status.textContent = '';
+    if (!mediaInfrastructureReady) renderPickerGrid();
+    else grid.innerHTML = `<p class="media-empty">No se pudo cargar la biblioteca: ${escapeHtml(error.message)}</p>`;
+    return;
+  }
+  if (status && !fromCache) status.textContent = 'Biblioteca actualizada.';
   renderPickerGrid();
 }
 
