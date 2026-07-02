@@ -439,403 +439,516 @@ Pendiente porque requiere navegador vivo, credenciales admin o servicios externo
 - [x] Importar JSON con conflictos reales y confirmar resolución overwrite/skip.
 - [x] Discord Bot: `/ping`, `/getcode`, `/setlogchannel`, screenshots de logs/tierlist/arma, publicación/edición automática de logs y rotación diaria del código.
 
-### Prioridad 2 --- Sistema Multimedia (Especificación Definitiva)
+### Prioridad 2 — Sistema Multimedia
+
+Objetivo: convertir el manejo de imágenes actual en una infraestructura multimedia centralizada, reutilizable y preparada para crecer. Esta prioridad no debe tratarse como un simple "subidor de imágenes", sino como una capa base del proyecto.
 
 #### Visión
 
-Quiero que el Sistema Multimedia sea una de las bases del proyecto, no
-una función más.
+El Sistema Multimedia debe ser una de las bases de Culones RPG.
 
-No quiero volver a crear un sistema de subida de imágenes para cada
-módulo. Quiero construir una única infraestructura reutilizable que
-gestione absolutamente todos los recursos multimedia del proyecto.
+No quiero volver a crear un sistema de subida de imágenes para cada módulo. Quiero una única infraestructura reutilizable que gestione todos los recursos multimedia del proyecto.
 
-A partir de esta implementación, ningún módulo deberá preocuparse por
-cómo se obtiene un recurso. Logs, Guía de Armas, Tierlist, Fondo,
-Favicon, Acerca del Server y cualquier sistema futuro deberán utilizar
-exactamente la misma capa.
+A partir de esta implementación, ningún módulo debería preocuparse por cómo se obtiene un recurso. Logs, Guía de Armas, Tierlist, Fondo, Favicon, Acerca del Server y cualquier sección futura deberán utilizar la misma capa multimedia.
 
-El objetivo es construir un sistema preparado para crecer durante años
-sin tener que rediseñarlo.
-
-------------------------------------------------------------------------
+El sistema debe ser cómodo para el administrador, claro para el usuario, fácil de mantener para el desarrollador y preparado para crecer sin rediseñar la arquitectura.
 
 #### Filosofía
 
-No quiero un "subidor de imágenes".
+No quiero un simple selector de imágenes.
 
-Quiero una Biblioteca Multimedia profesional.
+Quiero una Biblioteca Multimedia profesional, parecida al gestor de recursos de un CMS moderno.
 
-Debe sentirse como el administrador de recursos de un CMS moderno.
+Debe existir un único lugar donde se administren todos los recursos propios del proyecto.
 
-Debe existir un único lugar donde se administren todos los recursos
-propios del proyecto.
+Toda nueva sección que necesite imágenes, GIFs, vídeos, iconos, fondos o cualquier otro recurso deberá reutilizar esta misma infraestructura.
 
-Toda mejora futura deberá integrarse aquí.
+#### Relación con la Prioridad 3
 
-------------------------------------------------------------------------
+Todo componente visual nuevo del Sistema Multimedia forma parte del entorno administrativo y debe respetar desde el inicio la identidad visual definida en la Prioridad 3.
+
+La Biblioteca Multimedia, modales, botones, buscadores, filtros, tarjetas, formularios, previews, estados de carga, errores y confirmaciones deben usar desde ahora la estética del modo administrador:
+
+- Negros profundos.
+- Blanco para información principal.
+- Morado principal `#7C3AED`.
+- Variaciones moradas para profundidad y dinamismo.
+
+La Prioridad 3 deberá perfeccionar y ampliar esa experiencia, no reconstruir la interfaz multimedia desde cero.
 
 #### Dos sistemas independientes
 
+El Sistema Multimedia debe dividirse en dos conceptos separados:
+
+1. Biblioteca Multimedia.
+2. Recursos Externos.
+
+Ambos se eligen desde la misma interfaz, pero no significan lo mismo.
+
 ##### Biblioteca Multimedia
 
-Contiene únicamente recursos propios del proyecto.
+La Biblioteca Multimedia contiene únicamente recursos propios del proyecto.
 
-Todo recurso deberá:
+Todo recurso de la biblioteca debe:
 
--   Estar almacenado en Supabase Storage.
--   Tener registro en la base de datos.
--   Poder reutilizarse.
--   Poder editarse.
--   Poder buscarse.
--   Poder filtrarse.
+- Estar almacenado en Supabase Storage.
+- Tener un registro en la base de datos.
+- Poder reutilizarse.
+- Poder editarse.
+- Poder buscarse.
+- Poder filtrarse.
+- Poder seleccionarse desde cualquier módulo.
 
-Nunca deberá ser necesario subir dos veces el mismo recurso.
+Nunca debería ser necesario subir dos veces el mismo recurso si ya existe en la biblioteca.
 
-------------------------------------------------------------------------
+##### Recursos Externos
 
-#### Recursos Externos
+Los Recursos Externos son enlaces pegados manualmente por el administrador.
 
-Debe existir una segunda opción completamente independiente.
-
-Los recursos externos NO pertenecen a la biblioteca.
+No pertenecen a la Biblioteca Multimedia.
 
 Solo representan un enlace utilizado por un elemento concreto.
 
 No deben:
 
--   aparecer en búsquedas,
--   ocupar espacio en la biblioteca,
--   reutilizarse automáticamente,
--   generar registros multimedia.
+- aparecer en la biblioteca,
+- aparecer en búsquedas internas,
+- ocupar espacio en Supabase Storage,
+- reutilizarse automáticamente,
+- generar registros multimedia permanentes.
 
 Su objetivo es ofrecer flexibilidad.
 
-------------------------------------------------------------------------
+Ejemplos:
+
+- Video de YouTube.
+- Imagen externa.
+- GIF externo.
+- PDF externo.
+- Enlace web.
+- Cualquier recurso que el administrador quiera usar bajo su responsabilidad.
 
 #### Selector Multimedia
 
-Todos los módulos utilizarán el mismo selector.
+Todos los módulos deben usar el mismo selector reutilizable.
 
-Nunca existirán selectores diferentes para Logs, Armas, Tierlist o
-cualquier otra sección.
+No deben existir selectores distintos para Logs, Armas, Tierlist, About o Fondo.
 
-Al pulsar un recurso aparecerá:
+Cuando el administrador necesite escoger un recurso, debe aparecer una interfaz con dos opciones:
 
-○ Biblioteca Multimedia ○ Recurso Externo
+- Biblioteca Multimedia.
+- Recurso Externo.
 
-Biblioteca abre el explorador multimedia.
+Si elige Biblioteca Multimedia, se abre el explorador de recursos.
 
-Recurso Externo muestra un campo para pegar un enlace.
-
-------------------------------------------------------------------------
+Si elige Recurso Externo, aparece un campo para pegar un enlace y generar una vista previa.
 
 #### Modal Biblioteca Multimedia
 
-Debe ser un componente reutilizable.
+El modal de Biblioteca Multimedia debe ser un componente reutilizable.
 
-Desde aquí el administrador podrá:
+Desde este modal el administrador podrá:
 
--   Buscar.
--   Filtrar.
--   Ordenar.
--   Seleccionar.
--   Subir.
--   Editar metadatos.
--   Eliminar.
--   Ver vista previa.
--   Ver información.
--   Ver dónde se utiliza.
--   Reutilizar recursos existentes.
+- Buscar recursos.
+- Filtrar por tipo.
+- Ordenar.
+- Ver los más recientes primero por defecto.
+- Seleccionar un recurso existente.
+- Subir un recurso nuevo.
+- Editar metadatos.
+- Eliminar recursos cuando sea seguro.
+- Ver vista previa.
+- Ver información del archivo.
+- Ver dónde se utiliza.
+- Reutilizar recursos existentes.
 
-Todo sin abandonar el modal.
-
-------------------------------------------------------------------------
+Todo debe poder hacerse sin abandonar el modal.
 
 #### Modelo de datos
 
-El sistema internamente no debe pensar en imágenes.
+Internamente, el sistema no debe pensar en imágenes.
 
 Debe pensar en Recursos Multimedia.
 
 Cada recurso debería almacenar al menos:
 
--   ID
--   Nombre visible
--   MIME Type
--   Tipo
--   Descripción
--   URL
--   Origen
--   Fecha de subida
--   Peso
--   Dimensiones
--   Hash
--   Metadatos
--   Usuario creador (si existe en el futuro)
+- ID.
+- Nombre visible.
+- MIME Type.
+- Tipo.
+- Descripción opcional.
+- URL interna.
+- Origen.
+- Fecha de subida.
+- Tamaño.
+- Dimensiones.
+- Hash.
+- Metadatos.
+- Usuario creador, si en el futuro existe sistema de usuarios.
 
-El nombre visible nunca dependerá del nombre físico del archivo.
+El nombre visible nunca debe depender del nombre real del archivo.
 
-------------------------------------------------------------------------
+#### Tipos dinámicos
 
-#### Tipos
+Los tipos de recursos no deben estar escritos de forma fija en el código.
 
-Los tipos no deben estar escritos en el código.
-
-Deben ser dinámicos.
+Deben ser dinámicos y administrables.
 
 Ejemplos:
 
--   Fondo
--   Logo
--   Banner
--   Arma
--   NPC
--   Enemigo
--   Evento
--   Icono
--   Decoración
--   Otro
+- Fondo.
+- Logo.
+- Banner.
+- Arma.
+- NPC.
+- Enemigo.
+- Evento.
+- Icono.
+- Decoración.
+- Otro.
 
-El administrador podrá crear nuevos tipos.
+El administrador debe poder crear nuevos tipos en el futuro.
 
-------------------------------------------------------------------------
-
-#### Compatibilidad
+#### Formatos soportados
 
 El sistema debe identificar el contenido mediante MIME Type.
 
-Nunca mediante la extensión del archivo.
+No debe depender únicamente de la extensión del archivo.
 
 Compatibilidad inicial:
 
--   PNG
--   JPG
--   JPEG
--   WEBP
--   GIF
--   SVG
--   APNG
+- PNG.
+- JPG.
+- JPEG.
+- WEBP.
+- GIF.
+- SVG.
+- APNG.
 
 Preparado para:
 
--   MP4
--   WEBM
--   Audio
--   PDF
--   Modelos 3D
--   Otros formatos soportados por el navegador.
-
-------------------------------------------------------------------------
+- MP4.
+- WEBM.
+- Audio.
+- PDF.
+- Modelos 3D.
+- Otros formatos soportados por el navegador.
 
 #### Vista previa inteligente
 
-La vista previa debe adaptarse automáticamente.
+La vista previa debe adaptarse automáticamente al tipo de recurso.
 
-Imagen → miniatura.
+- Imagen → miniatura.
+- GIF → reproducción.
+- Vídeo → preview o reproductor.
+- PDF → icono o miniatura.
+- Página web → tarjeta cuando sea posible.
+- Tipo desconocido → tarjeta genérica con metadatos básicos.
 
-GIF → reproducción.
+El administrador no debería tener que indicar manualmente cómo se muestra cada recurso.
 
-Vídeo → preview.
+#### Reutilización y duplicados
 
-PDF → icono o miniatura.
+Uno de los objetivos principales es evitar duplicados.
 
-Página web → tarjeta si es posible.
+Idealmente el sistema detectará duplicados mediante hash.
 
-No quiero que el administrador tenga que indicar el tipo manualmente.
+Si un archivo ya existe, debe avisar:
 
-------------------------------------------------------------------------
+> Este recurso ya existe. ¿Deseas reutilizarlo?
 
-#### Reutilización
+Esto evita llenar Supabase Storage con copias innecesarias del mismo archivo.
 
-El objetivo principal es evitar duplicados.
+#### Dónde se utiliza cada recurso
 
-Idealmente se detectarán mediante hash.
+Cada recurso debe poder indicar dónde se está usando.
 
-Si el archivo ya existe:
+Ejemplos:
 
-"Este recurso ya existe. ¿Deseas reutilizarlo?"
+- Log #31.
+- Tierlist.
+- Arma MK V.
+- Fondo principal.
+- Bloque de About.
 
-------------------------------------------------------------------------
-
-#### Dónde se utiliza
-
-Cada recurso debe indicar todas sus referencias.
-
-Ejemplo:
-
--   Log #31
--   Tierlist
--   Arma MK V
--   Fondo principal
-
-Así nunca se eliminará accidentalmente un recurso importante.
-
-------------------------------------------------------------------------
+Esto ayuda a evitar eliminar recursos importantes por accidente.
 
 #### Configuración por uso
 
-El recurso multimedia nunca debe almacenar información de presentación.
+El recurso multimedia nunca debe guardar información de presentación global.
 
-Cada elemento que lo utilice podrá definir:
+La configuración visual pertenece al lugar donde se usa el recurso, no al recurso en sí.
 
--   Opacidad
--   Fit
--   Posición
--   Repetición
--   Escala (futuro)
--   Velocidad (para GIF o vídeo)
--   Comportamientos futuros
+Cada uso podrá definir:
 
-Esto pertenece al uso, no al recurso.
+- Opacidad.
+- Fit.
+- Posición.
+- Repetición.
+- Escala en el futuro.
+- Velocidad para GIF o vídeo cuando sea posible.
+- Otros comportamientos futuros.
 
-------------------------------------------------------------------------
+Ejemplo: una misma imagen puede usarse como icono, fondo o banner con configuraciones distintas.
 
-#### Arquitectura
-
-No quiero que ningún módulo gestione imágenes directamente.
-
-Todos deberán solicitar recursos al Sistema Multimedia.
-
-El selector será un componente único reutilizable.
-
-Cualquier nueva sección deberá integrarse automáticamente utilizando
-esta misma infraestructura.
-
-------------------------------------------------------------------------
-
-#### Compatibilidad
+#### Compatibilidad con el sistema actual
 
 No romper el sistema actual.
 
-Mantener compatibilidad con image_url durante la transición.
+Durante la transición, los campos actuales basados en `image_url` deben seguir funcionando.
 
-La migración deberá ser progresiva.
+La migración debe ser progresiva.
 
-------------------------------------------------------------------------
+Los formularios existentes deben poder recibir una URL devuelta por el nuevo selector multimedia sin romper su flujo actual.
 
 #### Escalabilidad
 
 La arquitectura debe permitir integrar en el futuro:
 
--   Vídeos
--   Audio
--   Modelos 3D
--   Embeds
--   Sketchfab
--   YouTube
--   Spotify
--   Twitch
--   Cualquier otro proveedor
+- Videos.
+- Audio.
+- Modelos 3D.
+- Embeds.
+- Sketchfab.
+- YouTube.
+- Spotify.
+- Twitch.
+- Otros proveedores externos.
 
-Sin rediseñar el sistema.
-
-------------------------------------------------------------------------
-
-#### Objetivo final
-
-Quiero construir una infraestructura multimedia definitiva.
-
-Debe ser cómoda para el administrador, escalable para el desarrollador y
-suficientemente flexible para soportar nuevas funciones durante muchos
-años.
-
-Si en el futuro se añade un nuevo módulo, la respuesta nunca debería ser
-"crear otro sistema de imágenes", sino simplemente reutilizar el Sistema
-Multimedia existente.
-
-
-### Prioridad 3 --- Rediseño completo de la Interfaz del Administrador
-
-#### Objetivo
-
-El modo administrador debe convertirse en una experiencia claramente
-diferenciada del resto de la página. No debe sentirse como un simple
-formulario de autenticación, sino como el acceso a un entorno exclusivo
-de administración, transmitiendo seguridad, control y profesionalismo
-sin romper la identidad visual actual de Culones RPG.
-
-Esta prioridad se centra únicamente en la experiencia de usuario (UX) y
-la interfaz (UI). No debe modificar la lógica de autenticación
-existente, el funcionamiento del bot de Discord, Supabase ni la
-arquitectura actual del proyecto.
-
-#### Identidad visual
-
-Inspiración: - Consola futurista. - Panel de control premium. - HUD
-tecnológico. - Terminal moderna.
-
-No debe parecer una terminal hacker clásica. La apariencia debe ser
-limpia, elegante y consistente.
-
-#### Paleta de colores
-
-Color principal: #7C3AED
-
-Usar para bordes activos, botones principales, indicadores, focus, glow,
-barras de progreso, estados activos y elementos interactivos.
-
-Variaciones permitidas: - #6D28D9 - #8B5CF6 - #A78BFA
-
-Fondo: - #0B0B0F - #111018 - #161322
-
-Blanco únicamente para texto principal, iconografía e información
-importante.
-
-#### Login
-
-Al pulsar Admin debe abrirse un modal con una pequeña secuencia:
-
--   Inicializando sistema...
--   Conectando...
--   Verificando permisos...
--   Esperando autenticación...
-
-Después aparece el campo para introducir el código.
-
-Estados: - Normal. - Focus con borde y glow morado. - Error: ACCESS
-DENIED con destello rojo y pequeña vibración. - Correcto: ACCESS GRANTED
-con iluminación morada y transición al modo administrador.
-
-#### Modo Administrador
-
-Mostrar claramente: - Badge Administrator Mode. - Indicador
-permanente. - Detalles morados distribuidos por la interfaz.
-
-#### Botones
-
-Hover: - Borde morado. - Glow suave.
-
-Click: - Ligera reducción de escala.
-
-Loading: - Spinner morado.
-
-Success: - Toast consistente con la identidad visual.
-
-#### Acciones críticas
-
-Eliminar, limpiar, importar, sobrescribir y restaurar deben utilizar
-modales propios. No usar alert().
-
-#### Animaciones
-
-Priorizar: - Opacidad. - Escala. - Glow. - Fade. - Desplazamientos
-cortos.
-
-Duración recomendada: 150--300 ms.
-
-#### Consistencia
-
-No modificar: - Sistema de autenticación. - Bot de Discord. - RPC. -
-Supabase. - Flujo de permisos.
+Esto debe poder hacerse sin rediseñar el sistema.
 
 #### Resultado esperado
 
-El administrador debe sentir que ha desbloqueado una versión premium del
-sistema. La interfaz debe transmitir exclusividad, profesionalismo,
-seguridad y tecnología, manteniendo la identidad visual de Culones RPG
-sin alterar la arquitectura existente.
+El Sistema Multimedia debe convertirse en la fuente oficial de recursos del proyecto.
 
+Si en el futuro se añade un nuevo módulo, la respuesta nunca debe ser "crear otro sistema de imágenes", sino reutilizar el Sistema Multimedia existente.
+
+---
+
+### Prioridad 3 — Rediseño completo de la Interfaz del Administrador
+
+Objetivo: mejorar la experiencia visual y de uso del modo administrador sin modificar la lógica real de autenticación, Supabase, RPC, permisos ni bot de Discord.
+
+#### Objetivo visual
+
+El modo administrador debe sentirse como una experiencia claramente diferenciada del resto de la página.
+
+No debe sentirse como un simple formulario de login.
+
+Debe sentirse como el acceso a un entorno exclusivo de administración, transmitiendo:
+
+- Seguridad.
+- Control.
+- Profesionalismo.
+- Tecnología.
+- Exclusividad.
+
+Esta prioridad se centra en UX y UI, no en cambiar la lógica interna del sistema.
+
+#### Identidad visual
+
+Inspiración:
+
+- Consola futurista.
+- Panel de control premium.
+- HUD tecnológico.
+- Terminal moderna.
+
+No debe parecer una terminal hacker clásica con texto verde sobre fondo negro.
+
+La apariencia debe ser limpia, elegante y consistente con Culones RPG.
+
+#### Paleta de colores
+
+Color principal:
+
+```text
+#7C3AED
+```
+
+Usar el morado principal para:
+
+- Bordes activos.
+- Botones principales.
+- Indicadores.
+- Focus.
+- Glow.
+- Barras de progreso.
+- Estados activos.
+- Elementos interactivos.
+- Animaciones de éxito.
+
+Variaciones permitidas:
+
+```text
+#6D28D9
+#8B5CF6
+#A78BFA
+```
+
+Estas variaciones deben sentirse como niveles de iluminación del mismo color, no como colores distintos.
+
+Fondos recomendados:
+
+```text
+#0B0B0F
+#111018
+#161322
+```
+
+Usar negros profundos con matiz morado.
+
+El blanco debe reservarse para:
+
+- Texto principal.
+- Iconografía.
+- Información importante.
+- Estados críticos.
+
+#### Login tipo terminal
+
+Al pulsar **Admin**, debe abrirse un modal dedicado, no un formulario común.
+
+El modal debe mostrar una pequeña secuencia:
+
+- Inicializando sistema...
+- Conectando...
+- Verificando permisos...
+- Esperando autenticación...
+
+Después aparece el campo para introducir el código generado por el bot.
+
+#### Estados del campo de código
+
+Normal:
+
+- Borde oscuro.
+- Sin efectos llamativos.
+
+Focus:
+
+- Borde morado.
+- Glow morado suave.
+
+Error:
+
+```text
+ACCESS DENIED
+```
+
+Debe incluir:
+
+- Destello rojo.
+- Pequeña vibración.
+- Mensaje corto.
+- Nada de errores largos.
+
+Correcto:
+
+```text
+ACCESS GRANTED
+```
+
+Debe incluir:
+
+- Iluminación morada.
+- Animación breve.
+- Cierre suave del modal.
+- Transición al modo administrador.
+
+#### Modo Administrador
+
+Cuando el usuario esté autenticado, la interfaz debe comunicar claramente que está en modo administrador.
+
+Agregar:
+
+- Badge "Administrator Mode".
+- Indicador permanente.
+- Detalles morados distribuidos en la interfaz.
+- Estados visuales especiales en elementos admin-only.
+
+Debe sentirse premium, pero no exagerado.
+
+#### Botones administrativos
+
+Todos los botones de administración deben compartir el mismo lenguaje visual.
+
+Hover:
+
+- Borde morado.
+- Glow suave.
+- Transición breve.
+
+Click:
+
+- Ligera reducción de escala.
+- Feedback inmediato.
+
+Loading:
+
+- Spinner morado.
+- Botón deshabilitado temporalmente.
+
+Success:
+
+- Toast o confirmación visual consistente.
+
+#### Acciones críticas
+
+Acciones como:
+
+- Eliminar.
+- Limpiar.
+- Importar.
+- Sobrescribir.
+- Restaurar.
+
+deben usar modales propios del proyecto.
+
+No usar `alert()` del navegador.
+
+#### Animaciones
+
+Priorizar animaciones discretas:
+
+- Opacidad.
+- Escala.
+- Glow.
+- Fade.
+- Desplazamientos cortos.
+
+Duración recomendada:
+
+```text
+150ms – 300ms
+```
+
+Evitar animaciones largas o innecesarias.
+
+#### Consistencia técnica
+
+No modificar:
+
+- Sistema de autenticación.
+- Bot de Discord.
+- Funciones RPC.
+- Supabase.
+- Flujo de permisos.
+- Arquitectura principal.
+
+El objetivo es mejorar exclusivamente la presentación y la experiencia.
+
+#### Relación con el Sistema Multimedia
+
+Todo componente nuevo del Sistema Multimedia debe seguir esta identidad visual desde su primera implementación.
+
+La Biblioteca Multimedia debe sentirse como una herramienta del entorno administrador, no como un modal genérico desconectado del resto.
+
+#### Resultado esperado
+
+El administrador debe sentir que ha desbloqueado una versión avanzada de la aplicación.
+
+La interfaz debe transmitir exclusividad, profesionalismo, seguridad y tecnología, manteniendo la identidad visual de Culones RPG sin alterar la arquitectura existente.
 
 ### Prioridad 4 — v2.x
 
@@ -845,4 +958,3 @@ Objetivo: mejoras de capa superior una vez cerradas auditoría, multimedia y adm
 - Dashboard con estadísticas.
 - Ampliar Sistema Multimedia con vídeo, audio u otros tipos.
 - PWA / caché offline como mejora opcional.
-
