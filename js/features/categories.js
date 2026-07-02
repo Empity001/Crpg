@@ -6,9 +6,14 @@
 // =========================================================
 
 import { supabaseClient } from '../config.js';
-import { renderLogs } from './logs.js';
 import { getCategory, state } from '../core/state.js';
 import { escapeHtml, showToast } from '../core/utils.js';
+
+let onCategoryFiltersChanged = () => {};
+
+export function setCategoryFiltersChangedHandler(handler) {
+  onCategoryFiltersChanged = typeof handler === 'function' ? handler : () => {};
+}
 
 export async function loadCategories() {
   const { data, error } = await supabaseClient.from('categories').select('slug,label,emoji,color,created_at').order('created_at', { ascending: true });
@@ -39,7 +44,7 @@ export function renderCategoryFilters() {
       pill.classList.add('is-active');
       state.activeFilter = pill.dataset.filter;
       state.logsPage = 1;
-      renderLogs();
+      onCategoryFiltersChanged();
     });
   });
 }
@@ -105,5 +110,5 @@ export async function deleteCategory(slug) {
   showToast(`Categoría "${cat.label}" eliminada`, 'success');
   if (state.activeFilter === slug) state.activeFilter = 'all';
   await loadCategories();
-  renderLogs();
+  onCategoryFiltersChanged();
 }

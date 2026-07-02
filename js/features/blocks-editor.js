@@ -8,7 +8,6 @@
 // =========================================================
 
 import { parseEquipment } from './blocks-display.js';
-import { submitLog } from './logs.js';
 import { state } from '../core/state.js';
 import { updateAssetPreview } from '../core/storage.js';
 import { asArray, escapeHtml, safeUrl, tempId } from '../core/utils.js';

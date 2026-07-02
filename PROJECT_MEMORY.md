@@ -180,14 +180,17 @@ js/
 - `pages/*` es la capa más externa, específica de cada página: importa `app/shell.js` + `app/realtime.js` + solo los `features/*` que esa página necesita, y cablea el resto del DOM de esa página en concreto.
 - Cada archivo exporta explícitamente (`export function`/`export const`) todo lo que otro módulo necesita — no hay nada colgado de `window` salvo lo que ya venía de terceros (`window.supabase`, `XLSX`).
 
-### Dependencias circulares (intencionales)
+### Dependencias circulares (intencionales / conocidas)
 
-Dos parejas de módulos dentro de `features/weapons-*` se importan mutuamente. Es un patrón intencional, no un descuido: la UI de la Guía de Armas tiene un ciclo real render↔acción (abrir el detalle de un arma dispara acciones que a su vez re-renderizan el detalle), y separarlo más habría sido una división artificial. ES Modules soporta esto sin problema porque las referencias solo se usan **dentro de funciones** (nunca en el nivel superior del módulo), así que da igual el orden de evaluación:
+La auditoría post-refactor confirmó que no hay imports rotos ni módulos huérfanos. También se eliminaron dos ciclos innecesarios del área de Logs (`logs.js` ↔ `blocks-editor.js` y `logs.js` ↔ `categories.js`). Los ciclos que quedan están acotados al subsistema de Guía de Armas, donde la UI tiene un ciclo real render↔acción: abrir el detalle de un arma dispara acciones admin que a su vez recargan datos y vuelven a renderizar el catálogo/detalle.
 
-- `weapons-detail.js` ↔ `weapons-admin.js` (el detalle abre modales de edición; los modales, al guardar, cierran/reabren el detalle).
-- `weapons-data.js` ↔ `weapons-catalog.js` / `weapons-catalog-admin.js` (cargar datos dispara el render de filtros/grid; crear una categoría desde el admin recarga los datos).
+ES Modules soporta estos ciclos porque las referencias cruzadas se usan dentro de funciones, no durante la evaluación inicial del módulo. Aun así, quedan registrados como deuda técnica de arquitectura:
 
-Verificado con un script de Node que importa el árbol completo de módulos (`node --experimental-vm-modules`) sin errores de referencia — ver también "Cómo verificar el refactor" abajo.
+- `weapons-detail.js` ↔ `weapons-admin.js`.
+- `weapons-catalog.js` ↔ `weapons-detail.js` ↔ `weapons-admin.js`.
+- Ciclos más largos entre `weapons-data.js`, `weapons-catalog.js`, `weapons-catalog-admin.js`, `weapons-detail.js` y `weapons-admin.js`.
+
+No se consideran bloqueantes ahora mismo, pero si la Guía de Armas crece conviene introducir una capa de eventos/callbacks o un pequeño coordinador para separar render, carga de datos y acciones admin.
 
 ### Decisiones técnicas
 
