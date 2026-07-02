@@ -361,9 +361,64 @@ Procesos automáticos:
 
 ---
 
-## Pendientes
+## Roadmap y prioridades
 
-- Conectar el sistema de borradores de localStorage a Supabase (o documentar que se descartó la idea).
-- Verificar que las hojas de Excel de exportación de Tierlist y "Todo" siguen reflejando bien las columnas actuales si se agregan campos nuevos.
+### Prioridad 1 — Auditoría y limpieza post-refactor
+
+Objetivo: cerrar la etapa de modularización/multipágina dejando el repo limpio, documentado y verificable antes de construir sistemas nuevos encima.
+
+- Eliminar referencias antiguas a `app.js`, `app/main.js`, `app/tabs.js`, pestañas falsas y URLs externas ya removidas.
+- Limpiar comentarios obsoletos en HTML, CSS, JS, README y memoria del proyecto.
+- Revisar HTML y README para que describan el estado real multipágina.
+- Buscar y eliminar código muerto dejado por el refactor.
+- Revisar arquitectura, dependencias entre módulos, duplicación, rendimiento y consultas.
+- Probar todas las páginas: Logs, Tierlist, Guía de Armas, Acerca del Server y Admin.
+- Probar flujos críticos: exportaciones, importaciones, Storage, Realtime, login admin, comentarios, likes, borradores y cambios desde admin.
+- Verificar integración con el bot de Discord: comandos, screenshots, publicación/edición de logs y rotación del código admin.
+- Actualizar completamente `PROJECT_MEMORY.md` al terminar la auditoría.
+- Confirmar que README, memoria y comentarios del código queden sincronizados con el estado actual.
+
+Pendientes técnicos incluidos en esta prioridad:
+
+- Decidir si los borradores seguirán solo en localStorage o si se conectarán a la tabla `drafts` de Supabase.
+- Verificar que las hojas de Excel de exportación de Tierlist y "Todo" reflejan las columnas actuales.
 - Optimizar el modal de habilidades de armas para no recargar todo el arma en cada edición.
+- Cambiar `saveRankPatch()` a updates parciales por campo para evitar pérdida silenciosa de datos si `weapon_ranks` crece en el futuro.
+
+### Prioridad 2 — Sistema Multimedia
+
+Objetivo: reemplazar el sistema de imagen directa por una capa multimedia reutilizable, sin perder compatibilidad con Supabase Storage ni con los campos actuales.
+
+- Crear Biblioteca Multimedia con recursos almacenados en Supabase Storage.
+- Permitir selección/reutilización de recursos ya subidos.
+- Reintroducir Recursos Externos como URLs guardadas en el elemento correspondiente, separadas de la biblioteca interna.
+- Detectar tipo automáticamente por MIME Type, no por nombre de archivo.
+- Soportar PNG, JPG, JPEG, WEBP, GIF, SVG y APNG.
+- Dejar preparado el modelo para MP4 y WEBM.
+- Añadir buscador, filtros, orden por fecha y vista previa.
+- Usar nombre visible independiente del nombre real del archivo.
+- Guardar tipo dinámico, descripción opcional e información del archivo.
+- Detectar duplicados idealmente mediante hash.
+- Mostrar dónde se usa cada recurso.
+- Preparar opciones de presentación: opacidad, fit, posición y repetición.
+
+### Prioridad 3 — Interfaz del administrador
+
+Objetivo: mejorar la experiencia admin sin cambiar todavía la arquitectura principal.
+
+- Login tipo terminal.
+- Animaciones de autenticación.
+- Estados visuales de Access Granted / Access Denied.
+- Indicador claro de Administrator Mode.
+- Estados de carga y confirmaciones visuales.
+- Mejor UX general de herramientas, acciones peligrosas y feedback.
+
+### Prioridad 4 — v2.x
+
+Objetivo: mejoras de capa superior una vez cerradas auditoría, multimedia y admin UX.
+
+- GSAP para microanimaciones.
+- Dashboard con estadísticas.
+- Ampliar Sistema Multimedia con vídeo, audio u otros tipos.
+- PWA / caché offline como mejora opcional.
 
