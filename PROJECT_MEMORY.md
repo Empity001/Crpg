@@ -431,13 +431,13 @@ Verificado por scripts/local:
 Pendiente porque requiere navegador vivo, credenciales admin o servicios externos:
 
 - [ ] Smoke test manual completo en navegador real. El navegador interno de Codex se intentó dos veces contra `127.0.0.1:4173`, pero quedó bloqueado por timeout de herramienta; no se usó como verificación final.
-- [ ] Login admin con código real del bot.
+- [x] Login admin con código real del bot.
 - [ ] Crear/editar/borrar Log con mobs/items/bloques libres y confirmar Realtime desde otra pestaña.
-- [ ] Likes y comentarios con datos reales de Supabase.
+- [x] Likes y comentarios con datos reales de Supabase.
 - [ ] Storage: subir/quitar imágenes en Logs, Tierlist, Armas, fondo y favicon.
-- [ ] Exportar JSON/XLSX de Logs, Tierlist y Todo, abrir el XLSX en Excel/Google Sheets y validar hojas visualmente.
-- [ ] Importar JSON con conflictos reales y confirmar resolución overwrite/skip.
-- [ ] Discord Bot: `/ping`, `/getcode`, `/setlogchannel`, screenshots de logs/tierlist/arma, publicación/edición automática de logs y rotación diaria del código.
+- [x] Exportar JSON/XLSX de Logs, Tierlist y Todo, abrir el XLSX en Excel/Google Sheets y validar hojas visualmente.
+- [x] Importar JSON con conflictos reales y confirmar resolución overwrite/skip.
+- [x] Discord Bot: `/ping`, `/getcode`, `/setlogchannel`, screenshots de logs/tierlist/arma, publicación/edición automática de logs y rotación diaria del código.
 
 ### Prioridad 2 — Sistema Multimedia
 
