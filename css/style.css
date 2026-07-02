@@ -2686,6 +2686,12 @@ button:not(:disabled) {
   text-shadow: 0 0 18px rgba(124,58,237,0.35);
 }
 
+.media-library-section.is-minimized .media-toolbar,
+.media-library-section.is-minimized .media-view-tabs,
+.media-library-section.is-minimized .media-grid {
+  display: none;
+}
+
 .media-section-actions,
 .media-picker-actions,
 .media-card-actions {
@@ -2762,9 +2768,31 @@ button:not(:disabled) {
 
 .media-toolbar {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(140px, 180px) minmax(140px, 180px);
+  grid-template-columns: minmax(180px, 1fr) repeat(3, minmax(130px, 170px));
   gap: 10px;
   margin: 16px 0 10px;
+}
+
+.media-view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.media-view-tab {
+  border: 1px solid rgba(124,58,237,0.36);
+  border-radius: 7px;
+  background: rgba(255,255,255,0.03);
+  color: rgba(255,255,255,0.72);
+  padding: 8px 12px;
+  font-weight: 700;
+}
+
+.media-view-tab.is-active {
+  background: rgba(124,58,237,0.22);
+  border-color: #7C3AED;
+  color: #ffffff;
 }
 
 .media-input {
@@ -2921,6 +2949,17 @@ button:not(:disabled) {
   padding: 0 12px 12px;
 }
 
+.media-load-more-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: rgba(255,255,255,0.62);
+  font-size: 12px;
+  padding: 10px 0;
+}
+
 .media-empty,
 .media-system-warning {
   grid-column: 1 / -1;
@@ -2936,6 +2975,14 @@ button:not(:disabled) {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.media-delete-warning {
+  padding: 12px;
+  border: 1px solid rgba(239,68,68,0.5);
+  border-radius: 8px;
+  background: rgba(239,68,68,0.1);
+  color: #fecaca;
 }
 
 .media-system-warning strong {
@@ -2961,6 +3008,23 @@ button:not(:disabled) {
 
 .media-modal-hint {
   color: rgba(255,255,255,0.62);
+}
+
+.media-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.media-external-preview {
+  min-height: 130px;
+  margin: 12px 0 6px;
+  border: 1px solid rgba(124,58,237,0.32);
+  border-radius: 8px;
+  background: #0b0713;
+  overflow: hidden;
 }
 
 .media-edit-preview {

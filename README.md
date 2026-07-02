@@ -170,9 +170,9 @@ En modo admin aparecen:
 
 ## 🗂 Biblioteca Multimedia
 
-En **🛠 Herramientas**, el admin puede registrar recursos reutilizables en Supabase Storage. La biblioteca guarda nombre visible, tipo MIME, tipo dinámico, tamaño, hash, tags, descripción, opciones de presentación y usos detectados dentro de Logs, Tierlist, Armas, About, fondo y favicon.
+En **🛠 Herramientas**, el admin puede registrar recursos reutilizables en Supabase Storage. La biblioteca guarda nombre visible, tipo MIME, tipo dinámico, tamaño, hash, tags, descripción, opciones de presentación y usos detectados dentro de Logs, Tierlist, Armas, About, fondo y favicon. También permite minimizar el panel, revisar recursos archivados, restaurarlos o eliminarlos definitivamente con confirmación propia.
 
-Los formularios actuales siguen guardando URLs (`image_url` o equivalentes), pero ahora pueden elegir recursos ya subidos desde el selector multimedia o usar una URL externa solo para ese campo. Los uploads aceptan PNG, JPG/JPEG, WEBP, GIF, SVG y APNG; el modelo queda preparado para MP4 y WEBM desde la biblioteca.
+Los formularios actuales siguen guardando URLs (`image_url` o equivalentes), pero ahora pueden elegir recursos ya subidos desde el selector multimedia o usar una URL externa solo para ese campo. Los uploads aceptan PNG, JPG/JPEG, WEBP, GIF, SVG y APNG; el modelo queda preparado para MP4 y WEBM desde la biblioteca. El fondo de página guarda presentación por uso (`fit`, posición, repetición y opacidad) en su configuración.
 
 ---
 
