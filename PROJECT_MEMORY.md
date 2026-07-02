@@ -439,22 +439,311 @@ Pendiente porque requiere navegador vivo, credenciales admin o servicios externo
 - [x] Importar JSON con conflictos reales y confirmar resolución overwrite/skip.
 - [x] Discord Bot: `/ping`, `/getcode`, `/setlogchannel`, screenshots de logs/tierlist/arma, publicación/edición automática de logs y rotación diaria del código.
 
-### Prioridad 2 — Sistema Multimedia
+### Prioridad 2 --- Sistema Multimedia (Especificación Definitiva)
 
-Objetivo: reemplazar el sistema de imagen directa por una capa multimedia reutilizable, sin perder compatibilidad con Supabase Storage ni con los campos actuales.
+#### Visión
 
-- Crear Biblioteca Multimedia con recursos almacenados en Supabase Storage.
-- Permitir selección/reutilización de recursos ya subidos.
-- Reintroducir Recursos Externos como URLs guardadas en el elemento correspondiente, separadas de la biblioteca interna.
-- Detectar tipo automáticamente por MIME Type, no por nombre de archivo.
-- Soportar PNG, JPG, JPEG, WEBP, GIF, SVG y APNG.
-- Dejar preparado el modelo para MP4 y WEBM.
-- Añadir buscador, filtros, orden por fecha y vista previa.
-- Usar nombre visible independiente del nombre real del archivo.
-- Guardar tipo dinámico, descripción opcional e información del archivo.
-- Detectar duplicados idealmente mediante hash.
-- Mostrar dónde se usa cada recurso.
-- Preparar opciones de presentación: opacidad, fit, posición y repetición.
+Quiero que el Sistema Multimedia sea una de las bases del proyecto, no
+una función más.
+
+No quiero volver a crear un sistema de subida de imágenes para cada
+módulo. Quiero construir una única infraestructura reutilizable que
+gestione absolutamente todos los recursos multimedia del proyecto.
+
+A partir de esta implementación, ningún módulo deberá preocuparse por
+cómo se obtiene un recurso. Logs, Guía de Armas, Tierlist, Fondo,
+Favicon, Acerca del Server y cualquier sistema futuro deberán utilizar
+exactamente la misma capa.
+
+El objetivo es construir un sistema preparado para crecer durante años
+sin tener que rediseñarlo.
+
+------------------------------------------------------------------------
+
+#### Filosofía
+
+No quiero un "subidor de imágenes".
+
+Quiero una Biblioteca Multimedia profesional.
+
+Debe sentirse como el administrador de recursos de un CMS moderno.
+
+Debe existir un único lugar donde se administren todos los recursos
+propios del proyecto.
+
+Toda mejora futura deberá integrarse aquí.
+
+------------------------------------------------------------------------
+
+#### Dos sistemas independientes
+
+##### Biblioteca Multimedia
+
+Contiene únicamente recursos propios del proyecto.
+
+Todo recurso deberá:
+
+-   Estar almacenado en Supabase Storage.
+-   Tener registro en la base de datos.
+-   Poder reutilizarse.
+-   Poder editarse.
+-   Poder buscarse.
+-   Poder filtrarse.
+
+Nunca deberá ser necesario subir dos veces el mismo recurso.
+
+------------------------------------------------------------------------
+
+#### Recursos Externos
+
+Debe existir una segunda opción completamente independiente.
+
+Los recursos externos NO pertenecen a la biblioteca.
+
+Solo representan un enlace utilizado por un elemento concreto.
+
+No deben:
+
+-   aparecer en búsquedas,
+-   ocupar espacio en la biblioteca,
+-   reutilizarse automáticamente,
+-   generar registros multimedia.
+
+Su objetivo es ofrecer flexibilidad.
+
+------------------------------------------------------------------------
+
+#### Selector Multimedia
+
+Todos los módulos utilizarán el mismo selector.
+
+Nunca existirán selectores diferentes para Logs, Armas, Tierlist o
+cualquier otra sección.
+
+Al pulsar un recurso aparecerá:
+
+○ Biblioteca Multimedia ○ Recurso Externo
+
+Biblioteca abre el explorador multimedia.
+
+Recurso Externo muestra un campo para pegar un enlace.
+
+------------------------------------------------------------------------
+
+#### Modal Biblioteca Multimedia
+
+Debe ser un componente reutilizable.
+
+Desde aquí el administrador podrá:
+
+-   Buscar.
+-   Filtrar.
+-   Ordenar.
+-   Seleccionar.
+-   Subir.
+-   Editar metadatos.
+-   Eliminar.
+-   Ver vista previa.
+-   Ver información.
+-   Ver dónde se utiliza.
+-   Reutilizar recursos existentes.
+
+Todo sin abandonar el modal.
+
+------------------------------------------------------------------------
+
+#### Modelo de datos
+
+El sistema internamente no debe pensar en imágenes.
+
+Debe pensar en Recursos Multimedia.
+
+Cada recurso debería almacenar al menos:
+
+-   ID
+-   Nombre visible
+-   MIME Type
+-   Tipo
+-   Descripción
+-   URL
+-   Origen
+-   Fecha de subida
+-   Peso
+-   Dimensiones
+-   Hash
+-   Metadatos
+-   Usuario creador (si existe en el futuro)
+
+El nombre visible nunca dependerá del nombre físico del archivo.
+
+------------------------------------------------------------------------
+
+#### Tipos
+
+Los tipos no deben estar escritos en el código.
+
+Deben ser dinámicos.
+
+Ejemplos:
+
+-   Fondo
+-   Logo
+-   Banner
+-   Arma
+-   NPC
+-   Enemigo
+-   Evento
+-   Icono
+-   Decoración
+-   Otro
+
+El administrador podrá crear nuevos tipos.
+
+------------------------------------------------------------------------
+
+#### Compatibilidad
+
+El sistema debe identificar el contenido mediante MIME Type.
+
+Nunca mediante la extensión del archivo.
+
+Compatibilidad inicial:
+
+-   PNG
+-   JPG
+-   JPEG
+-   WEBP
+-   GIF
+-   SVG
+-   APNG
+
+Preparado para:
+
+-   MP4
+-   WEBM
+-   Audio
+-   PDF
+-   Modelos 3D
+-   Otros formatos soportados por el navegador.
+
+------------------------------------------------------------------------
+
+#### Vista previa inteligente
+
+La vista previa debe adaptarse automáticamente.
+
+Imagen → miniatura.
+
+GIF → reproducción.
+
+Vídeo → preview.
+
+PDF → icono o miniatura.
+
+Página web → tarjeta si es posible.
+
+No quiero que el administrador tenga que indicar el tipo manualmente.
+
+------------------------------------------------------------------------
+
+#### Reutilización
+
+El objetivo principal es evitar duplicados.
+
+Idealmente se detectarán mediante hash.
+
+Si el archivo ya existe:
+
+"Este recurso ya existe. ¿Deseas reutilizarlo?"
+
+------------------------------------------------------------------------
+
+#### Dónde se utiliza
+
+Cada recurso debe indicar todas sus referencias.
+
+Ejemplo:
+
+-   Log #31
+-   Tierlist
+-   Arma MK V
+-   Fondo principal
+
+Así nunca se eliminará accidentalmente un recurso importante.
+
+------------------------------------------------------------------------
+
+#### Configuración por uso
+
+El recurso multimedia nunca debe almacenar información de presentación.
+
+Cada elemento que lo utilice podrá definir:
+
+-   Opacidad
+-   Fit
+-   Posición
+-   Repetición
+-   Escala (futuro)
+-   Velocidad (para GIF o vídeo)
+-   Comportamientos futuros
+
+Esto pertenece al uso, no al recurso.
+
+------------------------------------------------------------------------
+
+#### Arquitectura
+
+No quiero que ningún módulo gestione imágenes directamente.
+
+Todos deberán solicitar recursos al Sistema Multimedia.
+
+El selector será un componente único reutilizable.
+
+Cualquier nueva sección deberá integrarse automáticamente utilizando
+esta misma infraestructura.
+
+------------------------------------------------------------------------
+
+#### Compatibilidad
+
+No romper el sistema actual.
+
+Mantener compatibilidad con image_url durante la transición.
+
+La migración deberá ser progresiva.
+
+------------------------------------------------------------------------
+
+#### Escalabilidad
+
+La arquitectura debe permitir integrar en el futuro:
+
+-   Vídeos
+-   Audio
+-   Modelos 3D
+-   Embeds
+-   Sketchfab
+-   YouTube
+-   Spotify
+-   Twitch
+-   Cualquier otro proveedor
+
+Sin rediseñar el sistema.
+
+------------------------------------------------------------------------
+
+#### Objetivo final
+
+Quiero construir una infraestructura multimedia definitiva.
+
+Debe ser cómoda para el administrador, escalable para el desarrollador y
+suficientemente flexible para soportar nuevas funciones durante muchos
+años.
+
+Si en el futuro se añade un nuevo módulo, la respuesta nunca debería ser
+"crear otro sistema de imágenes", sino simplemente reutilizar el Sistema
+Multimedia existente.
+
 
 ### Prioridad 3 --- Rediseño completo de la Interfaz del Administrador
 
