@@ -11,10 +11,11 @@
 import { bootShell } from '../app/shell.js';
 import { initLogsRealtime } from '../app/realtime.js';
 import { addEquipmentPiece, addItemEnchant, addLibreField, openItemModal, openLibreModal, openMobModal, renderExtraFieldsEditor, submitItemBlock, submitLibreBlock, submitMobBlock } from '../features/blocks-editor.js';
+import { registerAdminUiRefreshHandler } from '../features/auth.js';
 import { loadCategories, openNewCategoryModal, setCategoryFiltersChangedHandler, submitCategory } from '../features/categories.js';
 import { cancelReply, deleteCommentAction, startReplyTo, submitComment, toggleCommentHidden, toggleCommentLike } from '../features/comments.js';
 import { initBeforeUnload, restoreDraft, saveDraft, stopDraftAutosave } from '../features/drafts.js';
-import { openFieldConfigModal, saveFieldConfig } from '../features/field-config.js';
+import { openFieldConfigModal, saveFieldConfig, setFieldConfigSavedHandler } from '../features/field-config.js';
 import { initSortControl, loadLogs, openEditLogModal, openNewLogModal, renderLogs, submitLog } from '../features/logs.js';
 import { state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
@@ -126,7 +127,9 @@ async function init() {
   await bootShell('logs');
   initLogsModals();
   initSortControl();
+  registerAdminUiRefreshHandler(renderLogs);
   setCategoryFiltersChangedHandler(renderLogs);
+  setFieldConfigSavedHandler(renderLogs);
   initBeforeUnload();
   await loadCategories();
   await loadLogs();

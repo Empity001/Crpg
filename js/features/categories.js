@@ -16,18 +16,26 @@ export function setCategoryFiltersChangedHandler(handler) {
 }
 
 export async function loadCategories() {
-  const { data, error } = await supabaseClient.from('categories').select('slug,label,emoji,color,created_at').order('created_at', { ascending: true });
-  if (error) { console.error(error); showToast('No se pudieron cargar las categorías', 'error'); return; }
-  state.categories = data;
+  const ok = await loadCategoriesData();
+  if (!ok) return;
   renderCategoryFilters();
   renderCategorySelectOptions();
   renderCategoryManageList();
 }
 
+export async function loadCategoriesData() {
+  const { data, error } = await supabaseClient.from('categories').select('slug,label,emoji,color,created_at').order('created_at', { ascending: true });
+  if (error) { console.error(error); showToast('No se pudieron cargar las categorías', 'error'); return false; }
+  state.categories = data || [];
+  return true;
+}
+
 
 function renderCategoryFilters() {
   const container = document.getElementById('category-filters');
+  if (!container) return;
   const allPill = container.querySelector('[data-filter="all"]');
+  if (!allPill) return;
   container.innerHTML = '';
   container.appendChild(allPill);
   state.categories.forEach(cat => {
@@ -52,6 +60,7 @@ function renderCategoryFilters() {
 
 export function renderCategorySelectOptions() {
   const select = document.getElementById('log-category-input');
+  if (!select) return;
   const currentValue = select.value;
   select.innerHTML = state.categories.map(cat => `<option value="${cat.slug}">${cat.emoji} ${cat.label}</option>`).join('');
   if (currentValue && state.categories.some(c => c.slug === currentValue)) select.value = currentValue;

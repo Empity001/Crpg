@@ -4,7 +4,7 @@ Registro de sesiones de desarrollo. Cada entrada resume qué se hizo, qué qued�
 
 ---
 
-# Estado actual del proyecto (tras sesión 20 — sitio multipágina)
+# Estado actual del proyecto (tras auditoría local post-refactor)
 
 ## Arquitectura general
 
@@ -88,6 +88,11 @@ Algunas funciones asumían que su HTML siempre estaba presente en el documento (
 - `updateAdminUI()` (`auth.js`): reescrita para no asumir que los botones admin-only (`open-new-log-btn`, `open-new-tier-row-btn`, `open-new-weapon-btn`, etc.) existen todos a la vez — cada uno se busca y se oculta/muestra solo si está presente en la página actual. También reemplaza el viejo hack de "si cierro sesión estando en la pestaña admin, hago click en la pestaña logs" por una redirección real: `if (!admin && state.activeTab === 'admin') window.location.href = 'index.html'`.
 - `loadWeaponsCatalog()` ahora marca `state.weaponsLoaded = true` internamente (antes lo hacía `app/tabs.js`, que ya no existe).
 - `loadTierlist()` ahora marca `state.tierlistLoaded = true` internamente por la misma razón.
+- `loadLogsData()` concentra la carga pura de Logs/Mobs/Items sin renderizar UI. `logs.js` la usa y luego llama a `renderLogs()`, mientras que `admin.html` la usa desde export/import sin arrastrar modales de Logs.
+- `loadCategoriesData()` hace lo mismo para categorías: carga datos sin tocar filtros/selects/modales. `loadCategories()` sigue siendo la versión con render para la página de Logs.
+- `drafts-list.js` separa el listado de borradores de Herramientas del autoguardado/restauración del formulario de Logs (`drafts.js`). Admin ya no importa el formulario de Logs solo para mostrar la lista de borradores.
+- `updateAdminUI()` expone `registerAdminUiRefreshHandler()` para que cada página registre su propio refresco admin-only sin que `auth.js` importe directamente `logs.js`, `tierlist.js` o módulos de Armas.
+- `field-config.js` expone `setFieldConfigSavedHandler()` para notificar a Logs cuando se guardan campos de fichas, sin importar `renderLogs()` directamente.
 
 ### Qué se eliminó
 
@@ -104,7 +109,7 @@ Algunas funciones asumían que su HTML siempre estaba presente en el documento (
 
 ### Cómo se verificó
 
-1. **IDs referenciados vs. IDs presentes**: se extrajeron todos los `getElementById('...')` de cada módulo de `js/features/` y `js/pages/`, y se compararon contra los `id="..."` realmente presentes en la página (+ partials) donde ese módulo se usa. Cero IDs faltantes (dos falsos positivos esperados: `drafts-list`, porque `drafts.js` es compartido entre Logs y Herramientas y se auto-guarda si no existe; y `load-more-btn`, que se crea dinámicamente por JS, no vive en el HTML).
+1. **IDs referenciados vs. IDs presentes**: se extrajeron todos los `getElementById('...')` de cada módulo de `js/features/` y `js/pages/`, y se compararon contra los `id="..."` realmente presentes en la página (+ partials) donde ese módulo se usa. En los módulos enfocados por página no quedan IDs faltantes reales; el único falso positivo global esperado es `load-more-btn`, que se crea dinámicamente por JS y no vive en el HTML.
 2. **Grafo de imports**: todos los `import { x } from '...'` se resolvieron contra exports reales de cada archivo (script de Python que compara nombres importados vs. `export function/const` del módulo destino). Cero desajustes reales (un único falso positivo: un comentario dentro de `config.js` que menciona `'../config.js'` como ejemplo de sintaxis).
 3. **Sintaxis**: `node --check` sobre los ~35 archivos `.js` del proyecto.
 4. **HTML bien formado**: parseo de las 5 páginas + los 2 partials con `html.parser` de Python, verificando que cada tag abierto tenga su cierre correspondiente.
@@ -360,6 +365,7 @@ Procesos automáticos:
 
 ## Problemas conocidos
 
+- **Ciclos restantes en módulos de Armas**: el grafo de imports ya no tiene módulos huérfanos ni imports rotos, pero quedan 5 ciclos internos entre `weapons-data.js`, `weapons-catalog.js`, `weapons-detail.js`, `weapons-admin.js` y `weapons-catalog-admin.js`. Funcionan hoy, pero conviene partir datos/UI/admin en una pasada dedicada antes de crecer mucho esa sección.
 - **`saveRankPatch` envía objeto completo**: en vez de hacer un PATCH parcial, manda todos los campos del rango en cada edición. Funciona bien ahora que el `SELECT` trae todos los campos, pero si se agrega una columna nueva a `weapon_ranks` y se olvida añadirla al `select()` de `reloadWeaponData()`, puede causar pérdida silenciosa de datos al guardar. Solución correcta: cambiar a updates parciales por campo.
 - **Modal de habilidades hace demasiadas consultas**: cada edición de habilidad recarga todo el arma.
 - **Borradores no sincronizados entre dispositivos**: la tabla `drafts` en Supabase existe pero no está conectada al frontend. Los borradores solo existen en localStorage del navegador actual.
@@ -389,6 +395,49 @@ Pendientes técnicos incluidos en esta prioridad:
 - Verificar que las hojas de Excel de exportación de Tierlist y "Todo" reflejan las columnas actuales.
 - Optimizar el modal de habilidades de armas para no recargar todo el arma en cada edición.
 - Cambiar `saveRankPatch()` a updates parciales por campo para evitar pérdida silenciosa de datos si `weapon_ranks` crece en el futuro.
+
+#### Checklist de auditoría local
+
+Completado en repo:
+
+- [x] Referencias antiguas a `app.js`, `js/app/main.js`, `js/app/tabs.js`, tabs falsas y URLs obsoletas revisadas/limpiadas en README, HTML, CSS, SQL y memoria.
+- [x] Comentarios obsoletos principales limpiados o reescritos para describir el estado multipágina real.
+- [x] HTML y README revisados contra la arquitectura actual de páginas reales (`index.html`, `weapons.html`, `tierlist.html`, `about.html`, `admin.html`).
+- [x] Imports rotos: 0.
+- [x] Módulos huérfanos: 0.
+- [x] Exports públicos sin uso: 0 tras ocultar helpers internos que no se importan desde otros módulos.
+- [x] Ciclos eliminados fuera de Armas: Logs/Auth/Field Config quedaron desacoplados por callbacks (`registerAdminUiRefreshHandler`, `setCategoryFiltersChangedHandler`, `setFieldConfigSavedHandler`).
+- [x] `drafts-list.js` separa la lista de borradores de Admin del formulario/autoguardado de Logs.
+- [x] `logs-data.js` separa carga pura de datos de Logs del render de tarjetas/modales.
+- [x] `loadCategoriesData()` separa carga pura de categorías del render de filtros/selects.
+- [x] Exportaciones desde Admin ya no asumen que Logs, Categorías o Armas fueron cargados por otra página: `exportData()` carga datos frescos antes de JSON/XLSX.
+- [x] Importaciones desde Admin cargan datos base antes de detectar conflictos, para evitar falsos "no hay conflicto" en multipágina.
+- [x] CSS auditado: 15 clases marcadas como posibles no usadas, todas dinámicas o condicionales conocidas (`toast-success`, `toast-error`, `is-liked`, `is-conflict`, `wm-image`, etc.); no se eliminó CSS inseguro.
+- [x] HTML básico validado para las 5 páginas, `asset-view.html` y los 2 partials.
+- [x] Servidor local estático levantado en `http://127.0.0.1:4173/`.
+- [x] HTTP 200 verificado en páginas, partials, entrypoints JS y `css/style.css`.
+- [x] `node --check` pasa en todos los `.js`.
+- [x] `git diff --check` pasa sin errores de whitespace.
+
+Verificado por scripts/local:
+
+- `node --check` sobre todos los JS.
+- `work/audit-imports.cjs`: `IMPORT_PROBLEMS 0`, `ORPHAN_MODULES 0`, `CYCLES 5` (los 5 ciclos conocidos de Armas).
+- `work/audit-exports.cjs`: `UNUSED_EXPORTED_SYMBOLS 0`.
+- `work/check-html.cjs`: todas las páginas y partials `OK`.
+- `work/audit-css.cjs`: sin eliminación segura pendiente.
+- Cierre real de dependencias de `js/pages/admin.js`: 28 módulos, `drafts.js` ya no está incluido; solo `drafts-list.js`.
+
+Pendiente porque requiere navegador vivo, credenciales admin o servicios externos:
+
+- [ ] Smoke test manual completo en navegador real. El navegador interno de Codex se intentó dos veces contra `127.0.0.1:4173`, pero quedó bloqueado por timeout de herramienta; no se usó como verificación final.
+- [ ] Login admin con código real del bot.
+- [ ] Crear/editar/borrar Log con mobs/items/bloques libres y confirmar Realtime desde otra pestaña.
+- [ ] Likes y comentarios con datos reales de Supabase.
+- [ ] Storage: subir/quitar imágenes en Logs, Tierlist, Armas, fondo y favicon.
+- [ ] Exportar JSON/XLSX de Logs, Tierlist y Todo, abrir el XLSX en Excel/Google Sheets y validar hojas visualmente.
+- [ ] Importar JSON con conflictos reales y confirmar resolución overwrite/skip.
+- [ ] Discord Bot: `/ping`, `/getcode`, `/setlogchannel`, screenshots de logs/tierlist/arma, publicación/edición automática de logs y rotación diaria del código.
 
 ### Prioridad 2 — Sistema Multimedia
 

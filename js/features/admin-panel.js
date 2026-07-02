@@ -8,7 +8,7 @@
 // =========================================================
 
 import { initBackgroundTool } from './background.js';
-import { renderDraftsList } from './drafts.js';
+import { renderDraftsList } from './drafts-list.js';
 import { exportData } from './export.js';
 import { initFaviconTool } from './favicon.js';
 import { _importConflicts, confirmImport, handleImportFile } from './import.js';

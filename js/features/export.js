@@ -9,6 +9,8 @@
 
 import { parseEquipment, parseLibreFields } from './blocks-display.js';
 import { RELEVANCE_LABELS, TIER_COLUMNS, getCategory, state } from '../core/state.js';
+import { loadCategoriesData } from './categories.js';
+import { loadLogsData } from './logs-data.js';
 import { loadTierlist } from './tierlist.js';
 import { asArray, formatDate, showToast } from '../core/utils.js';
 import { fetchWeaponsDataForExport } from './weapons-data.js';
@@ -351,7 +353,9 @@ function exportTierlistXlsx() {
 // ---------------------------------------------------------
 
 async function exportAllXlsx() {
-  // Asegurar tierlist cargada (solo datos, sin render extra)
+  await loadLogsData();
+  await loadCategoriesData();
+  // Asegurar tierlist cargada (el render queda protegido si no hay DOM)
   if (!state.tierlistLoaded) await loadTierlist();
 
   // Obtener datos de armas sin disparar ningún render de la guía
@@ -474,6 +478,7 @@ export async function exportData(type, format) {
   // -------- JSON (sin cambios, compatibilidad total) --------
   if (format === 'json') {
     if (type === 'logs') {
+      await loadLogsData();
       const logsWithBlocks = state.logs.map(log => ({
         ...log,
         mobs:  state.mobsByLog[log.id]  || [],
@@ -494,7 +499,10 @@ export async function exportData(type, format) {
       showToast('Tierlist exportada', 'success');
 
     } else if (type === 'all') {
+      await loadLogsData();
+      await loadCategoriesData();
       if (!state.tierlistLoaded) await loadTierlist();
+      const weaponData = await fetchWeaponsDataForExport();
       const logsWithBlocks = state.logs.map(log => ({
         ...log,
         mobs:  state.mobsByLog[log.id]  || [],
@@ -506,10 +514,10 @@ export async function exportData(type, format) {
         logs: logsWithBlocks,
         categories: state.categories,
         tierlist: { rows: state.tierRows, items: state.tierItems },
-        weapons: state.weapons,
-        weapon_categories: state.weaponCategories,
-        weapon_types: state.weaponTypes,
-        weapon_ranks: state.weaponRanksByWeapon,
+        weapons: weaponData.weapons,
+        weapon_categories: weaponData.categories,
+        weapon_types: weaponData.types,
+        weapon_ranks: weaponData.ranksByWeapon,
         field_config: state.fieldConfig,
       };
       downloadFile(JSON.stringify(backup, null, 2), `culones-backup-${timestamp()}.json`, 'application/json');
@@ -525,6 +533,7 @@ export async function exportData(type, format) {
       return;
     }
     if (type === 'logs') {
+      await loadLogsData();
       exportLogsXlsx();
     } else if (type === 'tierlist') {
       if (!state.tierlistLoaded) await loadTierlist();

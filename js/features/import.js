@@ -7,7 +7,7 @@
 // =========================================================
 
 import { supabaseClient } from '../config.js';
-import { loadLogs } from './logs.js';
+import { loadLogsData } from './logs-data.js';
 import { state, suppressNextRealtimeReload, suppressNextTierlistReload } from '../core/state.js';
 import { loadTierlist } from './tierlist.js';
 import { asArray, escapeHtml, showToast } from '../core/utils.js';
@@ -28,7 +28,17 @@ export async function handleImportFile(file) {
   try { parsed = JSON.parse(text); } catch(e) { showToast('El archivo no es un JSON válido', 'error'); return; }
 
   _importPayload = parsed;
+  await prepareImportBaseline(parsed.type);
   await analyzeAndShowImportConflicts(parsed);
+}
+
+async function prepareImportBaseline(type) {
+  if (type === 'logs' || type === 'full_backup') {
+    await loadLogsData();
+  }
+  if (type === 'tierlist' || type === 'full_backup') {
+    await loadTierlist();
+  }
 }
 
 
@@ -190,6 +200,6 @@ export async function confirmImport() {
   showToast(`Importación completa: ${imported} ok${errors > 0 ? `, ${errors} error(es)` : ''}`, errors > 0 ? 'error' : 'success');
   suppressNextRealtimeReload();
   suppressNextTierlistReload();
-  await loadLogs();
+  await loadLogsData();
   if (state.tierlistLoaded) await loadTierlist();
 }

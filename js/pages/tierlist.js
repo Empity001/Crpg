@@ -10,8 +10,9 @@ import { bootShell } from '../app/shell.js';
 import { initTierlistRealtime } from '../app/realtime.js';
 import { state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
+import { registerAdminUiRefreshHandler } from '../features/auth.js';
 import {
-  initTierItemDropzone, loadTierlist, openTierItemModal, openTierRowModal,
+  initTierItemDropzone, loadTierlist, openTierItemModal, openTierRowModal, renderTierlist,
   submitTierItem, submitTierMove, submitTierRow, syncTierDropzoneState,
 } from '../features/tierlist.js';
 
@@ -41,6 +42,7 @@ function initTierlistModals() {
 async function init() {
   await bootShell('tierlist');
   initTierlistModals();
+  registerAdminUiRefreshHandler(() => { if (state.tierlistLoaded) renderTierlist(); });
   await loadTierlist();
   initTierlistRealtime();
 }

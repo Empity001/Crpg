@@ -10,9 +10,14 @@ import { supabaseClient } from '../config.js';
 import { renderAboutContent } from './about.js';
 import { applyCustomBackground, populateBackgroundForm } from './background.js';
 import { applyFavicon, populateFaviconForm } from './favicon.js';
-import { renderLogs } from './logs.js';
 import { DEFAULT_ITEM_FIELDS, DEFAULT_MOB_FIELDS, state } from '../core/state.js';
 import { escapeHtml, showToast } from '../core/utils.js';
+
+let onFieldConfigSaved = () => {};
+
+export function setFieldConfigSavedHandler(handler) {
+  onFieldConfigSaved = typeof handler === 'function' ? handler : () => {};
+}
 
 export async function loadAppSettings() {
   state.fieldConfig = { mob: DEFAULT_MOB_FIELDS, item: DEFAULT_ITEM_FIELDS };
@@ -118,5 +123,5 @@ export async function saveFieldConfig() {
   state.fieldConfig = { mob: state.fieldConfigDraft.mob, item: state.fieldConfigDraft.item };
   document.getElementById('field-config-modal').classList.add('hidden');
   showToast('Configuración de fichas guardada', 'success');
-  renderLogs();
+  onFieldConfigSaved();
 }

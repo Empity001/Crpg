@@ -9,12 +9,21 @@
 
 import { bootShell } from '../app/shell.js';
 import { initWeaponsRealtime } from '../app/realtime.js';
+import { state } from '../core/state.js';
+import { registerAdminUiRefreshHandler } from '../features/auth.js';
 import { initWeaponModals } from '../features/weapons-admin.js';
+import { renderWeaponsGrid } from '../features/weapons-catalog.js';
 import { loadWeaponsCatalog } from '../features/weapons-data.js';
+import { renderWeaponDetail } from '../features/weapons-detail.js';
 
 async function init() {
   await bootShell('weapons');
   initWeaponModals();
+  registerAdminUiRefreshHandler(() => {
+    if (!state.weaponsLoaded) return;
+    renderWeaponsGrid();
+    if (state.currentWeaponId) renderWeaponDetail();
+  });
   await loadWeaponsCatalog();
   initWeaponsRealtime();
 }

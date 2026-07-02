@@ -7,12 +7,14 @@
 // =========================================================
 
 import { supabaseClient } from '../config.js';
-import { renderLogs } from './logs.js';
 import { isAdmin, state } from '../core/state.js';
-import { renderTierlist } from './tierlist.js';
 import { showToast } from '../core/utils.js';
-import { renderWeaponsGrid } from './weapons-catalog.js';
-import { renderWeaponDetail } from './weapons-detail.js';
+
+const adminUiRefreshHandlers = new Set();
+
+export function registerAdminUiRefreshHandler(handler) {
+  if (typeof handler === 'function') adminUiRefreshHandlers.add(handler);
+}
 
 export function updateAdminUI() {
   const dot = document.getElementById('admin-dot');
@@ -40,12 +42,7 @@ export function updateAdminUI() {
     return;
   }
 
-  renderLogs();
-  if (state.tierlistLoaded) renderTierlist();
-  if (state.weaponsLoaded) {
-    renderWeaponsGrid();
-    if (state.currentWeaponId) renderWeaponDetail();
-  }
+  adminUiRefreshHandlers.forEach(handler => handler(admin));
 }
 
 
