@@ -475,7 +475,7 @@ Implementado en repo:
 Checklist manual para comprobar:
 
 - [x] Ejecutar `sql/migration_011_media_library.sql` en Supabase.
-- [ ] Ejecutar `sql/migration_012_media_library_archive_cleanup.sql` en Supabase.
+- [x] Ejecutar `sql/migration_012_media_library_archive_cleanup.sql` en Supabase.
 - [x] Entrar a Herramientas con código admin real y verificar que la Biblioteca Multimedia carga sin aviso de migración faltante.
 - [x] Subir PNG, JPG/JPEG, WEBP, GIF, SVG y APNG desde la biblioteca.
 - [x] Subir dos veces el mismo archivo y confirmar que se reutiliza por duplicado/hash.
