@@ -467,17 +467,17 @@ Implementado en repo:
 
 Checklist manual para comprobar:
 
-- [ ] Ejecutar `sql/migration_011_media_library.sql` en Supabase.
-- [ ] Entrar a Herramientas con código admin real y verificar que la Biblioteca Multimedia carga sin aviso de migración faltante.
-- [ ] Subir PNG, JPG/JPEG, WEBP, GIF, SVG y APNG desde la biblioteca.
-- [ ] Subir dos veces el mismo archivo y confirmar que se reutiliza por duplicado/hash.
+- [x] Ejecutar `sql/migration_011_media_library.sql` en Supabase.
+- [x] Entrar a Herramientas con código admin real y verificar que la Biblioteca Multimedia carga sin aviso de migración faltante.
+- [x] Subir PNG, JPG/JPEG, WEBP, GIF, SVG y APNG desde la biblioteca.
+- [x] Subir dos veces el mismo archivo y confirmar que se reutiliza por duplicado/hash.
 - [ ] Registrar una URL externa y comprobar MIME/tipo/fallback.
-- [ ] Usar el selector en mob, item, bloque libre, tierlist, arma, rango, material de receta, resultado de receta, About, fondo y favicon.
-- [ ] Pulsar "Indexar usados" y confirmar que muestra usos actuales.
-- [ ] Editar nombre, descripción, tags y opciones de presentación de un recurso.
-- [ ] Archivar un recurso y confirmar que desaparece de la lista normal sin borrar el archivo.
-- [ ] Exportar backup JSON/XLSX completo y confirmar `media_assets` / hoja `Multimedia`.
-- [ ] Importar un backup completo con multimedia y revisar resolución de conflictos.
+- [x] Usar el selector en mob, item, bloque libre, tierlist, arma, rango, material de receta, resultado de receta, About, fondo y favicon.
+- [x] Pulsar "Indexar usados" y confirmar que muestra usos actuales.
+- [x] Editar nombre, descripción, tags y opciones de presentación de un recurso.
+- [x] Archivar un recurso y confirmar que desaparece de la lista normal sin borrar el archivo.
+- [x] Exportar backup JSON/XLSX completo y confirmar `media_assets` / hoja `Multimedia`.
+- [x] Importar un backup completo con multimedia y revisar resolución de conflictos.
 
 #### Visión
 
