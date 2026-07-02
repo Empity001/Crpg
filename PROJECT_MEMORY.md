@@ -456,16 +456,97 @@ Objetivo: reemplazar el sistema de imagen directa por una capa multimedia reutil
 - Mostrar dónde se usa cada recurso.
 - Preparar opciones de presentación: opacidad, fit, posición y repetición.
 
-### Prioridad 3 — Interfaz del administrador
+### Prioridad 3 --- Rediseño completo de la Interfaz del Administrador
 
-Objetivo: mejorar la experiencia admin sin cambiar todavía la arquitectura principal.
+#### Objetivo
 
-- Login tipo terminal.
-- Animaciones de autenticación.
-- Estados visuales de Access Granted / Access Denied.
-- Indicador claro de Administrator Mode.
-- Estados de carga y confirmaciones visuales.
-- Mejor UX general de herramientas, acciones peligrosas y feedback.
+El modo administrador debe convertirse en una experiencia claramente
+diferenciada del resto de la página. No debe sentirse como un simple
+formulario de autenticación, sino como el acceso a un entorno exclusivo
+de administración, transmitiendo seguridad, control y profesionalismo
+sin romper la identidad visual actual de Culones RPG.
+
+Esta prioridad se centra únicamente en la experiencia de usuario (UX) y
+la interfaz (UI). No debe modificar la lógica de autenticación
+existente, el funcionamiento del bot de Discord, Supabase ni la
+arquitectura actual del proyecto.
+
+#### Identidad visual
+
+Inspiración: - Consola futurista. - Panel de control premium. - HUD
+tecnológico. - Terminal moderna.
+
+No debe parecer una terminal hacker clásica. La apariencia debe ser
+limpia, elegante y consistente.
+
+#### Paleta de colores
+
+Color principal: #7C3AED
+
+Usar para bordes activos, botones principales, indicadores, focus, glow,
+barras de progreso, estados activos y elementos interactivos.
+
+Variaciones permitidas: - #6D28D9 - #8B5CF6 - #A78BFA
+
+Fondo: - #0B0B0F - #111018 - #161322
+
+Blanco únicamente para texto principal, iconografía e información
+importante.
+
+#### Login
+
+Al pulsar Admin debe abrirse un modal con una pequeña secuencia:
+
+-   Inicializando sistema...
+-   Conectando...
+-   Verificando permisos...
+-   Esperando autenticación...
+
+Después aparece el campo para introducir el código.
+
+Estados: - Normal. - Focus con borde y glow morado. - Error: ACCESS
+DENIED con destello rojo y pequeña vibración. - Correcto: ACCESS GRANTED
+con iluminación morada y transición al modo administrador.
+
+#### Modo Administrador
+
+Mostrar claramente: - Badge Administrator Mode. - Indicador
+permanente. - Detalles morados distribuidos por la interfaz.
+
+#### Botones
+
+Hover: - Borde morado. - Glow suave.
+
+Click: - Ligera reducción de escala.
+
+Loading: - Spinner morado.
+
+Success: - Toast consistente con la identidad visual.
+
+#### Acciones críticas
+
+Eliminar, limpiar, importar, sobrescribir y restaurar deben utilizar
+modales propios. No usar alert().
+
+#### Animaciones
+
+Priorizar: - Opacidad. - Escala. - Glow. - Fade. - Desplazamientos
+cortos.
+
+Duración recomendada: 150--300 ms.
+
+#### Consistencia
+
+No modificar: - Sistema de autenticación. - Bot de Discord. - RPC. -
+Supabase. - Flujo de permisos.
+
+#### Resultado esperado
+
+El administrador debe sentir que ha desbloqueado una versión premium del
+sistema. La interfaz debe transmitir exclusividad, profesionalismo,
+seguridad y tecnología, manteniendo la identidad visual de Culones RPG
+sin alterar la arquitectura existente.
+
 
 ### Prioridad 4 — v2.x
 
