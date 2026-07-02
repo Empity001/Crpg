@@ -11,57 +11,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="css/style.css" />
-<!-- SheetJS: generación de archivos Excel nativos (.xlsx) -->
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
-<!-- ============ FONDO DE PARTÍCULAS / SCANLINES ============ -->
-<div class="crt-overlay" aria-hidden="true"></div>
-<div class="bg-grid" aria-hidden="true"></div>
+<!-- Header, nav y footer compartidos: se inyectan en runtime desde
+     partials/ (ver js/app/shell.js). Así evitamos duplicar ese HTML
+     en cada página. -->
+<div id="shell-header"></div>
 
-<!-- ============ HUD SUPERIOR FIJO ============ -->
-<header class="hud-top">
-  <div class="hud-brand">
-    <div class="hud-logo">⛏</div>
-    <div class="hud-titles">
-      <span class="hud-title">CULONES<span class="accent">-RPG</span></span>
-      <span class="hud-subtitle">Pagina oficial</span>
-    </div>
-  </div>
-
-  <div class="hud-spacer"></div>
-
-  <button id="admin-toggle-btn" class="btn-admin-toggle" type="button">
-    <span class="dot-offline" id="admin-dot"></span> ADMIN
-  </button>
-</header>
-
-<!-- ============ NAV TIPO PESTAÑAS DE NAVEGADOR ============ -->
-<nav class="browser-tabs" role="tablist" aria-label="Secciones">
-  <button class="tab-item is-active" data-tab="logs" role="tab" aria-selected="true">
-    <span class="tab-icon">📜</span> Logs
-  </button>
-  <button class="tab-item" data-tab="weapons" role="tab" aria-selected="false">
-    <span class="tab-icon">⚔️</span> Guía de Armas
-  </button>
-  <button class="tab-item" data-tab="tierlist" role="tab" aria-selected="false">
-    <span class="tab-icon">🏆</span> Tierlist
-  </button>
-  <button class="tab-item" data-tab="about" role="tab" aria-selected="false">
-    <span class="tab-icon">🎮</span> Acerca del Server
-  </button>
-  <button class="tab-item admin-tab hidden" data-tab="admin" role="tab" aria-selected="false" id="admin-panel-tab">
-    <span class="tab-icon">🛠</span> Herramientas
-  </button>
-  <div class="tab-spacer"></div>
-  <div class="tab-fake-url">culones-rpg.gg/<span id="active-tab-path">logs</span></div>
-</nav>
-
-<!-- ============ CONTENIDO PRINCIPAL ============ -->
 <main class="app-main">
-
-  <!-- ---------- PANEL: LOGS ---------- -->
   <section class="tab-panel is-active" id="panel-logs">
 
     <div class="logs-toolbar">
@@ -98,252 +56,9 @@
       </div>
     </div>
   </section>
-
-  <!-- ---------- PANEL: GUÍA DE ARMAS ---------- -->
-  <section class="tab-panel" id="panel-weapons">
-
-    <!-- Vista de catálogo: buscador + filtros dinámicos + grid -->
-    <div id="weapons-catalog-view">
-      <div class="weapons-toolbar">
-        <input type="text" id="weapon-search-input" class="modal-input weapons-search-input" placeholder="🔍 Buscar arma por nombre..." />
-        <div class="weapons-toolbar-actions">
-          <button class="btn-secondary-admin hidden" id="open-weapon-category-manage-btn" type="button">🏷 Categorías</button>
-          <button class="btn-secondary-admin hidden" id="open-weapon-type-manage-btn" type="button">🏷 Tipos</button>
-          <button class="btn-new-log hidden" id="open-new-weapon-btn" type="button">+ Nueva arma</button>
-        </div>
-      </div>
-
-      <div class="filter-pills weapon-filter-row" id="weapon-category-filters">
-        <button class="pill is-active" data-wcat="all">Todas las categorías</button>
-      </div>
-      <div class="filter-pills weapon-filter-row" id="weapon-type-filters">
-        <button class="pill is-active" data-wtype="all">Todos los tipos</button>
-      </div>
-
-      <div class="weapons-grid" id="weapons-grid">
-        <div class="logs-empty" id="weapons-loading">
-          <div class="spinner"></div>
-          <p>Cargando catálogo de armas...</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Vista de detalle: aparece al elegir un arma del catálogo -->
-    <div class="hidden" id="weapon-detail-view">
-      <button type="button" class="link-btn weapon-back-btn" id="weapon-back-btn">← Volver al catálogo</button>
-      <div id="weapon-detail-content"></div>
-    </div>
-
-  </section>
-
-  <!-- ---------- PANEL: TIERLIST ---------- -->
-  <section class="tab-panel" id="panel-tierlist">
-    <div class="tierlist-toolbar">
-      <p class="tierlist-toolbar-hint"></p>
-      <button class="btn-new-log hidden" id="open-new-tier-row-btn" type="button">+ Nueva fila</button>
-    </div>
-
-    <div class="tierlist-board" id="tierlist-board">
-      <div class="logs-empty" id="tierlist-loading">
-        <div class="spinner"></div>
-        <p>Cargando tierlist...</p>
-      </div>
-    </div>
-
-    <div class="tierlist-bench-section">
-      <div class="tierlist-bench-head">
-        <span class="stat-blocks-heading">★ SIN CLASIFICAR</span>
-        <button class="btn-new-log hidden" id="open-new-tier-item-btn" type="button">+ Nuevo elemento</button>
-      </div>
-      <div class="tierlist-bench-columns" id="tierlist-bench-columns"></div>
-    </div>
-  </section>
-
-  <!-- ---------- PANEL: ACERCA DEL SERVER ---------- -->
-  <section class="tab-panel" id="panel-about">
-    <div class="about-admin-toolbar hidden" id="about-admin-toolbar">
-      <button type="button" class="btn-secondary-admin" id="open-about-editor-btn">✏️ Editar esta página</button>
-    </div>
-    <div id="about-content-render" class="about-content">
-      <!-- Se renderiza dinámicamente desde app.js usando app_settings[about_blocks] -->
-      <div class="placeholder-panel">
-        <div class="placeholder-icon">🎮</div>
-        <h2>Acerca de culones-rpg</h2>
-        <!-- <p>Servidor de Minecraft con sistema RPG y gacha. Esta web sincroniza en tiempo real con nuestro Discord — cada evento importante del servidor queda registrado aquí como un log público.</p> -->
-      </div>
-    </div>
-  </section>
-
-
-  <!-- ---------- PANEL: HERRAMIENTAS (solo admin) ---------- -->
-  <section class="tab-panel" id="panel-admin">
-
-    <div class="admin-panel-head">
-      <p class="admin-panel-eyebrow">Solo visible para administradores</p>
-      <button class="btn-secondary-admin hidden" id="open-action-log-btn" type="button">🕒 Acciones</button>
-    </div>
-
-    <!-- Borradores -->
-    <div class="admin-section">
-      <div class="admin-section-head">
-        <h2 class="admin-section-title">📝 Borradores</h2>
-        <button type="button" class="btn-secondary-admin" id="drafts-clear-all-btn">🗑 Limpiar todos</button>
-      </div>
-      <p class="admin-section-hint">Borradores guardados localmente en este dispositivo. Los marcados con <span class="draft-local-tag">[local]</span> nunca fueron publicados.</p>
-      <div id="drafts-list" class="drafts-list">
-        <p class="admin-empty">No hay borradores guardados.</p>
-      </div>
-    </div>
-
-    <!-- Export -->
-    <div class="admin-section">
-      <div class="admin-section-head">
-        <h2 class="admin-section-title">📤 Exportar</h2>
-      </div>
-      <p class="admin-section-hint">Exporta el contenido de la web a un archivo Excel (.xlsx) o JSON. Los archivos Excel incluyen encabezados con estilo, filtros automáticos y organización profesional para abrir directo en Excel o Google Sheets.</p>
-      <div class="export-options">
-        <div class="export-option-group">
-          <h4 class="export-option-title">📜 Logs</h4>
-          <div class="export-btns">
-            <button type="button" class="btn-export" data-export="logs" data-format="json">JSON completo</button>
-            <button type="button" class="btn-export btn-export-excel" data-export="logs" data-format="xlsx">📊 Excel (.xlsx)</button>
-          </div>
-          <p class="export-option-hint">El Excel incluye 4 hojas relacionadas — Logs, Mobs, Items y Bloques Libres — con encabezados estilizados, colores, filtros y anchos ajustados.</p>
-        </div>
-        <div class="export-option-group">
-          <h4 class="export-option-title">🏆 Tierlist</h4>
-          <div class="export-btns">
-            <button type="button" class="btn-export" data-export="tierlist" data-format="json">JSON completo</button>
-            <button type="button" class="btn-export btn-export-excel" data-export="tierlist" data-format="xlsx">📊 Excel (.xlsx)</button>
-          </div>
-        </div>
-        <div class="export-option-group">
-          <h4 class="export-option-title">📦 Todo</h4>
-          <div class="export-btns">
-            <button type="button" class="btn-export" data-export="all" data-format="json">Backup completo (JSON)</button>
-            <button type="button" class="btn-export btn-export-excel" data-export="all" data-format="xlsx">📊 Excel completo (.xlsx)</button>
-          </div>
-          <p class="export-option-hint">El Excel completo incluye todas las hojas: Resumen, Logs, Mobs, Items, Bloques Libres, Tierlist, Armas, Categorías y Configuración.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Import -->
-    <div class="admin-section">
-      <div class="admin-section-head">
-        <h2 class="admin-section-title">📥 Importar</h2>
-      </div>
-      <p class="admin-section-hint">Importa un archivo JSON generado por esta misma herramienta. Si hay conflictos de IDs, podrás elegir qué hacer con cada uno.</p>
-      <div class="import-drop-zone" id="import-drop-zone">
-        <p>Arrastra un archivo JSON aquí</p>
-        <span>o</span>
-        <label class="btn-secondary-admin import-file-label">
-          Seleccionar archivo
-          <input type="file" id="import-file-input" accept=".json" class="hidden" />
-        </label>
-      </div>
-    </div>
-
-    <!-- Fondo de la página -->
-    <div class="admin-section">
-      <div class="admin-section-head">
-        <h2 class="admin-section-title">🎨 Fondo de la página</h2>
-        <button type="button" class="btn-secondary-admin" id="bg-clear-btn">🗑 Quitar fondo</button>
-      </div>
-      <p class="admin-section-hint">Reemplaza el fondo oscuro por una imagen propia (subila desde tu dispositivo). Se aplica para <strong>todos los visitantes</strong>. Los cambios se ven en vivo mientras los ajustás.</p>
-
-      <label class="field-label">Imagen de fondo</label>
-      <div class="tier-img-dropzone" id="bg-dropzone">
-        <input type="file" id="bg-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
-        <input type="hidden" id="bg-image-input" />
-        <div class="tier-img-dropzone-icon" id="bg-dropzone-icon">🖼</div>
-        <p class="tier-img-dropzone-label" id="bg-dropzone-label">Arrastrá una imagen aquí o hacé click para elegir</p>
-        <p class="tier-img-dropzone-hint">PNG, JPG o WEBP · máx. 3 MB</p>
-        <div class="tier-img-uploading hidden" id="bg-upload-progress">
-          <span class="tier-img-spinner"></span> Subiendo…
-        </div>
-      </div>
-      <div class="asset-preview hidden" id="bg-image-preview-wrap">
-        <img id="bg-image-preview" alt="Vista previa" class="pixel-art" />
-        <div class="asset-preview-actions">
-          <button type="button" class="link-btn js-open-asset" id="bg-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
-          <button type="button" class="link-btn tier-img-clear-btn" id="bg-image-clear-btn">✕ Quitar imagen</button>
-        </div>
-      </div>
-
-      <label class="field-label" style="margin-top:14px;">¿Cómo se adapta a la pantalla?</label>
-      <div class="bg-mode-options">
-        <label class="bg-mode-option">
-          <input type="radio" name="bg-mode" value="fixed" checked />
-          <div><strong>🪟 Fija (estilo POV)</strong><span>El fondo queda anclado a tu pantalla — el contenido se mueve pero la imagen no.</span></div>
-        </label>
-        <label class="bg-mode-option">
-          <input type="radio" name="bg-mode" value="continuous" />
-          <div><strong>📜 Continua</strong><span>La imagen se estira como un solo lienzo; al scrollear recorrés distintas partes de ella.</span></div>
-        </label>
-        <label class="bg-mode-option">
-          <input type="radio" name="bg-mode" value="contain" />
-          <div><strong>🖼 Completa, sin recortes</strong><span>La imagen entera sin perder ningún borde; el espacio restante se rellena con un difuminado.</span></div>
-        </label>
-      </div>
-
-      <label class="field-label" style="margin-top:14px;">¿En qué pestañas se muestra?</label>
-      <div class="bg-tabs-options" id="bg-tabs-options">
-        <label class="bg-tab-checkbox"><input type="checkbox" value="logs" checked /> 📜 Logs</label>
-        <label class="bg-tab-checkbox"><input type="checkbox" value="weapons" checked /> ⚔️ Guía de Armas</label>
-        <label class="bg-tab-checkbox"><input type="checkbox" value="tierlist" checked /> 🏆 Tierlist</label>
-        <label class="bg-tab-checkbox"><input type="checkbox" value="about" checked /> 🎮 Acerca del Server</label>
-        <label class="bg-tab-checkbox"><input type="checkbox" value="admin" /> 🛠 Herramientas</label>
-      </div>
-
-      <div class="modal-error hidden" id="bg-config-error"></div>
-      <button class="btn-primary" id="bg-save-btn" style="margin-top:14px;">Guardar fondo</button>
-    </div>
-
-    <!-- Icono de la página (favicon) -->
-    <div class="admin-section">
-      <div class="admin-section-head">
-        <h2 class="admin-section-title">🖼 Icono de la página (favicon)</h2>
-      </div>
-      <p class="admin-section-hint">El ícono que aparece en la pestaña del navegador y al guardar la página como favorito. Subí una imagen cuadrada (idealmente PNG de 32×32 o 64×64 px).</p>
-      <div class="favicon-row">
-        <div class="favicon-preview" id="favicon-preview">?</div>
-        <div style="flex:1;">
-          <div class="tier-img-dropzone favicon-dropzone" id="favicon-dropzone">
-            <input type="file" id="favicon-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
-            <input type="hidden" id="favicon-image-input" />
-            <div class="tier-img-dropzone-icon" id="favicon-dropzone-icon">🖼</div>
-            <p class="tier-img-dropzone-label" id="favicon-dropzone-label">Arrastrá una imagen aquí o hacé click para elegir</p>
-            <p class="tier-img-dropzone-hint">PNG, JPG o WEBP cuadrado · máx. 3 MB</p>
-            <div class="tier-img-uploading hidden" id="favicon-upload-progress">
-              <span class="tier-img-spinner"></span> Subiendo…
-            </div>
-          </div>
-          <button type="button" class="link-btn" id="favicon-clear-btn" style="margin-top:6px;">✕ Quitar icono</button>
-          <p class="field-hint" style="margin-top:5px;">Se aplica al instante en tu pestaña y para todos los visitantes que carguen la página después de guardar.</p>
-        </div>
-      </div>
-      <div class="modal-error hidden" id="favicon-config-error"></div>
-      <button class="btn-primary" id="favicon-save-btn" style="margin-top:12px;">Guardar icono</button>
-    </div>
-
-  </section>
-
 </main>
 
-<!-- ============ MODAL: LOGIN DE ADMIN ============ -->
-<div class="modal-overlay hidden" id="admin-modal">
-  <div class="modal-box">
-    <button class="modal-close" id="close-admin-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title">🔐 ACCESO DE ADMINISTRADOR</h3>
-    <p class="modal-hint">Solicita el código de 24h al bot de Discord con <code>/getcode</code> e ingrésalo aquí.</p>
-    <input type="text" id="admin-code-input" class="modal-input" placeholder="CÓDIGO-DE-6-DÍGITOS" maxlength="32" autocomplete="off" />
-    <div class="modal-error hidden" id="admin-modal-error"></div>
-    <button class="btn-primary" id="submit-admin-code">Validar código</button>
-  </div>
-</div>
-
-<!-- ============ MODAL: NUEVO / EDITAR LOG ============ -->
+<!-- ============ MODALES DE ESTA PÁGINA (Logs) ============ -->
 <div class="modal-overlay hidden" id="log-modal">
   <div class="modal-box modal-box-wide">
     <button class="modal-close" id="close-log-modal" aria-label="Cerrar">✕</button>
@@ -414,7 +129,6 @@
   </div>
 </div>
 
-<!-- ============ MODAL: NUEVA CATEGORÍA ============ -->
 <div class="modal-overlay hidden" id="category-modal">
   <div class="modal-box">
     <button class="modal-close" id="close-category-modal" aria-label="Cerrar">✕</button>
@@ -444,7 +158,6 @@
   </div>
 </div>
 
-<!-- ============ MODAL: CONFIGURAR FICHAS (campos fijos de mob/item) ============ -->
 <div class="modal-overlay hidden" id="field-config-modal">
   <div class="modal-box modal-box-wide">
     <button class="modal-close" id="close-field-config-modal" aria-label="Cerrar">✕</button>
@@ -462,26 +175,6 @@
   </div>
 </div>
 
-<!-- ============ MODAL: ACCIONES REALIZADAS (bitácora, solo admin) ============ -->
-<div class="modal-overlay hidden" id="action-log-modal">
-  <div class="modal-box modal-box-wide modal-box-tall">
-    <button class="modal-close" id="close-action-log-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title">🕒 ACCIONES REALIZADAS</h3>
-    <p class="modal-hint">Registro de todo lo que pasa en la web: logs, mobs, items y bloques libres creados/editados/borrados, categorías, comentarios, moderación y cambios de configuración. Solo lo ven los administradores.</p>
-
-    <div class="action-log-refresh-row">
-      <button type="button" class="link-btn" id="refresh-action-log-btn">↻ Refrescar</button>
-    </div>
-
-    <div class="action-log-list" id="action-log-list">
-      <p class="action-log-empty">Cargando...</p>
-    </div>
-
-    <button class="btn-primary" id="close-action-log-btn-bottom">Cerrar</button>
-  </div>
-</div>
-
-<!-- ============ MINI-MODAL: AGREGAR/EDITAR MOB ============ -->
 <div class="modal-overlay modal-overlay-nested hidden" id="mob-modal">
   <div class="modal-box">
     <button class="modal-close" id="close-mob-modal" aria-label="Cerrar">✕</button>
@@ -536,7 +229,6 @@
   </div>
 </div>
 
-<!-- ============ MINI-MODAL: AGREGAR/EDITAR ITEM ============ -->
 <div class="modal-overlay modal-overlay-nested hidden" id="item-modal">
   <div class="modal-box">
     <button class="modal-close" id="close-item-modal" aria-label="Cerrar">✕</button>
@@ -590,349 +282,6 @@
   </div>
 </div>
 
-<!-- ============ MODAL: NUEVA/EDITAR FILA DE TIERLIST ============ -->
-<div class="modal-overlay hidden" id="tier-row-modal">
-  <div class="modal-box">
-    <button class="modal-close" id="close-tier-row-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title" id="tier-row-modal-title">🏆 NUEVA FILA</h3>
-
-    <label class="field-label">Nombre de la fila</label>
-    <input type="text" id="tier-row-name-input" class="modal-input" maxlength="40" placeholder="Ej: SSS, S, A, Roto..." />
-
-    <label class="field-label">Color</label>
-    <input type="color" id="tier-row-color-input" class="modal-color-input" value="#9a92b8" />
-
-    <div class="modal-error hidden" id="tier-row-modal-error"></div>
-    <button class="btn-primary" id="submit-tier-row-btn">Guardar fila</button>
-  </div>
-</div>
-
-<!-- ============ MODAL: NUEVO/EDITAR ELEMENTO DE TIERLIST ============ -->
-<div class="modal-overlay hidden" id="tier-item-modal">
-  <div class="modal-box">
-    <button class="modal-close" id="close-tier-item-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title" id="tier-item-modal-title">🎴 NUEVO ELEMENTO</h3>
-
-    <label class="field-label">Nombre</label>
-    <input type="text" id="tier-item-name-input" class="modal-input" maxlength="80" placeholder="Ej: Espada de Pyrois" />
-
-    <label class="field-label">Columna</label>
-    <select id="tier-item-column-input" class="modal-select">
-      <option value="weapon">Arma</option>
-      <option value="subweapon">Sub-arma</option>
-      <option value="accessory">Accesorio</option>
-    </select>
-
-    <label class="field-label">Imagen</label>
-
-    <!-- Zona principal: click o drag-and-drop para subir archivo -->
-    <div class="tier-img-dropzone" id="tier-item-dropzone">
-      <input type="file" id="tier-item-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
-      <input type="hidden" id="tier-item-image-input" />
-      <button type="button" class="btn-upload-img hidden" id="tier-item-image-upload-btn">Subir</button>
-      <div class="tier-img-dropzone-icon" id="tier-item-dropzone-icon">🖼</div>
-      <p class="tier-img-dropzone-label" id="tier-item-dropzone-label">Arrastrá una imagen aquí o hacé click para elegir</p>
-      <p class="tier-img-dropzone-hint">PNG, JPG o WEBP · máx. 3 MB</p>
-      <div class="tier-img-uploading hidden" id="tier-item-upload-progress">
-        <span class="tier-img-spinner"></span> Subiendo…
-      </div>
-    </div>
-
-    <div class="asset-preview hidden" id="tier-item-image-preview-wrap">
-      <img id="tier-item-image-preview" alt="Vista previa" class="pixel-art" />
-      <div class="asset-preview-actions">
-        <button type="button" class="link-btn js-open-asset" id="tier-item-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
-        <button type="button" class="link-btn tier-img-clear-btn" id="tier-item-image-clear-btn">✕ Quitar imagen</button>
-      </div>
-    </div>
-
-    <div class="modal-error hidden" id="tier-item-modal-error"></div>
-    <button class="btn-primary" id="submit-tier-item-btn">Guardar elemento</button>
-  </div>
-</div>
-
-<!-- ============ MODAL: MOVER ELEMENTO (uso principal en móvil) ============ -->
-<div class="modal-overlay hidden" id="tier-move-modal">
-  <div class="modal-box">
-    <button class="modal-close" id="close-tier-move-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title">↕ MOVER ELEMENTO</h3>
-    <p class="modal-hint" id="tier-move-item-name"></p>
-
-    <label class="field-label">Fila (tier)</label>
-    <select id="tier-move-row-select" class="modal-select">
-      <option value="">★ Sin clasificar</option>
-    </select>
-
-    <label class="field-label">Columna</label>
-    <select id="tier-move-column-select" class="modal-select">
-      <option value="weapon">Arma</option>
-      <option value="subweapon">Sub-arma</option>
-      <option value="accessory">Accesorio</option>
-    </select>
-
-    <div class="modal-error hidden" id="tier-move-modal-error"></div>
-    <button class="btn-primary" id="submit-tier-move-btn">Mover aquí</button>
-  </div>
-</div>
-
-<!-- ============ MODAL: NUEVA/EDITAR ARMA ============ -->
-<div class="modal-overlay hidden" id="weapon-modal">
-  <div class="modal-box">
-    <button class="modal-close" id="close-weapon-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title" id="weapon-modal-title">⚔️ NUEVA ARMA</h3>
-    <p class="modal-hint">El arma queda oculta para los jugadores hasta que la publiques desde su página de detalle.</p>
-
-    <label class="field-label">Nombre</label>
-    <input type="text" id="weapon-name-input" class="modal-input" maxlength="80" placeholder="Ej: Filo del Vacío" />
-
-    <label class="field-label" style="margin-top:10px;">Imagen</label>
-    <div class="image-upload-only">
-      <input type="hidden" id="weapon-image-input" />
-      <input type="file" id="weapon-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
-      <button type="button" class="btn-upload-zone" id="weapon-image-upload-btn">📁 Elegir imagen</button>
-    </div>
-    <div class="asset-preview hidden" id="weapon-image-preview-wrap">
-      <img id="weapon-image-preview" alt="Vista previa" class="pixel-art" />
-      <button type="button" class="link-btn js-open-asset" id="weapon-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
-      <button type="button" class="link-btn" id="weapon-image-clear-btn">✕ Quitar imagen</button>
-    </div>
-
-    <div class="field-row" style="margin-top:10px;">
-      <div class="field-col">
-        <label class="field-label">Categoría</label>
-        <select id="weapon-category-input" class="modal-select"></select>
-        <button type="button" class="link-btn" id="open-weapon-category-manage-btn-inline">+ Crear categoría</button>
-      </div>
-      <div class="field-col">
-        <label class="field-label">Tipo</label>
-        <select id="weapon-type-input" class="modal-select"></select>
-        <button type="button" class="link-btn" id="open-weapon-type-manage-btn-inline">+ Crear tipo</button>
-      </div>
-    </div>
-
-    <div id="weapon-initial-rank-row">
-      <label class="field-label" style="margin-top:10px;">Rango inicial</label>
-      <input type="text" id="weapon-initial-rank-input" class="modal-input" maxlength="40" placeholder="Ej: MK1" value="MK1" />
-      <p class="field-hint">Podrás agregar más rangos (MK2, MK3...) después, desde la página del arma.</p>
-    </div>
-
-    <div class="modal-error hidden" id="weapon-modal-error"></div>
-    <button class="btn-primary" id="submit-weapon-btn">Guardar arma</button>
-  </div>
-</div>
-
-<!-- ============ MODAL: CATEGORÍAS DE ARMA ============ -->
-<div class="modal-overlay modal-overlay-nested hidden" id="weapon-category-modal">
-  <div class="modal-box">
-    <button class="modal-close" id="close-weapon-category-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title">🏷 CATEGORÍAS DE ARMA</h3>
-    <p class="modal-hint">Dinámicas y propias de la Guía de Armas — no se mezclan con las categorías de Logs. Aparecen como filtro automáticamente para todos los jugadores.</p>
-
-    <label class="field-label">Nombre</label>
-    <input type="text" id="weapon-category-label-input" class="modal-input" maxlength="40" placeholder="Ej: MK1, Legendaria, Gacha S..." />
-
-    <label class="field-label" style="margin-top:8px;">Color</label>
-    <input type="color" id="weapon-category-color-input" class="modal-color-input" value="#4dd4e8" />
-
-    <div class="modal-error hidden" id="weapon-category-modal-error"></div>
-    <button class="btn-primary" id="submit-weapon-category-btn">Crear categoría</button>
-
-    <hr class="modal-divider" />
-    <h4 class="manage-list-heading">Categorías existentes</h4>
-    <p class="field-hint">Solo se puede borrar una categoría si ningún arma la está usando.</p>
-    <div class="category-manage-list" id="weapon-category-manage-list"></div>
-  </div>
-</div>
-
-<!-- ============ MODAL: TIPOS DE ARMA ============ -->
-<div class="modal-overlay modal-overlay-nested hidden" id="weapon-type-modal">
-  <div class="modal-box">
-    <button class="modal-close" id="close-weapon-type-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title">🏷 TIPOS DE ARMA</h3>
-    <p class="modal-hint">Dinámicos — aparecen como filtro automáticamente para todos los jugadores.</p>
-
-    <label class="field-label">Nombre</label>
-    <input type="text" id="weapon-type-label-input" class="modal-input" maxlength="40" placeholder="Ej: Arma, Accesorio, Reliquia..." />
-
-    <div class="modal-error hidden" id="weapon-type-modal-error"></div>
-    <button class="btn-primary" id="submit-weapon-type-btn">Crear tipo</button>
-
-    <hr class="modal-divider" />
-    <h4 class="manage-list-heading">Tipos existentes</h4>
-    <p class="field-hint">Solo se puede borrar un tipo si ningún arma lo está usando.</p>
-    <div class="category-manage-list" id="weapon-type-manage-list"></div>
-  </div>
-</div>
-
-<!-- ============ MODAL: NUEVO/EDITAR RANGO DE ARMA ============ -->
-<div class="modal-overlay hidden" id="weapon-rank-modal">
-  <div class="modal-box">
-    <button class="modal-close" id="close-weapon-rank-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title" id="weapon-rank-modal-title">📈 NUEVO RANGO</h3>
-
-    <label class="field-label">Nombre del rango</label>
-    <input type="text" id="weapon-rank-name-input" class="modal-input" maxlength="40" placeholder="Ej: MK1, MK2, Nivel 60..." />
-
-    <label class="field-label" style="margin-top:10px;">Descripción <span class="optional-tag">(opcional)</span></label>
-    <textarea id="weapon-rank-desc-input" class="modal-textarea" maxlength="800" rows="3" placeholder="Lore o detalles de este rango..."></textarea>
-
-    <label class="field-label" style="margin-top:10px;">Imagen de este rango <span class="optional-tag">(opcional — si no se define, se usa la imagen del arma)</span></label>
-    <div class="image-upload-only">
-      <input type="hidden" id="weapon-rank-image-input" />
-      <input type="file" id="weapon-rank-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
-      <button type="button" class="btn-upload-zone" id="weapon-rank-image-upload-btn">📁 Elegir imagen</button>
-    </div>
-    <div class="asset-preview hidden" id="weapon-rank-image-preview-wrap">
-      <img id="weapon-rank-image-preview" alt="Vista previa" class="pixel-art" />
-      <button type="button" class="link-btn js-open-asset" id="weapon-rank-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
-      <button type="button" class="link-btn" id="weapon-rank-image-clear-btn">✕ Quitar imagen</button>
-    </div>
-
-    <div class="modal-error hidden" id="weapon-rank-modal-error"></div>
-    <button class="btn-primary" id="submit-weapon-rank-btn">Guardar rango</button>
-  </div>
-</div>
-
-<!-- ============ MODAL: ESTADÍSTICAS DEL RANGO ============ -->
-<div class="modal-overlay hidden" id="weapon-stats-modal">
-  <div class="modal-box">
-    <button class="modal-close" id="close-weapon-stats-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title">📊 ESTADÍSTICAS</h3>
-    <p class="modal-hint">Una fila por estadística (ej. "PV Base" → "4210"). Se muestran como barra, igual que Vida/Daño/Armor en mobs e items.</p>
-
-    <div id="weapon-stats-list" class="equip-editor-list"></div>
-    <button type="button" class="link-btn" id="weapon-stats-add-btn">+ Estadística</button>
-
-    <div class="modal-error hidden" id="weapon-stats-modal-error"></div>
-    <button class="btn-primary" id="submit-weapon-stats-btn">Guardar estadísticas</button>
-  </div>
-</div>
-
-<!-- ============ MODAL: HABILIDAD ============ -->
-<div class="modal-overlay hidden" id="weapon-ability-modal">
-  <div class="modal-box">
-    <button class="modal-close" id="close-weapon-ability-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title" id="weapon-ability-modal-title">✨ NUEVA HABILIDAD</h3>
-
-    <label class="field-label">Nombre</label>
-    <input type="text" id="weapon-ability-name-input" class="modal-input" maxlength="80" placeholder="Ej: A: Fuego de supresión superior" />
-
-    <label class="field-label" style="margin-top:10px;">Etiqueta <span class="optional-tag">(opcional, ej: "Técnica activa")</span></label>
-    <input type="text" id="weapon-ability-tag-input" class="modal-input" maxlength="40" placeholder="Ej: Técnica activa" />
-
-    <label class="field-label" style="margin-top:10px;">Descripción <span class="optional-tag">(opcional)</span></label>
-    <textarea id="weapon-ability-desc-input" class="modal-textarea" maxlength="800" rows="3" placeholder="Qué hace esta habilidad..."></textarea>
-
-    <div class="field-row" style="margin-top:10px;">
-      <div class="field-col">
-        <label class="field-label">Nivel actual</label>
-        <input type="number" id="weapon-ability-level-input" class="modal-input" min="0" value="1" />
-      </div>
-      <div class="field-col">
-        <label class="field-label">Nivel máximo</label>
-        <input type="number" id="weapon-ability-level-max-input" class="modal-input" min="1" value="10" />
-      </div>
-    </div>
-
-    <label class="field-label" style="margin-top:10px;">Estadísticas de la habilidad <span class="optional-tag">(opcional, ej: "DMG Multiplier" → "544%")</span></label>
-    <div id="weapon-ability-stats-list" class="equip-editor-list"></div>
-    <button type="button" class="link-btn" id="weapon-ability-stats-add-btn">+ Estadística</button>
-
-    <div class="modal-error hidden" id="weapon-ability-modal-error"></div>
-    <button class="btn-primary" id="submit-weapon-ability-btn">Guardar habilidad</button>
-  </div>
-</div>
-
-<!-- ============ MODAL: RECETA DE MEJORA ============ -->
-<div class="modal-overlay hidden" id="weapon-recipe-modal">
-  <div class="modal-box modal-box-wide">
-    <button class="modal-close" id="close-weapon-recipe-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title">🔁 RECETA DE MEJORA</h3>
-    <p class="modal-hint">Materiales necesarios para mejorar DESDE este rango, más el arma/rango que se obtiene. Cualquier cantidad de materiales.</p>
-
-    <label class="field-label">Materiales</label>
-    <div id="weapon-recipe-materials-list" class="equip-editor-list"></div>
-    <button type="button" class="link-btn" id="weapon-recipe-add-material-btn">+ Material</button>
-
-    <hr class="modal-divider" />
-    <label class="field-label">Resultado de la mejora</label>
-    <div class="field-row">
-      <div class="field-col">
-        <input type="text" id="weapon-recipe-result-name-input" class="modal-input" maxlength="80" placeholder="Ej: MK2" />
-      </div>
-      <div class="field-col">
-        <input type="hidden" id="weapon-recipe-result-image-input" />
-        <input type="file" id="weapon-recipe-result-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp" />
-        <button type="button" class="btn-upload-zone btn-upload-zone-sm" id="weapon-recipe-result-image-upload-btn">📁 Imagen del resultado</button>
-        <span class="recipe-result-img-name hidden" id="weapon-recipe-result-img-name"></span>
-      </div>
-    </div>
-
-    <div class="modal-error hidden" id="weapon-recipe-modal-error"></div>
-    <div class="field-row" style="margin-top:14px;">
-      <button class="btn-primary" id="submit-weapon-recipe-btn">Guardar receta</button>
-      <button type="button" class="btn-secondary-admin danger" id="clear-weapon-recipe-btn">🗑 Quitar receta</button>
-    </div>
-  </div>
-</div>
-
-<!-- ============ MODAL: SECCIÓN EXTRA (futuro: curiosidades, notas, builds...) ============ -->
-<div class="modal-overlay hidden" id="weapon-section-modal">
-  <div class="modal-box">
-    <button class="modal-close" id="close-weapon-section-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title" id="weapon-section-modal-title">📑 NUEVA SECCIÓN</h3>
-    <p class="modal-hint">Para cualquier apartado que no tenga un campo dedicado todavía: curiosidades, notas de balance, builds, historia...</p>
-
-    <label class="field-label">Título de la sección</label>
-    <input type="text" id="weapon-section-title-input" class="modal-input" maxlength="60" placeholder="Ej: Builds recomendadas" />
-
-    <label class="field-label" style="margin-top:10px;">Formato</label>
-    <select id="weapon-section-kind-input" class="modal-select">
-      <option value="text">Texto libre</option>
-      <option value="keyvalue">Lista de campos (clave/valor)</option>
-    </select>
-
-    <div id="weapon-section-text-wrap" style="margin-top:10px;">
-      <label class="field-label">Contenido</label>
-      <textarea id="weapon-section-text-input" class="modal-textarea" maxlength="2000" rows="5" placeholder="Escribe el contenido de esta sección..."></textarea>
-    </div>
-
-    <div id="weapon-section-fields-wrap" class="hidden" style="margin-top:10px;">
-      <label class="field-label">Campos</label>
-      <div id="weapon-section-fields-list" class="equip-editor-list"></div>
-      <button type="button" class="link-btn" id="weapon-section-add-field-btn">+ Campo</button>
-    </div>
-
-    <div class="modal-error hidden" id="weapon-section-modal-error"></div>
-    <button class="btn-primary" id="submit-weapon-section-btn">Guardar sección</button>
-  </div>
-</div>
-
-<!-- ============ MODAL: DETALLE DE LOG + COMENTARIOS ============ -->
-<div class="modal-overlay hidden" id="detail-modal">
-  <div class="modal-box modal-box-wide modal-box-tall">
-    <button class="modal-close" id="close-detail-modal" aria-label="Cerrar">✕</button>
-
-    <div id="detail-content"></div>
-
-    <hr class="modal-divider" />
-
-    <h4 class="comments-heading">💬 Comentarios</h4>
-    <div class="comments-list" id="comments-list"></div>
-
-    <div class="comment-form">
-      <div class="comment-reply-banner hidden" id="comment-reply-banner">
-        Respondiendo a <span id="comment-reply-target"></span>
-        <button type="button" id="comment-reply-cancel">✕ Cancelar</button>
-      </div>
-      <input type="text" id="comment-username-input" class="modal-input" placeholder="Tu alias (opcional)" maxlength="40" />
-      <textarea id="comment-text-input" class="modal-textarea" maxlength="500" rows="2" placeholder="Escribe un comentario..."></textarea>
-      <button class="btn-primary" id="submit-comment-btn">Enviar comentario</button>
-    </div>
-  </div>
-</div>
-
-<!-- ============ MINI-MODAL: AGREGAR/EDITAR BLOQUE LIBRE ============ -->
 <div class="modal-overlay modal-overlay-nested hidden" id="libre-modal">
   <div class="modal-box">
     <button class="modal-close" id="close-libre-modal" aria-label="Cerrar">✕</button>
@@ -966,58 +315,32 @@
   </div>
 </div>
 
-<!-- ============ MODAL: IMPORTAR — CONFLICTOS ============ -->
-<div class="modal-overlay hidden" id="import-conflict-modal">
+<div class="modal-overlay hidden" id="detail-modal">
   <div class="modal-box modal-box-wide modal-box-tall">
-    <button class="modal-close" id="close-import-conflict-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title">📥 IMPORTAR — CONFLICTOS</h3>
-    <p class="modal-hint" id="import-conflict-summary"></p>
+    <button class="modal-close" id="close-detail-modal" aria-label="Cerrar">✕</button>
 
-    <div class="import-conflict-actions-global">
-      <button type="button" class="btn-secondary-admin" id="import-conflict-all-overwrite">↻ Sobrescribir todos</button>
-      <button type="button" class="btn-secondary-admin" id="import-conflict-all-skip">⏭ Saltar todos</button>
-    </div>
+    <div id="detail-content"></div>
 
-    <div class="import-conflict-list" id="import-conflict-list"></div>
+    <hr class="modal-divider" />
 
-    <div class="modal-error hidden" id="import-conflict-error"></div>
-    <div class="import-conflict-footer">
-      <button type="button" class="btn-secondary-admin" id="import-conflict-cancel-btn">Cancelar</button>
-      <button class="btn-primary" id="import-conflict-confirm-btn">Importar</button>
+    <h4 class="comments-heading">💬 Comentarios</h4>
+    <div class="comments-list" id="comments-list"></div>
+
+    <div class="comment-form">
+      <div class="comment-reply-banner hidden" id="comment-reply-banner">
+        Respondiendo a <span id="comment-reply-target"></span>
+        <button type="button" id="comment-reply-cancel">✕ Cancelar</button>
+      </div>
+      <input type="text" id="comment-username-input" class="modal-input" placeholder="Tu alias (opcional)" maxlength="40" />
+      <textarea id="comment-text-input" class="modal-textarea" maxlength="500" rows="2" placeholder="Escribe un comentario..."></textarea>
+      <button class="btn-primary" id="submit-comment-btn">Enviar comentario</button>
     </div>
   </div>
 </div>
 
-<!-- ============ TOASTS ============ -->
-<div class="toast-container" id="toast-container"></div>
+<div id="shell-footer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js"></script>
-<script src="js/app.js"></script>
-<!-- ============ MODAL: EDITOR DE "ACERCA DEL SERVER" ============ -->
-<div class="modal-overlay hidden" id="about-editor-modal">
-  <div class="modal-box modal-box-wide modal-box-tall">
-    <button class="modal-close" id="close-about-editor-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title">🎮 EDITAR "ACERCA DEL SERVER"</h3>
-    <p class="modal-hint">Cada bloque es una pieza de contenido. Podés reordenarlos, editarlos o eliminarlos. El resultado se ve en la pestaña "🎮 Acerca del Server" para todos los visitantes.</p>
-
-    <div class="about-blocks-editor" id="about-blocks-editor">
-      <!-- Se renderiza dinámicamente -->
-    </div>
-
-    <div class="about-add-block-row">
-      <span class="about-add-label">Agregar bloque:</span>
-      <button type="button" class="btn-add-about-block" data-kind="heading">🔤 Título</button>
-      <button type="button" class="btn-add-about-block" data-kind="text">📝 Texto</button>
-      <button type="button" class="btn-add-about-block" data-kind="image">🖼 Imagen</button>
-      <button type="button" class="btn-add-about-block" data-kind="divider">➖ Separador</button>
-      <button type="button" class="btn-add-about-block" data-kind="highlight">✨ Destacado</button>
-    </div>
-
-    <div class="modal-error hidden" id="about-editor-error"></div>
-    <button class="btn-primary" id="save-about-editor-btn">Guardar cambios</button>
-  </div>
-</div>
-
+<script type="module" src="js/pages/logs.js"></script>
 </body>
 </html>

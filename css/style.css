@@ -260,6 +260,7 @@ button:not(:disabled) {
   white-space: nowrap;
   transition: all 0.18s ease;
   margin-top: 6px;
+  text-decoration: none;
 }
 
 .tab-item:hover {

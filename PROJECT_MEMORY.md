@@ -1,517 +1,369 @@
 # PROJECT_MEMORY — culones-rpg
 
-Este archivo funciona como un registro de las sesiones de desarrollo del proyecto. La idea es dejar documentado qué se hizo, qué quedó pendiente y qué problemas siguen existiendo, para poder retomar el trabajo en cualquier momento sin tener que volver a revisar todo el código.
+Registro de sesiones de desarrollo. Cada entrada resume qué se hizo, qué quedó pendiente y qué problemas se conocen. Pensado para que cualquier sesión futura pueda retomar el proyecto sin releer todo el código.
 
 ---
 
-# Estado actual del proyecto (después de la sesión 19)
+# Estado actual del proyecto (tras sesión 20 — sitio multipágina)
 
 ## Arquitectura general
 
-- **Web:** Sitio estático hecho con HTML, CSS y JavaScript vanilla. No tiene backend propio y está desplegado en GitHub Pages.
-
-- **Base de datos:** Se utiliza Supabase (Postgres). Toda la lógica sensible está protegida mediante RLS y funciones RPC con `security definer`, que validan el código de administrador antes de ejecutar cualquier acción.
-
-- **Imágenes:** Se almacenan en Supabase Storage, dentro del bucket público `culones` (solo lectura para los usuarios). Todas las imágenes se suben desde el frontend usando `uploadImageToStorage()`. Desde la sesión 17 ya no existe la opción de utilizar URLs externas.
-
-- **Bot de Discord:** Desarrollado con Node.js y discord.js, desplegado en Railway. Se conecta directamente a Supabase utilizando la `service_role`.
-
-- **Autenticación de administrador:** No se utiliza Supabase Auth. En su lugar, el bot genera un código de 8 caracteres cada 24 horas, lo guarda en la tabla `admin_codes` junto con su fecha de expiración y ese código es el que permite acceder a las herramientas de administración.
+- **Web**: sitio estático multipágina (MPA) HTML/CSS/JS. Sin backend propio, sin bundler, sin build step. Desplegado en GitHub Pages.
+- **JS**: ES Modules nativos (`<script type="module">`). Ver **"Arquitectura de páginas (sesión 20)"** para la navegación real entre `.html`, y **"Arquitectura del código JS (sesión 19)"** para el detalle de los módulos de `js/features/` y `js/core/` (siguen intactos, solo cambió *quién* los importa).
+- **Base de datos**: Supabase (Postgres). Toda la lógica sensible protegida por RLS + funciones RPC con `security definer` que validan el código de admin antes de actuar.
+- **Imágenes**: Supabase Storage, bucket `culones` (público de lectura). La subida va siempre por `uploadImageToStorage()` en el frontend — nunca por URL externa (opción eliminada en sesión 17/18).
+- **Bot de Discord**: Node.js + discord.js, desplegado en Railway. Se conecta a Supabase directamente con `service_role`.
+- **Autenticación de admin**: código de 8 caracteres generado por el bot cada 24h, guardado en la tabla `admin_codes` con fecha de expiración, persistido en `localStorage` (`state.adminCode`) — por eso la sesión de admin sobrevive a la navegación entre páginas sin tener que volver a loguearse.
 
 ---
 
-## Pestañas de la web
+## Arquitectura de páginas (sesión 20)
 
-| Pestaña | `data-tab` | Visible para |
+**Motivo**: hasta la sesión 19 la web era una única página (`index.html`) con 5 `<section class="tab-panel">` que se mostraban/ocultaban por JS (sistema de "pestañas falsas"). Cada carga de `index.html` traía **todo** el HTML y (transitivamente, vía `js/app/main.js`) **todo** el JS de las 5 secciones, aunque la persona solo quisiera ver los Logs. Se migró a un sitio multipágina real: cada sección es ahora un archivo `.html` independiente, con su propio `<script type="module">` de entrada que importa solo lo que esa página necesita.
+
+### Páginas
+
+| Archivo | Sección | Acceso |
 |---|---|---|
-| 📜 Logs | `logs` | Todos |
-| ⚔️ Guía de Armas | `weapons` | Todos |
-| 🏆 Tierlist | `tierlist` | Todos |
-| 🎮 Acerca del Server | `about` | Todos |
-| 🛠 Herramientas | `admin` | Solo administradores (permanece oculta por CSS hasta iniciar sesión) |
+| `index.html` | 📜 Logs (portada) | Todos |
+| `weapons.html` | ⚔️ Guía de Armas | Todos |
+| `tierlist.html` | 🏆 Tierlist | Todos |
+| `about.html` | 🎮 Acerca del Server | Todos |
+| `admin.html` | 🛠 Herramientas | Solo admin — link oculto en el nav para visitantes, y la propia página redirige a `index.html` si se accede sin sesión de admin activa (por URL directa, por ejemplo) |
+
+`asset-view.html` (visor de imágenes a pantalla completa) ya existía desde antes como página independiente — sirvió de precedente para este patrón.
+
+### Componentes compartidos: `partials/` + `js/app/shell.js`
+
+Al no haber build step ni server-side includes (GitHub Pages sirve archivos estáticos tal cual), reutilizar HTML entre páginas se resuelve con **fetch en runtime**:
+
+```
+partials/
+├── header.html   # crt-overlay + bg-grid + <header class="hud-top"> + <nav class="browser-tabs">
+└── footer.html   # modal de login de admin + contenedor de toasts
+```
+
+- `js/app/include.js` expone `loadPartial(url, targetId)` y `loadSharedShell()`, que hacen `fetch()` de esos dos archivos y los inyectan en `<div id="shell-header"></div>` / `<div id="shell-footer"></div>` — presentes al principio/final del `<body>` de **las 5 páginas**, sin excepción.
+- `js/app/shell.js` expone `bootShell(pageKey)`, la función que **todas** las páginas llaman primero en su `init()`:
+  1. Inyecta header/footer (`loadSharedShell()`).
+  2. Marca la pestaña activa del nav (`.is-active` sobre el `<a data-page="...">` que coincide con `pageKey`) y actualiza el texto `culones-rpg.gg/<pageKey>` de la barra falsa de URL.
+  3. Cablea el modal de login de admin (botón ADMIN del header, que ahora vive en el partial compartido).
+  4. Cablea la delegación global de `.js-open-asset` (abrir imágenes a pantalla completa) — se usa desde casi todas las páginas.
+  5. Llama a `updateAdminUI()` (ver más abajo) y a `loadAppSettings()` (fondo, favicon, config de fichas y bloques de "about" — son datos globales, se cargan siempre aunque la página actual no los muestre todos).
+
+El nav de `partials/header.html` usa `<a href="...">` reales en vez de `<button data-tab="...">` — la navegación entre pestañas ahora es navegación de browser de verdad, no un cambio de `display` por JS. Se mantiene la clase `.tab-item` y toda su CSS (con el único agregado de `text-decoration: none` para que un link no se vea subrayado), así que visualmente es idéntico a antes. El fade-in de `.tab-panel.is-active` se sigue disparando en cada carga de página, así que la transición se "siente" igual.
+
+### Cada página carga solo lo suyo
+
+Se creó `js/pages/` con un entry point por página (distinto de `js/features/`, que sigue teniendo la lógica de negocio reutilizable):
+
+```
+js/pages/
+├── logs.js      # index.html     — modal de log, mob, item, libre, categorías, config de fichas, detalle+comentarios
+├── tierlist.js  # tierlist.html  — modal de fila, elemento y "mover" (móvil)
+├── weapons.js   # weapons.html   — initWeaponModals() (ya estaba 100% autocontenido en weapons-admin.js)
+├── about.js     # about.html     — editor de bloques de "Acerca del Server"
+└── admin.js     # admin.html     — borradores, export, import, fondo, favicon, bitácora de acciones
+```
+
+Cada uno importa únicamente los módulos de `js/features/` que le corresponden y cablea únicamente los modales presentes en **su propio** HTML. Por ejemplo, `weapons.js` nunca importa `js/features/tierlist.js`, y `js/pages/logs.js` nunca importa nada de `weapons-*`.
+
+`js/app/realtime.js` se partió en tres funciones (`initLogsRealtime`, `initTierlistRealtime`, `initWeaponsRealtime`) en vez de una única `initRealtime()` que suscribía los 3 canales de una — cada página ahora solo se suscribe al canal que le sirve. `admin.html` y `about.html` no necesitan Realtime y no lo cargan.
+
+### Reubicaciones de piezas que estaban "mal clasificadas"
+
+Al separar por página se detectaron dos casos donde una función vivía dentro de `admin-panel.js` (pensado como "todo lo de Herramientas") pero en realidad pertenecía a la UI del **modal de log**, que ahora vive solo en `index.html`:
+
+- El botón "💾 Guardar borrador" (`draft-manual-save-btn`) y el aviso de "hay cambios sin guardar" al cerrar la pestaña (`initBeforeUnload()`) se movieron de `admin-panel.js` a `js/pages/logs.js`.
+- `initAboutEditor()` (el editor de bloques de "Acerca del Server") se movió de `admin-panel.js` a `js/pages/about.js` — el botón que lo abre siempre vivió visualmente en la propia página de About, nunca en Herramientas.
+
+Y un caso de acoplamiento cruzado entre páginas: el listado de borradores en Herramientas tenía un botón "Abrir" que llamaba directamente a `openEditLogModal()`/`openNewLogModal()` de `logs.js` — eso ya no es posible (ni deseable) porque el modal de log no existe en `admin.html`. Se cambió por navegación real: el botón arma una URL `index.html?draftKey=...&logId=...` y `js/pages/logs.js`, al cargar, detecta esos parámetros, abre el modal correspondiente y restaura el borrador automáticamente (`checkIncomingDraftLink()` en `logs.js`).
+
+### Correcciones necesarias para que la carga "solo de datos" no rompiera
+
+Algunas funciones asumían que su HTML siempre estaba presente en el documento (porque antes SIEMPRE lo estaba, todo vivía en el mismo `index.html`). Al dejar de ser cierto, se agregaron guards:
+
+- `renderLogs()` (`logs.js`): ahora retorna temprano si `#logs-grid` no existe.
+- `renderTierlist()` (`tierlist.js`): ahora retorna temprano si `#tierlist-board`/`#tierlist-bench-columns` no existen. Esto además habilita que `admin.html` pueda llamar a `loadTierlist()` (usado por la exportación "Backup completo") sin necesitar el tablero visual en el DOM.
+- `updateAdminUI()` (`auth.js`): reescrita para no asumir que los botones admin-only (`open-new-log-btn`, `open-new-tier-row-btn`, `open-new-weapon-btn`, etc.) existen todos a la vez — cada uno se busca y se oculta/muestra solo si está presente en la página actual. También reemplaza el viejo hack de "si cierro sesión estando en la pestaña admin, hago click en la pestaña logs" por una redirección real: `if (!admin && state.activeTab === 'admin') window.location.href = 'index.html'`.
+- `loadWeaponsCatalog()` ahora marca `state.weaponsLoaded = true` internamente (antes lo hacía `app/tabs.js`, que ya no existe).
+- `loadTierlist()` ahora marca `state.tierlistLoaded = true` internamente por la misma razón.
+
+### Qué se eliminó
+
+- `js/app/tabs.js` — la carga perezosa por click de pestaña ya no tiene sentido: cada página carga sus datos una sola vez en su propio `init()`, apenas se entra a esa URL.
+- `js/app/main.js` — reemplazado por los 5 archivos de `js/pages/` + `js/app/shell.js`.
+- El sistema de `display:none`/`display:block` entre `.tab-panel` — cada página ahora tiene un único `.tab-panel.is-active`, no hay nada que ocultar.
+
+### Qué NO cambió
+
+- Ningún archivo SQL, ninguna tabla, ninguna función RPC.
+- El bot de Discord.
+- El contenido y la lógica interna de `js/features/*` y `js/core/*` — se movieron *quién los llama*, no *qué hacen*. Las únicas ediciones de código dentro de `features/` fueron los guards de DOM listados arriba y la reubicación de las dos piezas mal clasificadas.
+- El diseño visual, la tipografía, las animaciones (incluido el fade-in al entrar a una sección) y el comportamiento de cada funcionalidad: autenticación de admin, Logs, Tierlist, Guía de Armas, borradores, exportación/importación, Storage, Realtime, comentarios, likes — todo se comporta exactamente igual que antes, solo que cada pieza vive en su propio archivo `.html`.
+
+### Cómo se verificó
+
+1. **IDs referenciados vs. IDs presentes**: se extrajeron todos los `getElementById('...')` de cada módulo de `js/features/` y `js/pages/`, y se compararon contra los `id="..."` realmente presentes en la página (+ partials) donde ese módulo se usa. Cero IDs faltantes (dos falsos positivos esperados: `drafts-list`, porque `drafts.js` es compartido entre Logs y Herramientas y se auto-guarda si no existe; y `load-more-btn`, que se crea dinámicamente por JS, no vive en el HTML).
+2. **Grafo de imports**: todos los `import { x } from '...'` se resolvieron contra exports reales de cada archivo (script de Python que compara nombres importados vs. `export function/const` del módulo destino). Cero desajustes reales (un único falso positivo: un comentario dentro de `config.js` que menciona `'../config.js'` como ejemplo de sintaxis).
+3. **Sintaxis**: `node --check` sobre los ~35 archivos `.js` del proyecto.
+4. **HTML bien formado**: parseo de las 5 páginas + los 2 partials con `html.parser` de Python, verificando que cada tag abierto tenga su cierre correspondiente.
 
 ---
 
-## Tablas de Supabase
+
+
+**Motivo**: hasta la sesión 18, toda la lógica del frontend (~4875 líneas) vivía en un único archivo `js/app.js`. Se dividió en módulos ES por responsabilidad para que sea mantenible y escalable, **sin cambiar ningún comportamiento visible**. La única corrección funcional necesaria fue mover la variable de paginación `_logsPage` a `state.logsPage` (ver "Decisiones técnicas" abajo) — todo lo demás es exactamente el mismo código, solo movido de lugar.
+
+### Cómo se cargan los módulos
+
+> **Nota (sesión 20)**: esta sección describe la división interna de `js/features/` y `js/core/`, que sigue igual. Lo que cambió es *qué archivo hace de punto de entrada* — ya no es un único `js/app/main.js` para toda la web, sino un entry point por página en `js/pages/` (ver "Arquitectura de páginas (sesión 20)" más arriba). El patrón de carga es el mismo en las 5 páginas, por ejemplo en `index.html`:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="module" src="js/pages/logs.js"></script>
+```
+
+`js/pages/logs.js` importa (directa o transitivamente) todos los módulos que la página de Logs necesita, así que no hace falta ningún `<script>` adicional en el HTML. Los scripts de terceros (`supabase-js` en las 5 páginas, `xlsx` de SheetJS solo en `admin.html`) se siguen cargando como `<script>` clásico antes del módulo, y sus globals (`window.supabase`, `XLSX`) se usan tal cual desde dentro de los módulos.
+
+`js/config.js` exporta `supabaseClient` (antes era una variable global `const` suelta) — es el único módulo que lee `window.supabase`.
+
+### Árbol de carpetas
+
+```
+js/
+├── config.js                    # Supabase client (URL + anon key)
+├── core/                        # Fundacional: sin lógica de negocio propia
+│   ├── state.js                 # Objeto `state` global + constantes compartidas
+│   ├── utils.js                 # Helpers puros sin dependencias de dominio
+│   └── storage.js               # Supabase Storage: subida/preview/dropzones de imagen
+├── features/                    # Un módulo por responsabilidad de producto
+│   ├── categories.js            # Categorías dinámicas de logs
+│   ├── field-config.js          # Config de campos de fichas Mob/Item (+ carga de app_settings)
+│   ├── action-log.js            # Bitácora de acciones (solo lectura admin)
+│   ├── logs.js                  # CRUD de logs + tarjetas + orden/paginación
+│   ├── comments.js              # Comentarios: carga, respuestas, likes, moderación
+│   ├── blocks-display.js        # Render de solo-lectura de fichas Mob/Item/Libre
+│   ├── blocks-editor.js         # Edición admin de fichas dentro del form de log
+│   ├── drafts.js                # Borradores en localStorage (autoguardado + listado)
+│   ├── auth.js                  # Login/logout de admin
+│   ├── tierlist.js              # Tierlist completa (filas, elementos, drag&drop, banco)
+│   ├── weapons-state.js         # Selectores puros sobre el estado de armas
+│   ├── weapons-data.js          # Carga de datos de armas desde Supabase
+│   ├── weapons-catalog.js       # Catálogo público: filtros + grid
+│   ├── weapons-catalog-admin.js # CRUD de categorías/tipos de arma
+│   ├── weapons-detail.js        # Vista de detalle de un arma (rangos, habilidades, receta)
+│   ├── weapons-admin.js         # CRUD de armas/rangos + cableado de todos sus modales
+│   ├── about.js                 # "Acerca del Server": render público + editor admin
+│   ├── background.js            # Fondo de página configurable
+│   ├── favicon.js               # Favicon configurable
+│   ├── export.js                # Exportación a Excel (SheetJS) y JSON
+│   ├── import.js                # Importación de JSON + detección de conflictos
+│   └── admin-panel.js           # Cableado de la página 🛠 Herramientas (export/import/drafts/fondo/favicon)
+├── app/                         # Orquestación / bootstrap compartido por TODAS las páginas
+│   ├── include.js                # Carga partials/header.html y partials/footer.html vía fetch
+│   ├── shell.js                  # bootShell(pageKey): header/nav/admin-modal/updateAdminUI/app_settings
+│   └── realtime.js               # 3 funciones separadas: initLogsRealtime/initTierlistRealtime/initWeaponsRealtime
+└── pages/                        # Un entry point por página .html (sesión 20)
+    ├── logs.js                   # index.html
+    ├── tierlist.js                # tierlist.html
+    ├── weapons.js                 # weapons.html
+    ├── about.js                   # about.html
+    └── admin.js                   # admin.html
+```
+
+### Reglas de dependencia
+
+- `core/` no depende de `features/` ni `app/` (solo entre sí: `state.js` usa `utils.js`; `storage.js` usa `utils.js`).
+- `features/*` puede depender de `core/*` y de otros `features/*`.
+- `app/*` es la capa de bootstrap compartido: importa de `features/*` y `core/*` para cablear el header/nav/admin-modal comunes a las 5 páginas.
+- `pages/*` es la capa más externa, específica de cada página: importa `app/shell.js` + `app/realtime.js` + solo los `features/*` que esa página necesita, y cablea el resto del DOM de esa página en concreto.
+- Cada archivo exporta explícitamente (`export function`/`export const`) todo lo que otro módulo necesita — no hay nada colgado de `window` salvo lo que ya venía de terceros (`window.supabase`, `XLSX`).
+
+### Dependencias circulares (intencionales)
+
+Dos parejas de módulos dentro de `features/weapons-*` se importan mutuamente. Es un patrón intencional, no un descuido: la UI de la Guía de Armas tiene un ciclo real render↔acción (abrir el detalle de un arma dispara acciones que a su vez re-renderizan el detalle), y separarlo más habría sido una división artificial. ES Modules soporta esto sin problema porque las referencias solo se usan **dentro de funciones** (nunca en el nivel superior del módulo), así que da igual el orden de evaluación:
+
+- `weapons-detail.js` ↔ `weapons-admin.js` (el detalle abre modales de edición; los modales, al guardar, cierran/reabren el detalle).
+- `weapons-data.js` ↔ `weapons-catalog.js` / `weapons-catalog-admin.js` (cargar datos dispara el render de filtros/grid; crear una categoría desde el admin recarga los datos).
+
+Verificado con un script de Node que importa el árbol completo de módulos (`node --experimental-vm-modules`) sin errores de referencia — ver también "Cómo verificar el refactor" abajo.
+
+### Decisiones técnicas
+
+- **`_logsPage` → `state.logsPage`**: en el `app.js` original, `_logsPage` era un `let` de módulo reasignado desde tres sitios distintos (orden, filtro de categoría, "cargar más"). Un binding `import` en ES Modules es de **solo lectura** desde el módulo que importa — no se puede hacer `_logsPage = 1` fuera de `state.js`. Se resolvió moviéndolo a una propiedad mutable del objeto `state` (`state.logsPage`), que si se puede mutar desde cualquier módulo porque `state` en sí es un `const` (el binding no cambia, solo sus propiedades). Es el único cambio de comportamiento interno del refactor, y es 100% transparente para el usuario.
+- **`initModals()` (histórico, sesión 19)**: originalmente vivía entera en `app/main.js` y ataba botones de todos los dominios contra sus `open*`/`submit*`. Desde la sesión 20 ya no existe como una única función — se partió en un `initXModals()` por página dentro de cada `js/pages/*.js` (ver "Arquitectura de páginas (sesión 20)"), porque ahora cada página solo tiene en su DOM los modales que le corresponden.
+- **`blocks-display.js` vs `blocks-editor.js`**: las fichas de Mob/Item/Libre se separaron en "cómo se muestran" (solo lectura, usado por logs y por la vista de detalle) vs "cómo se editan" (modales admin, usado solo dentro del form de log). Antes vivían mezcladas en el mismo bloque de funciones.
+- **Dropzone de imagen de la tierlist** (`syncTierDropzoneState`, `initTierItemDropzone`) se movió de la zona genérica de Storage a `tierlist.js`, porque es específica de ese modal — la parte genérica reutilizable (`initGenericImageDropzone`, `initImageUploader`) se quedó en `core/storage.js`.
+- Ningún archivo SQL, CSS, HTML (salvo la etiqueta `<script>` de carga) ni el bot de Discord se tocaron — el refactor es exclusivamente de `js/app.js` → módulos.
+
+### Cómo verificar el refactor
+
+No hay entorno de browser automatizado en este repo, así que la validación se hizo así:
+1. **Diff de contenido**: se extrajo cada línea de código real (sin comentarios/blancos) del `app.js` original y de todos los módulos nuevos, y se comparó como multiset — la única diferencia son las 6 líneas de `_logsPage` → `state.logsPage` explicadas arriba. Cero código perdido, cero código duplicado.
+2. **Sintaxis**: `node --check` sobre cada archivo `.js`.
+3. **Grafo de imports** *(histórico — el archivo `app/main.js` referenciado acá ya no existe desde la sesión 20; ver la sección "Cómo se verificó" de la sesión 20 para el método actualizado)*: `import('./app/main.js')` con globals de `document`/`window`/`localStorage` mockeados — confirma que todos los `import`/`export` resuelven correctamente y no hay ciclos rotos.
+
+Si en el futuro se agrega un módulo nuevo, conviene repetir el paso 3 (import dinámico del árbol completo) antes de dar por buena la integración.
+
+---
+
+## Páginas de la web
+
+| Página | Archivo | `data-page` | Visible para |
+|---|---|---|---|
+| 📜 Logs | `index.html` | `logs` | Todos |
+| ⚔️ Guía de Armas | `weapons.html` | `weapons` | Todos |
+| 🏆 Tierlist | `tierlist.html` | `tierlist` | Todos |
+| 🎮 Acerca del Server | `about.html` | `about` | Todos |
+| 🛠 Herramientas | `admin.html` | `admin` | Solo admin (link oculto en el nav; la página redirige a `index.html` si se accede sin sesión) |
+
+---
+
+## Tablas en Supabase
 
 | Tabla | Descripción | Migración |
 |---|---|---|
-| `logs` | Guarda los logs principales del servidor. | `schema.sql` |
-| `comments` | Comentarios de cada log, incluyendo respuestas mediante `parent_id` y moderación con `hidden`. | `schema.sql` |
-| `admin_codes` | Códigos temporales de administrador generados por el bot. | `schema.sql` |
-| `log_likes` | Evita que un mismo cliente pueda dar más de un like al mismo log. | `schema.sql` |
-| `categories` | Categorías dinámicas para los logs (`slug`, `label`, `emoji`, `color`). | `002` |
-| `log_mobs` | Información de mobs asociada a un log (vida, daño, armadura, equipamiento, etc.). | `003` |
-| `log_items` | Información de objetos asociados a un log (nombre, rango, tipo, fuente, etc.). | `003` |
-| `comment_likes` | Sistema de likes para comentarios, incluyendo RPC para moderación. | `004` |
-| `app_settings` | Configuración global de la aplicación (campos de fichas, configuraciones generales, etc.). | `004` |
-| `action_log` | Bitácora de acciones realizadas por administradores. Solo permite inserciones y lectura mediante permisos de administrador. | `005` |
-| `tierlist_rows` | Filas de la tierlist (nombre, color y orden). | `006` |
-| `tierlist_items` | Elementos de la tierlist (`row_id` puede ser `null` para el banco, además de `column_key` e `image_url`). | `006` |
-| `drafts` | Tabla pensada para guardar borradores en Supabase. Actualmente no se utiliza (ver sección correspondiente). | `007` |
-| `weapon_categories` | Categorías de armas. | `008` |
-| `weapon_types` | Tipos de armas. | `008` |
-| `weapons` | Información general de cada arma (nombre, imagen, categoría, tipo y estado de publicación). | `008` |
-| `weapon_ranks` | Rangos de cada arma, incluyendo descripción, estadísticas, habilidades, recetas de mejora y secciones adicionales almacenadas como JSONB. | `008` |
+| `logs` | Logs principales del servidor | schema.sql |
+| `comments` | Comentarios por log (con `parent_id` para respuestas, `hidden` para moderación) | schema.sql |
+| `admin_codes` | Códigos temporales de admin (generados por el bot) | schema.sql |
+| `log_likes` | Un registro por (log_id, client_id) para evitar likes duplicados | schema.sql |
+| `categories` | Categorías dinámicas de logs (slug, label, emoji, color) | 002 |
+| `log_mobs` | Fichas de mobs adjuntas a un log (vida, daño, armor, equipamiento) | 003 |
+| `log_items` | Fichas de items adjuntas a un log (nombre, rango, tipo, fuente) | 003 |
+| `comment_likes` | Likes de comentarios (con RPC admin para moderar) | 004 |
+| `app_settings` | Configuración de la app (campos de fichas de mob/item, etc.) | 004 |
+| `action_log` | Bitácora de acciones de admin (solo inserción, lectura admin-gated) | 005 |
+| `tierlist_rows` | Filas de la tierlist (nombre, color, sort_order) | 006 |
+| `tierlist_items` | Elementos de la tierlist (row_id nullable=banco, column_key, image_url) | 006 |
+| `drafts` | Borradores guardados en Supabase (actualmente no se usa — ver nota abajo) | 007 |
+| `weapon_categories` | Categorías de armas (label, color) | 008 |
+| `weapon_types` | Tipos de armas (label) | 008 |
+| `weapons` | Armas (name, image_url, published, category_id, type_id) | 008 |
+| `weapon_ranks` | Rangos por arma (name, description, image_url, stats jsonb, abilities jsonb, upgrade_recipe jsonb, extra_sections jsonb) | 008 |
 
 ---
 
-# Sistema de imágenes (estado actual - sesión 19)
+## Sistema de imágenes (estado actual, sesión 17)
 
-Actualmente todo el proyecto utiliza un único sistema de subida de imágenes basado en Supabase Storage. Ya no existe ningún campo que permita pegar una URL externa; esa opción fue eliminada por completo durante la sesión 18, incluyendo los últimos tres casos que aún quedaban.
+**Implementado:** Subida directa a Supabase Storage. Sin opción de URL externa en ningún campo de imagen de todo el proyecto (sesión 18: se cerraron los últimos 3 huecos que quedaban).
 
-### Componentes principales
-
-### `uploadImageToStorage(file, folder, oldUrl)`
-
-Esta función valida que el archivo sea PNG, JPG o WEBP y que no supere los 3 MB. Después lo sube al bucket `culones` utilizando un nombre único (`folder/timestamp-random.ext`).
-
-Cuando termina, devuelve la URL pública de la imagen y, si existía una imagen anterior dentro del mismo bucket, la elimina automáticamente en segundo plano.
-
-### `initImageUploader(prefix, folder, getOldUrl)`
-
-Se encarga de conectar el botón **📁 Elegir imagen** con su correspondiente `<input type="file" hidden>`.
-
-La URL resultante se guarda dentro del `<input type="hidden" id="${prefix}-image-input">`, que es el valor que realmente utiliza el JavaScript al guardar los datos. El tipo del input nunca fue lo importante; lo que importa es la URL almacenada en ese campo oculto.
-
-### `initGenericImageDropzone(...)`
-
-Añadido en la sesión 18.
-
-Es una versión reutilizable del sistema de drag & drop que ya utilizaba la tierlist. Se usa para elementos como el fondo de la página y el favicon, manteniendo el mismo comportamiento visual y el estado `has-image`.
-
-### Estado actual
-
-Todos los campos de imagen del proyecto funcionan ahora mediante:
-
-- Botón **📁 Elegir imagen** (o dropzone).
-- Vista previa.
-- Botón **✕ Quitar imagen**.
-
-El botón `btn-upload-img` sigue existiendo dentro del DOM únicamente porque `initImageUploader` todavía lo busca por ID, aunque permanece oculto (`display:none`) y nunca llega a verlo el usuario.
-
-### Carpetas del bucket
-
-Actualmente el bucket `culones` contiene las siguientes carpetas:
-
-- `mobs/`
-- `items/`
-- `tierlist/`
-- `weapons/`
-- `weapon-ranks/`
-- `recipes/`
-- `backgrounds/`
-- `favicons/`
-- `about/`
-
-Todas pertenecen al mismo bucket y no existen restricciones por carpeta a nivel de políticas RLS.
-
-### Prefijos soportados
-
-El sistema cubre actualmente los siguientes prefijos:
-
-- `mob`
-- `item`
-- `libre`
-- `tier-item`
-- `weapon`
-- `weapon-rank`
-- `bg`
-- `favicon`
-
-Además, el resultado de las recetas (`weapon-recipe-result`) utiliza su propio uploader manual.
-
-### Materiales de recetas
-
-Cada fila creada dinámicamente en `renderRecipeMaterialsEditor` tiene su propio botón **📁 Imagen** con un input independiente para subir imágenes directamente a la carpeta `recipes/`.
-
-### Bloques de imagen en "Acerca del Server"
-
-Desde la sesión 18, cada bloque de tipo `image` dentro de `renderAboutEditorBlocks` cuenta con:
-
-- Botón **📁 Elegir imagen**
-- Input de archivo
-- Miniatura
-- Botón **✕ Quitar imagen**
-
-Las imágenes se almacenan dentro de `about/`.
-
-Anteriormente estos bloques utilizaban un simple `<input type="text">` donde había que pegar la URL manualmente.
-
-### Fondo de página y favicon
-
-También fueron migrados durante la sesión 18.
-
-Antes utilizaban campos de texto (`bg-image-url-input` y `favicon-url-input`) para pegar URLs externas.
-
-Ahora ambos utilizan dropzones que funcionan exactamente igual que el resto del sistema de imágenes y muestran una vista previa en tiempo real.
-
-La tierlist ya utilizaba drag & drop desde antes, por lo que únicamente se eliminó el `<details>` que todavía permitía introducir URLs externas, completando así la migración del proyecto.
+- `uploadImageToStorage(file, folder, oldUrl)`: valida tipo (PNG/JPG/WEBP) y tamaño (≤3 MB), sube al bucket `culones` con nombre único (`folder/timestamp-random.ext`), devuelve URL pública, borra la imagen anterior si era del mismo bucket (fire-and-forget).
+- `initImageUploader(prefix, folder, getOldUrl)`: conecta botón `📁 Elegir imagen` + `<input type="file" hidden>` al campo `<input type="hidden" id="${prefix}-image-input">`. La URL resultante se escribe en ese hidden y se pasa a `updateAssetPreview`. El campo hidden es lo que el JS lee al guardar — nunca fue el tipo del input lo que importaba.
+- `initGenericImageDropzone(prefix, folder, getOldUrl, onChange)` + `syncGenericDropzoneState(prefix, url)` (sesión 18): versión genérica del patrón dropzone de la tierlist (click, drag&drop, estado visual `has-image`), reutilizada por los campos de configuración global que antes tenían input de URL: fondo de página y favicon.
+- Todos los campos de imagen son ahora botón `📁 Elegir imagen` (o dropzone) + vista previa con botón `✕ Quitar imagen`. El `btn-upload-img` sigue existiendo en el DOM con `display:none` porque `initImageUploader` lo busca por ID, pero el usuario nunca lo ve.
+- **Carpetas del bucket**: `mobs/`, `items/` (items + libres), `tierlist/`, `weapons/`, `weapon-ranks/`, `recipes/` (materiales y resultado de receta), `backgrounds/` (fondo de página), `favicons/` (icono de pestaña), `about/` (imágenes de bloques en "Acerca del Server"). Todas dentro del mismo bucket `culones`, sin restricción de carpeta a nivel de política RLS.
+- **Prefijos cubiertos**: `mob`, `item`, `libre`, `tier-item`, `weapon`, `weapon-rank`, `bg`, `favicon`, más el resultado de receta (`weapon-recipe-result`) con su propio uploader manual.
+- **Materiales de receta** (las N filas dinámicas en `renderRecipeMaterialsEditor`): cada fila tiene un botón `📁 Imagen` con file input independiente. La imagen sube a `recipes/`.
+- **Bloques de imagen de "Acerca del Server"** (sesión 18): cada bloque `image` en el editor (`renderAboutEditorBlocks`) tiene su propio botón `📁 Elegir imagen` + file input + miniatura + `✕ Quitar`, subiendo a `about/`. Antes era un `<input type="text">` con la URL pegada a mano.
+- **Fondo de página y favicon** (sesión 18): antes eran inputs de texto (`bg-image-url-input`, `favicon-url-input`) donde se pegaba una URL externa. Ahora son dropzones (`bg-image-input`, `favicon-image-input`) que suben el archivo igual que el resto del sistema, con vista previa en vivo.
+- La tierlist ya tenía dropzone con drag&drop. Se eliminó el `<details>` colapsable de URL externa que había quedado (era el único resto de URL externa en todo el proyecto).
 
 ---
 
-# Sistema de borradores
+## Sistema de borradores (estado real)
 
-Actualmente existen **dos sistemas de borradores**. Ambos cumplen prácticamente la misma función, pero todavía no están conectados entre sí.
+**Importante**: hay **dos sistemas** de borradores que coexisten de forma no completamente integrada:
 
-### 1. localStorage (el que realmente se usa)
+1. **localStorage** (el que se usa activamente): `draftKey(logId)` → `'culones_draft_log_new'` o `'culones_draft_log_${id}'`. Captura título, descripción, categoría, relevancia, fecha, mobs, items, libres. Autoguardado cada 30s mientras el modal de log está abierto, y al cerrar el modal. Se muestra en la pestaña 🛠 Herramientas como lista de borradores recuperables. **Funciona completamente, solo para logs.**
+2. **Supabase (tabla `drafts`)**: la tabla existe (migration_007) con RPC `save_draft`, `list_drafts`, `delete_draft`. Pero **ninguna función del frontend actual llama a estas RPCs** — el frontend usa localStorage. La tabla fue diseñada para sincronizar borradores entre dispositivos, pero no está conectada.
 
-Es el sistema activo y el que utiliza actualmente toda la aplicación.
-
-Los borradores se guardan utilizando `draftKey(logId)`, generando claves como:
-
-- `culones_draft_log_new`
-- `culones_draft_log_${id}`
-
-Cada borrador almacena:
-
-- Título
-- Descripción
-- Categoría
-- Relevancia
-- Fecha
-- Mobs
-- Items
-- Bloques libres
-
-Mientras el modal de edición de un log permanece abierto, el sistema realiza un autoguardado cada 30 segundos. También guarda automáticamente al cerrar el modal.
-
-Todos estos borradores aparecen dentro de la pestaña **🛠 Herramientas**, desde donde pueden recuperarse o eliminarse.
-
-Actualmente este sistema funciona sin problemas, aunque únicamente para los logs.
-
-### 2. Supabase (`drafts`)
-
-También existe una tabla `drafts` creada mediante la migración 007.
-
-Esta incluye las RPC:
-
-- `save_draft`
-- `list_drafts`
-- `delete_draft`
-
-Sin embargo, el frontend actual **nunca llega a utilizarlas**.
-
-En algún momento la idea era sincronizar los borradores entre distintos dispositivos usando Supabase, pero esa integración nunca se terminó. Por ahora, la tabla simplemente existe, aunque no forma parte del flujo real de la aplicación.
-
-### Pendiente
-
-Hay que decidir una de estas dos opciones:
-
-- Conectar definitivamente el sistema de `localStorage` con Supabase para sincronizar borradores entre dispositivos.
-- O eliminar esa idea y dejar documentado que únicamente se utilizará `localStorage`, ya que es una solución mucho más sencilla.
+**Pendiente**: conectar el sistema de borradores de localStorage al de Supabase, o decidir que solo se usa localStorage (más simple, pero no sincroniza entre dispositivos).
 
 ---
 
-# Sistema de comentarios
+## Sistema de comentarios
 
-Los comentarios funcionan sin necesidad de iniciar sesión. Cada usuario simplemente escribe el alias que quiera utilizar.
-
-### Respuestas
-
-Los comentarios permiten un único nivel de respuestas.
-
-Esto se controla mediante el campo `parent_id` de la tabla `comments`, que se asigna cuando el usuario utiliza el botón **Responder** dentro del modal del log.
-
-### Likes
-
-Los comentarios también cuentan con su propio sistema de likes.
-
-Para ello existe la tabla `comment_likes`, junto con una RPC que se encarga de alternar el estado del like.
-
-### Moderación
-
-Los administradores disponen de herramientas para moderar comentarios.
-
-Pueden:
-
-- Ocultarlos o volver a mostrarlos mediante la RPC `set_comment_hidden`.
-- Eliminarlos definitivamente.
-
-Cuando un comentario está oculto, únicamente el administrador puede verlo marcado con la etiqueta **[OCULTO]**.
+- Comentarios por log con alias libre (sin login).
+- **Respuestas**: un nivel de anidación. `parent_id` en la tabla `comments`. Se activan con botón "Responder" en el modal de detalle.
+- **Likes de comentarios**: tabla `comment_likes`, con RPC para togglear.
+- **Moderación admin**: botones ocultar/mostrar (RPC `set_comment_hidden`) y borrar definitivo. Los comentarios ocultos muestran tag `[OCULTO]` solo para el admin.
 
 ---
 
-# Guía de Armas
+## Guía de Armas
 
-La guía funciona como un catálogo completo de armas organizado mediante categorías y tipos dinámicos.
-
-Cada arma puede tener varios rangos (`weapon_ranks`) y cada uno almacena su información utilizando JSONB.
-
-Cada rango incluye:
-
-- `stats`: estadísticas en formato clave/valor.
-- `abilities`: habilidades con nivel y estadísticas propias.
-- `upgrade_recipe`: receta de mejora (materiales → resultado).
-- `extra_sections`: secciones libres pensadas para contenido futuro.
-
-Los administradores pueden publicar u ocultar cualquier arma mediante el campo `published`.
-
-Las armas ocultas únicamente son visibles para administradores.
-
-### `saveRankPatch()`
-
-Actualmente `saveRankPatch(rankId, patch)` envía el objeto completo del rango cada vez que se modifica cualquier dato.
-
-No es la forma más eficiente, pero por ahora funciona correctamente (más abajo se explica por qué sigue siendo un punto pendiente).
-
-### Vista de detalle
-
-La información de cada arma no se muestra mediante un modal independiente.
-
-En su lugar, la vista de detalle se abre directamente dentro del panel de armas utilizando:
-
-- `openWeaponDetail()`
-- `closeWeaponDetail()`
+- Catálogo de armas con categorías y tipos dinámicos.
+- Cada arma tiene múltiples rangos (`weapon_ranks`), y cada rango contiene en JSONB: `stats` (pares clave/valor), `abilities` (habilidades con nivel, stats propios), `upgrade_recipe` (materiales → resultado), `extra_sections` (secciones libres de contenido futuro).
+- Admin puede publicar/ocultar armas (campo `published`). Las armas no publicadas solo las ve el admin.
+- `saveRankPatch(rankId, patch)` envía el objeto completo del rango en cada edición parcial — funciona pero es frágil (ver problemas conocidos).
+- **Vista de detalle** inline dentro del panel de weapons (no es un modal separado) con `openWeaponDetail()` / `closeWeaponDetail()`.
 
 ---
 
-# Tierlist
+## Tierlist
 
-La tierlist está formada por filas dinámicas y tres columnas fijas:
-
-- Weapon
-- Subweapon
-- Accessory
-
-Cada fila almacena:
-
-- Nombre
-- Color
-- `sort_order`
-
-Cuando un elemento tiene `row_id = null`, significa que todavía no pertenece a ninguna fila y permanece dentro del banco de **"Sin clasificar"**.
-
-### Movimiento de elementos
-
-En PC se utiliza el sistema nativo de Drag & Drop de HTML5.
-
-En dispositivos móviles se utiliza el botón **↕ Mover a...**, ya que el drag & drop no resulta cómodo en pantallas táctiles.
-
-### Sprites
-
-Todas las imágenes utilizan:
-
-```css
-image-rendering: pixelated;
-```
-
-Esto permite conservar el estilo pixel art pensado para sprites de Minecraft.
-
-Debajo de cada imagen también se muestra su nombre mediante la clase `.tier-chip-name`.
+- Filas dinámicas (nombre, color, sort_order) × 3 columnas fijas (`weapon`, `subweapon`, `accessory`).
+- `row_id = null` → elemento en el banco "Sin clasificar".
+- Drag & drop en PC (eventos nativos HTML5), botón "↕ Mover a..." en móvil.
+- Imágenes en pixel-art (`image-rendering: pixelated`) — pensadas para sprites de Minecraft.
+- El nombre de cada elemento se muestra debajo de su miniatura (`.tier-chip-name`).
 
 ---
 
-# Pestaña 🛠 Herramientas
+## Pestaña 🛠 Herramientas (solo admin)
 
-Esta pestaña únicamente está disponible para administradores.
-
-Actualmente reúne varias herramientas que antes estaban repartidas por distintas partes del proyecto.
-
-## 📝 Borradores
-
-Muestra todos los borradores guardados mediante `localStorage` en el dispositivo actual.
-
-Desde aquí es posible:
-
-- Recuperarlos.
-- Eliminarlos individualmente.
-- Limpiar todos los borradores de una sola vez.
-
-## 📤 Exportar
-
-Permite exportar la información tanto en **Excel (.xlsx)** como en **JSON**.
-
-Los archivos de Excel se generan con varias hojas según el contenido exportado.
-
-Por ejemplo:
-
-- Logs
-- Mobs
-- Items
-- Libres
-
-En el caso de la tierlist también se generan hojas independientes para:
-
-- Filas
-- Elementos
-
-La opción **Todo** reúne toda la información disponible.
-
-Las armas utilizan su propio exportador mediante `exportAllXlsx`.
-
-## 📥 Importar
-
-Permite importar información desde archivos JSON.
-
-Antes de aplicar cualquier cambio, el sistema analiza posibles conflictos y muestra un modal de confirmación con todo lo detectado para que el administrador decida si continuar.
-
-## 🕒 Registro de acciones
-
-Dentro del encabezado del panel de administración existe un botón discreto que abre la bitácora (`action_log`).
-
-Desde ahí pueden consultarse todas las acciones realizadas por los administradores.
+Contiene:
+- **📝 Borradores**: lista de borradores de log guardados en localStorage en este dispositivo. Botón "Limpiar todos".
+- **📤 Exportar**: exportación a Excel (.xlsx) o JSON. Excel genera archivos con múltiples hojas (Logs, Mobs, Items, Libres para la sección de logs; Filas y Elementos para tierlist; Todo combina todo). También export de armas en `exportAllXlsx`.
+- **📥 Importar**: importación de JSON. Analiza conflictos antes de aplicar y muestra modal de confirmación con lista de conflictos detectados.
+- **🕒 Acciones**: botón discreto en la cabecera del panel admin que abre el modal de bitácora (`action_log`).
 
 ---
 
-# Realtime (Supabase)
+## Realtime (Supabase)
 
-La aplicación mantiene tres canales de Realtime activos para sincronizar cambios automáticamente.
+Se escuchan cambios en tiempo real en 3 canales:
+- `logs-changes`: tablas `logs`, `log_mobs`, `log_items`, `comments`
+- `tierlist-changes`: tablas `tierlist_rows`, `tierlist_items`
+- `weapons-changes`: tablas `weapons`, `weapon_ranks`, `weapon_categories`, `weapon_types`
 
-### `logs-changes`
-
-Escucha modificaciones en:
-
-- `logs`
-- `log_mobs`
-- `log_items`
-- `comments`
-
-### `tierlist-changes`
-
-Escucha cambios en:
-
-- `tierlist_rows`
-- `tierlist_items`
-
-### `weapons-changes`
-
-Escucha cambios en:
-
-- `weapons`
-- `weapon_ranks`
-- `weapon_categories`
-- `weapon_types`
-
-Cada canal utiliza su propio flag de supresión (`_suppressRealtimeReload`, entre otros).
-
-La idea es evitar que el administrador que acaba de guardar un cambio reciba inmediatamente un recargado innecesario provocado por su propia actualización.
+Cada canal tiene un flag de supresión (`_suppressRealtimeReload`, etc.) para evitar que el propio admin que está editando vea un reload innecesario inmediatamente después de guardar.
 
 ---
 
-# Bot de Discord
+## Bot de Discord (estado actual)
 
-El bot está desarrollado con Node.js y discord.js, y actualmente está desplegado en Railway.
+Comandos disponibles:
+- `/ping`: latencia del bot y Supabase.
+- `/getcode`: envía el código admin por DM. Solo IDs en `AUTHORIZED_USER_IDS`.
+- `/setlogchannel #canal`: configura canal de anuncios de logs. Solo IDs autorizados.
+- `/screenshot tierlist columna:<Arma|Sub-arma|Accesorio> [canal]`: genera imagen de la columna.
+- `/screenshot logs [cantidad] [canal]`: imagen con los logs más recientes.
+- `/screenshot arma nombre:<autocompletado> [canal]`: una imagen por cada rango del arma.
 
-Se conecta directamente a Supabase utilizando la `service_role`, lo que le permite realizar operaciones administrativas sin depender de la web.
-
-## Comandos disponibles
-
-### `/ping`
-
-Comprueba que todo esté funcionando correctamente mostrando la latencia tanto del bot como de Supabase.
-
-### `/getcode`
-
-Envía por mensaje privado el código temporal de administrador.
-
-Solo pueden utilizar este comando los usuarios cuyos IDs estén incluidos en `AUTHORIZED_USER_IDS`.
-
-### `/setlogchannel #canal`
-
-Permite configurar el canal donde se anunciarán automáticamente los nuevos logs.
-
-Al igual que el comando anterior, únicamente está disponible para usuarios autorizados.
-
-### `/screenshot tierlist columna:<Arma|Sub-arma|Accesorio> [canal]`
-
-Genera una imagen con la columna seleccionada de la tierlist y la envía al canal indicado.
-
-### `/screenshot logs [cantidad] [canal]`
-
-Genera una imagen con los logs más recientes del servidor.
-
-Si se especifica una cantidad, solo mostrará esa cantidad de logs.
-
-### `/screenshot arma nombre:<autocompletado> [canal]`
-
-Genera una imagen por cada rango que tenga el arma seleccionada.
-
-El nombre utiliza autocompletado para facilitar la búsqueda.
+Procesos automáticos:
+- Rotación de código admin cada 24h (cron a las 00:00 UTC).
+- Watcher Realtime en `logs`: al insertar → publica embed en el canal configurado; al actualizar → edita el mensaje existente; al borrar el mensaje manualmente → publica uno nuevo.
 
 ---
 
-## Procesos automáticos
+## Migraciones SQL (orden de aplicación)
 
-Además de los comandos, el bot realiza varias tareas de forma automática.
-
-### Rotación del código de administrador
-
-Todos los días, a las **00:00 UTC**, un cron genera un nuevo código de administrador y reemplaza el anterior.
-
-Ese código queda almacenado en la tabla `admin_codes` junto con su fecha de expiración.
-
-### Watcher de logs
-
-El bot también mantiene un canal Realtime escuchando la tabla `logs`.
-
-Su comportamiento es el siguiente:
-
-- Cuando se crea un log, publica automáticamente un embed en el canal configurado.
-- Si ese log se edita posteriormente, actualiza el mismo mensaje en Discord.
-- Si alguien elimina manualmente ese mensaje en Discord, el bot detecta la situación y publica uno nuevo para mantener el anuncio disponible.
+1. `schema.sql` — tablas base
+2. `migration_002_categories_and_dates.sql` — categorías dinámicas + fecha editable en logs
+3. `migration_003_mob_item_blocks.sql` — fichas de mob/item/bloque libre
+4. `migration_004_advanced_features.sql` — comment_likes, app_settings, campos configurables
+5. `migration_005_action_log.sql` — bitácora de acciones
+6. `migration_006_tierlist.sql` — tierlist_rows + tierlist_items
+7. `migration_007_drafts.sql` — tabla drafts (existe pero frontend usa localStorage)
+8. `migration_008_weapons.sql` — guía de armas completa
+9. `migration_009_fix_create_category_slug.sql` — fix de normalización de slugs de categoría
+10. `migration_010_storage.sql` — bucket `culones` + políticas RLS de Storage
 
 ---
 
-# Migraciones SQL
+## Problemas conocidos
 
-Las migraciones deben aplicarse en el siguiente orden:
-
-1. `schema.sql` — Tablas base del proyecto.
-2. `migration_002_categories_and_dates.sql` — Categorías dinámicas y fecha editable para los logs.
-3. `migration_003_mob_item_blocks.sql` — Fichas de mobs, objetos y bloques libres.
-4. `migration_004_advanced_features.sql` — Likes de comentarios, configuración global y campos configurables.
-5. `migration_005_action_log.sql` — Bitácora de acciones administrativas.
-6. `migration_006_tierlist.sql` — Sistema completo de la tierlist.
-7. `migration_007_drafts.sql` — Tabla para borradores (actualmente sin integrar con el frontend).
-8. `migration_008_weapons.sql` — Sistema completo de la guía de armas.
-9. `migration_009_fix_create_category_slug.sql` — Corrección en la normalización de slugs para categorías.
-10. `migration_010_storage.sql` — Creación del bucket `culones` y configuración de las políticas RLS para Storage.
+- **`saveRankPatch` envía objeto completo**: en vez de hacer un PATCH parcial, manda todos los campos del rango en cada edición. Funciona bien ahora que el `SELECT` trae todos los campos, pero si se agrega una columna nueva a `weapon_ranks` y se olvida añadirla al `select()` de `reloadWeaponData()`, puede causar pérdida silenciosa de datos al guardar. Solución correcta: cambiar a updates parciales por campo.
+- **Modal de habilidades hace demasiadas consultas**: cada edición de habilidad recarga todo el arma.
+- **Borradores no sincronizados entre dispositivos**: la tabla `drafts` en Supabase existe pero no está conectada al frontend. Los borradores solo existen en localStorage del navegador actual.
 
 ---
 
-# Problemas conocidos
+## Pendientes
 
-Aunque el proyecto se encuentra bastante estable, todavía hay algunos puntos que sería bueno mejorar.
+- Conectar el sistema de borradores de localStorage a Supabase (o documentar que se descartó la idea).
+- Verificar que las hojas de Excel de exportación de Tierlist y "Todo" siguen reflejando bien las columnas actuales si se agregan campos nuevos.
+- Optimizar el modal de habilidades de armas para no recargar todo el arma en cada edición.
 
-## `saveRankPatch` envía el objeto completo
-
-Actualmente, cada vez que se modifica cualquier dato de un rango, `saveRankPatch()` vuelve a enviar el objeto completo.
-
-Por ahora funciona porque `reloadWeaponData()` obtiene todas las columnas antes de guardar.
-
-El problema aparece si en algún momento se añade una nueva columna a `weapon_ranks` y se olvida incluirla en ese `select()`. En ese caso existe el riesgo de sobrescribir información sin darse cuenta.
-
-La solución ideal sería dejar de enviar el objeto completo y realizar actualizaciones parciales únicamente sobre el campo que cambió.
-
----
-
-## El modal de habilidades hace demasiadas consultas
-
-Cada vez que se modifica una habilidad, el sistema vuelve a cargar toda la información del arma.
-
-No representa un problema grave, pero sí genera muchas consultas innecesarias.
-
-Lo ideal sería actualizar únicamente la habilidad modificada.
-
----
-
-## Los borradores siguen siendo locales
-
-Aunque ya existe la tabla `drafts` en Supabase, el frontend todavía no la utiliza.
-
-Esto significa que todos los borradores permanecen únicamente en el `localStorage` del navegador donde fueron creados.
-
-Si el usuario cambia de dispositivo o limpia los datos del navegador, esos borradores se perderán.
-
----
-
-# Pendientes
-
-Estas son las tareas que todavía quedan por resolver o revisar.
-
-- Conectar definitivamente el sistema de borradores con Supabase o, si se decide no hacerlo, dejar documentado que la aplicación utilizará únicamente `localStorage`.
-
-- Revisar que las exportaciones a Excel de la Tierlist y de la opción **Todo** continúen funcionando correctamente si en el futuro se agregan nuevos campos.
-
-- Optimizar el editor de habilidades para que no sea necesario recargar toda el arma cada vez que se modifica una sola habilidad.
