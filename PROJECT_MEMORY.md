@@ -479,7 +479,7 @@ Checklist manual para comprobar:
 - [x] Entrar a Herramientas con código admin real y verificar que la Biblioteca Multimedia carga sin aviso de migración faltante.
 - [x] Subir PNG, JPG/JPEG, WEBP, GIF, SVG y APNG desde la biblioteca.
 - [x] Subir dos veces el mismo archivo y confirmar que se reutiliza por duplicado/hash.
-- [ ] Registrar una URL externa y comprobar MIME/tipo/fallback.
+- [ ] Registrar una URL externa y comprobar MIME/tipo/fallback..
 - [ ] Registrar una URL externa y comprobar preview antes de usarla.
 - [x] Usar el selector en mob, item, bloque libre, tierlist, arma, rango, material de receta, resultado de receta, About, fondo y favicon.
 - [x] Pulsar "Indexar usados" y confirmar que muestra usos actuales.
