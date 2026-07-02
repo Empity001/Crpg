@@ -264,12 +264,14 @@ Si en el futuro se agrega un módulo nuevo, conviene repetir el paso 3 (import d
 - `js/core/media.js`: núcleo del sistema. Define MIME soportados, tipo dinámico (`image`, `video`, `audio`, `document`, `other`), hash SHA-256, detección de duplicados, helpers de Storage y RPCs admin-gated (`listMediaAssets`, `upsertMediaAsset`, `archiveMediaAsset`, etc.).
 - `js/core/storage.js`: conserva `uploadImageToStorage()` para no romper llamadas existentes, pero ahora delega en `uploadMediaToStorage()`. Campos de imagen aceptan PNG, JPG/JPEG, WEBP, GIF, SVG y APNG hasta 8 MB; la biblioteca acepta además MP4 y WEBM hasta 25 MB.
 - `sql/migration_011_media_library.sql`: crea `media_assets`, amplía MIME/tamaño del bucket `culones`, y expone RPCs protegidas por `validate_admin_code`.
-- Biblioteca en **Herramientas**: búsqueda, filtros por tipo/origen, orden por fecha descendente, vista previa, nombre visible, MIME, tamaño, hash, tags, descripción, archivado y listado de usos detectados.
+- `sql/migration_012_media_library_archive_cleanup.sql`: agrega RPC admin-gated para borrado definitivo de registros multimedia archivados.
+- Biblioteca en **Herramientas**: búsqueda, filtros por tipo/origen, orden, vista previa, nombre visible, MIME, tamaño, hash, tags, descripción, archivado/restauración, borrado definitivo, listado de usos detectados, render progresivo y modo minimizado.
 - Selector multimedia reutilizable: disponible en Logs (mob/item/libre), Tierlist, Guía de Armas (arma/rango/receta/materiales), About, fondo de página y favicon.
-- Recursos externos: vuelven como URLs temporales por uso desde el selector; no se guardan en `media_assets` ni aparecen en la biblioteca interna.
+- Recursos externos: vuelven como URLs temporales por uso desde el selector; no se guardan en `media_assets` ni aparecen en la biblioteca interna. El modal intenta detectar MIME/tipo y generar vista previa antes de aceptar, con fallback manual si CORS/HEAD no permite detección.
 - Duplicados: los uploads calculan hash y reutilizan el recurso existente si ya fue registrado.
 - Usos detectados: la biblioteca indexa URLs actuales en Logs, Tierlist, Armas, recetas, fondo, favicon y bloques de About.
-- Presentación preparada: cada recurso guarda `presentation` con `fit`, `position`, `repeat` y `opacity`; el selector devuelve esos datos para usos futuros.
+- Presentación preparada: cada recurso guarda `presentation` con `fit`, `position`, `repeat` y `opacity`; el selector devuelve esos datos. El fondo guarda una copia por uso en `background_config.presentation` para respetar fit/posición/repetición/opacidad sin depender del recurso global.
+- Deuda técnica documentada: mover todos los campos históricos `image_url` (mobs, items, tierlist, armas y rangos) a presentación persistente por uso requiere una migración de modelo específica posterior. Hasta entonces mantienen URL compatible y pueden recibir recursos del selector.
 - Export/import: el backup completo JSON incluye `media_assets`; el Excel completo añade hoja `Multimedia`.
 - Identidad visual de P3 aplicada desde P2: la biblioteca, picker, modales, botones, filtros, estados y previews usan negros profundos, blanco para información principal y morado `#7C3AED`.
 
@@ -366,6 +368,7 @@ Procesos automáticos:
 9. `migration_009_fix_create_category_slug.sql` — fix de normalización de slugs de categoría
 10. `migration_010_storage.sql` — bucket `culones` + políticas RLS de Storage
 11. `migration_011_media_library.sql` — Biblioteca Multimedia (`media_assets`) + MIME ampliados + RPCs admin-gated
+12. `migration_012_media_library_archive_cleanup.sql` — borrado definitivo de registros multimedia archivados
 
 ---
 
@@ -452,6 +455,7 @@ Objetivo: convertir el manejo de imágenes actual en una infraestructura multime
 Implementado en repo:
 
 - [x] `sql/migration_011_media_library.sql` crea `media_assets`, amplía MIME/tamaño del bucket y agrega RPCs admin-gated.
+- [x] `sql/migration_012_media_library_archive_cleanup.sql` agrega borrado definitivo admin-gated para recursos archivados.
 - [x] `js/core/media.js` centraliza MIME, tipo dinámico, hash SHA-256, duplicados, Storage path helpers y RPCs.
 - [x] `js/core/storage.js` mantiene `uploadImageToStorage()` compatible y agrega `uploadMediaToStorage()`.
 - [x] Biblioteca Multimedia en `admin.html` con buscador, filtros, vista previa, metadatos, usos detectados, archivado y subida de recursos propios.
@@ -461,6 +465,9 @@ Implementado en repo:
 - [x] Duplicados por hash al subir archivos registrados.
 - [x] Recursos externos reintroducidos desde el selector como URL temporal por uso, sin registro permanente en biblioteca.
 - [x] Presentación guardada por recurso: `fit`, `position`, `repeat`, `opacity`.
+- [x] Fondo guarda `background_config.presentation` por uso para aplicar fit, posición, repetición y opacidad.
+- [x] Biblioteca Multimedia tiene vista de Archivados con restauración, borrado definitivo, modal propio de confirmación y advertencia de usos.
+- [x] Biblioteca minimizable y render progresivo para evitar pintar listas grandes completas.
 - [x] Export/import de backup completo incluye `media_assets`; Excel completo añade hoja `Multimedia`.
 - [x] UI nueva de P2 ya usa identidad visual de P3: negros profundos, blanco principal y morado `#7C3AED`.
 - [x] Compatibilidad mantenida con `image_url`: los formularios siguen guardando URLs.
@@ -468,14 +475,19 @@ Implementado en repo:
 Checklist manual para comprobar:
 
 - [x] Ejecutar `sql/migration_011_media_library.sql` en Supabase.
+- [ ] Ejecutar `sql/migration_012_media_library_archive_cleanup.sql` en Supabase.
 - [x] Entrar a Herramientas con código admin real y verificar que la Biblioteca Multimedia carga sin aviso de migración faltante.
 - [x] Subir PNG, JPG/JPEG, WEBP, GIF, SVG y APNG desde la biblioteca.
 - [x] Subir dos veces el mismo archivo y confirmar que se reutiliza por duplicado/hash.
 - [ ] Registrar una URL externa y comprobar MIME/tipo/fallback.
+- [ ] Registrar una URL externa y comprobar preview antes de usarla.
 - [x] Usar el selector en mob, item, bloque libre, tierlist, arma, rango, material de receta, resultado de receta, About, fondo y favicon.
 - [x] Pulsar "Indexar usados" y confirmar que muestra usos actuales.
 - [x] Editar nombre, descripción, tags y opciones de presentación de un recurso.
-- [x] Archivar un recurso y confirmar que desaparece de la lista normal sin borrar el archivo.
+- [ ] Elegir un fondo desde la biblioteca y comprobar fit, posición, repetición y opacidad.
+- [ ] Minimizar la Biblioteca Multimedia, confirmar que desaparece el grid, expandir y comprobar búsqueda/filtros/orden.
+- [ ] Archivar un recurso, verlo en Archivados, restaurarlo y comprobar que vuelve a la biblioteca principal.
+- [ ] Intentar eliminar definitivamente un recurso archivado con usos y confirmar que el modal advierte dónde se usa.
 - [x] Exportar backup JSON/XLSX completo y confirmar `media_assets` / hoja `Multimedia`.
 - [x] Importar un backup completo con multimedia y revisar resolución de conflictos.
 

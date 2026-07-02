@@ -35,6 +35,7 @@
           <button type="button" class="media-action-primary" id="media-library-upload-btn">Subir recurso</button>
           <button type="button" class="media-action-btn" id="media-library-index-btn">Indexar usados</button>
           <button type="button" class="media-action-btn" id="media-library-refresh-btn">Actualizar</button>
+          <button type="button" class="media-action-btn" id="media-library-toggle-btn" aria-expanded="true">Minimizar</button>
         </div>
       </div>
       <input
@@ -55,6 +56,16 @@
           <option value="all">Todos los orígenes</option>
           <option value="storage">Storage</option>
         </select>
+        <select id="media-library-sort-filter" class="media-input">
+          <option value="recent">Más recientes</option>
+          <option value="oldest">Más antiguos</option>
+          <option value="name">Nombre A-Z</option>
+          <option value="size">Más pesados</option>
+        </select>
+      </div>
+      <div class="media-view-tabs" id="media-library-view-tabs" role="tablist" aria-label="Vista de biblioteca multimedia">
+        <button type="button" class="media-view-tab is-active" data-media-view="active">Biblioteca principal</button>
+        <button type="button" class="media-view-tab" data-media-view="archived">Archivados</button>
       </div>
       <p id="media-library-status" class="media-status">Preparando biblioteca...</p>
       <div id="media-library-grid" class="media-grid">
