@@ -57,7 +57,7 @@ export function renderKeyValueRows(fields) {
 // completa (abre asset-view.html en otra pestaña, con su propio
 // botón de "Volver").
 
-export function renderMobDetailPanel(mob, contextKey) {
+function renderMobDetailPanel(mob, contextKey) {
   const fieldsConfig = (state.fieldConfig.mob && state.fieldConfig.mob.length > 0) ? state.fieldConfig.mob : DEFAULT_MOB_FIELDS;
   const rows = [];
 
@@ -139,7 +139,7 @@ export function renderMobDetailPanel(mob, contextKey) {
 }
 
 
-export function renderItemDetailPanel(item, contextKey) {
+function renderItemDetailPanel(item, contextKey) {
   if (item.item_type === '_libre') {
     return renderLibreDetailPanel(item, contextKey);
   }
@@ -198,7 +198,7 @@ export function renderItemDetailPanel(item, contextKey) {
 }
 
 
-export function renderLibreDetailPanel(item, contextKey) {
+function renderLibreDetailPanel(item, contextKey) {
   const fields = parseLibreFields(item);
   const panelId = `block-detail-${contextKey}-${item.id}`;
   const rows = renderKeyValueRows(fields);

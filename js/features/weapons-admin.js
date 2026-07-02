@@ -48,7 +48,7 @@ export function openWeaponModal(weaponId = null) {
 }
 
 
-export async function submitWeapon() {
+async function submitWeapon() {
   const errorBox = document.getElementById('weapon-modal-error');
   const name = document.getElementById('weapon-name-input').value.trim();
   const imageUrl = document.getElementById('weapon-image-input').value.trim();
@@ -130,7 +130,7 @@ export function openWeaponRankModal(rankId) {
 }
 
 
-export async function submitWeaponRank() {
+async function submitWeaponRank() {
   const errorBox = document.getElementById('weapon-rank-modal-error');
   const name = document.getElementById('weapon-rank-name-input').value.trim();
   const description = document.getElementById('weapon-rank-desc-input').value.trim();
@@ -189,7 +189,7 @@ export function openWeaponStatsModal(rankId) {
 }
 
 
-export async function submitWeaponStats() {
+async function submitWeaponStats() {
   const errorBox = document.getElementById('weapon-stats-modal-error');
   if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
   const cleanStats = state.weaponStatsDraft.filter(s => s.key && s.key.trim()).map(s => ({ key: s.key.trim(), value: s.value }));
@@ -236,7 +236,7 @@ export function openWeaponAbilityModal(rankId, abilityIdx) {
 }
 
 
-export async function submitWeaponAbility() {
+async function submitWeaponAbility() {
   const errorBox = document.getElementById('weapon-ability-modal-error');
   const name = document.getElementById('weapon-ability-name-input').value.trim();
   if (!name) { errorBox.textContent = 'Ponle un nombre a la habilidad.'; errorBox.classList.remove('hidden'); return; }
@@ -283,7 +283,7 @@ export async function deleteAbility(rankId, idx) {
 // ADMIN — receta de mejora (estilo "trade")
 // ---------------------------------------------------------
 
-export function renderRecipeMaterialsEditor() {
+function renderRecipeMaterialsEditor() {
   const container = document.getElementById('weapon-recipe-materials-list');
   const list = state.weaponRecipeMaterialsDraft;
   if (list.length === 0) {
@@ -348,7 +348,7 @@ export function openWeaponRecipeModal(rankId) {
 }
 
 
-export async function submitWeaponRecipe() {
+async function submitWeaponRecipe() {
   const errorBox = document.getElementById('weapon-recipe-modal-error');
   if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
   const resultName = document.getElementById('weapon-recipe-result-name-input').value.trim();
@@ -365,7 +365,7 @@ export async function submitWeaponRecipe() {
 }
 
 
-export async function clearWeaponRecipe() {
+async function clearWeaponRecipe() {
   if (!confirm('¿Quitar la receta de mejora de este rango?')) return;
   const { error } = await saveRankPatch(state.editingWeaponRankId, { input_upgrade_recipe: null });
   if (error) { showToast('No se pudo quitar la receta', 'error'); return; }
@@ -379,7 +379,7 @@ export async function clearWeaponRecipe() {
 // ADMIN — secciones extra (libres, para crecer a futuro)
 // ---------------------------------------------------------
 
-export function toggleWeaponSectionKindUI() {
+function toggleWeaponSectionKindUI() {
   const kind = document.getElementById('weapon-section-kind-input').value;
   document.getElementById('weapon-section-text-wrap').classList.toggle('hidden', kind !== 'text');
   document.getElementById('weapon-section-fields-wrap').classList.toggle('hidden', kind !== 'keyvalue');
@@ -415,7 +415,7 @@ export function openWeaponSectionModal(rankId, sectionIdx) {
 }
 
 
-export async function submitWeaponSection() {
+async function submitWeaponSection() {
   const errorBox = document.getElementById('weapon-section-modal-error');
   const title = document.getElementById('weapon-section-title-input').value.trim();
   if (!title) { errorBox.textContent = 'Ponle un título a la sección.'; errorBox.classList.remove('hidden'); return; }

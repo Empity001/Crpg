@@ -11,7 +11,7 @@ import { getOrCreateClientId } from './utils.js';
 
 export let _suppressRealtimeReload = false;
 
-export let _suppressRealtimeTimer = null;
+let _suppressRealtimeTimer = null;
 
 export function suppressNextRealtimeReload() {
   _suppressRealtimeReload = true;
@@ -22,7 +22,7 @@ export function suppressNextRealtimeReload() {
 
 export let _suppressRealtimeTierlist = false;
 
-export let _suppressRealtimeTierlistTimer = null;
+let _suppressRealtimeTierlistTimer = null;
 
 export function suppressNextTierlistReload() {
   _suppressRealtimeTierlist = true;
@@ -33,7 +33,7 @@ export function suppressNextTierlistReload() {
 
 export let _suppressRealtimeWeapons = false;
 
-export let _suppressRealtimeWeaponsTimer = null;
+let _suppressRealtimeWeaponsTimer = null;
 
 export function suppressNextWeaponsReload() {
   _suppressRealtimeWeapons = true;
@@ -59,7 +59,7 @@ export const PAGE_SIZE = 20;
 // CACHE DE LOGS: evita recargar si los datos no han cambiado
 // ---------------------------------------------------------
 
-export let _logsLoadedOnce = false;
+let _logsLoadedOnce = false;
 
 
 export const state = {

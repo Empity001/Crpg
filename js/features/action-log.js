@@ -9,7 +9,7 @@ import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { escapeHtml, formatDate } from '../core/utils.js';
 
-export const ACTION_LOG_ICONS = {
+const ACTION_LOG_ICONS = {
   log_created: '📜', log_updated: '✏️', log_deleted: '🗑',
   mob_created: '👾', mob_deleted: '👾',
   item_created: '🗡', item_deleted: '🗡',
@@ -20,7 +20,7 @@ export const ACTION_LOG_ICONS = {
 };
 
 
-export function actionLogRowClass(action) {
+function actionLogRowClass(action) {
   if (action.endsWith('_created') || action === 'comment_shown') return 'is-create';
   if (action.endsWith('_deleted') || action === 'comment_hidden') return 'is-delete';
   if (action === 'comment_created') return 'is-comment';
@@ -54,7 +54,7 @@ export async function loadActionLog() {
 }
 
 
-export function renderActionLogList(rows) {
+function renderActionLogList(rows) {
   const list = document.getElementById('action-log-list');
   if (!rows || rows.length === 0) {
     list.innerHTML = `<p class="action-log-empty">Todavía no hay acciones registradas.</p>`;

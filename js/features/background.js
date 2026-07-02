@@ -23,7 +23,7 @@ export function populateBackgroundForm() {
 }
 
 
-export function readBackgroundForm() {
+function readBackgroundForm() {
   return {
     image_url: document.getElementById('bg-image-input')?.value.trim() || '',
     mode: document.querySelector('input[name="bg-mode"]:checked')?.value || 'fixed',
@@ -47,7 +47,7 @@ export function applyCustomBackground(config) {
 }
 
 
-export async function saveBackgroundConfig() {
+async function saveBackgroundConfig() {
   const errorBox = document.getElementById('bg-config-error');
   errorBox.classList.add('hidden');
   const value = readBackgroundForm();
@@ -60,7 +60,7 @@ export async function saveBackgroundConfig() {
 }
 
 
-export async function clearBackgroundConfig() {
+async function clearBackgroundConfig() {
   if (!confirm('¿Quitar el fondo personalizado para todos?')) return;
   const i = document.getElementById('bg-image-input'); if (i) i.value = '';
   updateAssetPreview('bg', '');

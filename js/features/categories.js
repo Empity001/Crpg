@@ -25,7 +25,7 @@ export async function loadCategories() {
 }
 
 
-export function renderCategoryFilters() {
+function renderCategoryFilters() {
   const container = document.getElementById('category-filters');
   const allPill = container.querySelector('[data-filter="all"]');
   container.innerHTML = '';
@@ -58,7 +58,7 @@ export function renderCategorySelectOptions() {
 }
 
 
-export function renderCategoryManageList() {
+function renderCategoryManageList() {
   const container = document.getElementById('category-manage-list');
   if (!container) return;
   if (state.categories.length === 0) { container.innerHTML = `<p class="category-manage-empty">No hay categorías todavía.</p>`; return; }
@@ -101,7 +101,7 @@ export async function submitCategory() {
 }
 
 
-export async function deleteCategory(slug) {
+async function deleteCategory(slug) {
   const cat = getCategory(slug);
   if (!confirm(`¿Borrar la categoría "${cat.label}"?`)) return;
   if (!state.adminCode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }

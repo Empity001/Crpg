@@ -8,7 +8,7 @@
 // sin duplicar ese HTML en cada archivo .html del proyecto.
 // =========================================================
 
-export async function loadPartial(url, targetId) {
+async function loadPartial(url, targetId) {
   const el = document.getElementById(targetId);
   if (!el) return;
   try {

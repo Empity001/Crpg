@@ -27,7 +27,7 @@ export function populateFaviconForm() {
 }
 
 
-export async function saveFaviconConfig() {
+async function saveFaviconConfig() {
   const errorBox = document.getElementById('favicon-config-error');
   const input = document.getElementById('favicon-image-input');
   const preview = document.getElementById('favicon-preview');

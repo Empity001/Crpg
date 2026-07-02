@@ -124,14 +124,14 @@ export async function loadTierlist() {
 }
 
 
-export function itemsFor(rowId, columnKey) {
+function itemsFor(rowId, columnKey) {
   return state.tierItems
     .filter(it => (it.row_id || null) === (rowId || null) && it.column_key === columnKey)
     .sort((a, b) => a.sort_order - b.sort_order);
 }
 
 
-export function renderTierItemChip(item) {
+function renderTierItemChip(item) {
   const safe = safeUrl(item.image_url);
   const thumb = safe
     ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(item.name)}" class="js-open-asset pixel-art" loading="lazy" data-asset-src="${escapeHtml(safe)}" data-asset-title="${escapeHtml(item.name)}" />`
@@ -214,7 +214,7 @@ export function renderTierlist() {
 }
 
 
-export function bindTierlistCellEvents() {
+function bindTierlistCellEvents() {
   const board = document.getElementById('tierlist-board');
   const bench = document.getElementById('tierlist-bench-columns');
 
@@ -311,7 +311,7 @@ export async function submitTierRow() {
 }
 
 
-export async function deleteTierRow(rowId) {
+async function deleteTierRow(rowId) {
   if (!confirm('¿Eliminar esta fila? Sus elementos pasarán a "Sin clasificar".')) return;
   const { error } = await supabaseClient.rpc('delete_tierlist_row', { input_code: state.adminCode, input_id: rowId });
   if (error) { console.error(error); showToast('No se pudo borrar la fila', 'error'); return; }
@@ -321,7 +321,7 @@ export async function deleteTierRow(rowId) {
 }
 
 
-export async function reorderTierRow(rowId, direction) {
+async function reorderTierRow(rowId, direction) {
   const idx = state.tierRows.findIndex(r => r.id === rowId);
   const newIdx = idx + direction;
   if (idx === -1 || newIdx < 0 || newIdx >= state.tierRows.length) return;
@@ -396,7 +396,7 @@ export async function submitTierItem() {
 }
 
 
-export async function deleteTierItem(itemId) {
+async function deleteTierItem(itemId) {
   if (!confirm('¿Eliminar este elemento de la tierlist?')) return;
   const { error } = await supabaseClient.rpc('delete_tierlist_item', { input_code: state.adminCode, input_id: itemId });
   if (error) { console.error(error); showToast('No se pudo eliminar', 'error'); return; }
@@ -406,7 +406,7 @@ export async function deleteTierItem(itemId) {
 }
 
 
-export async function moveTierItem(itemId, rowId, columnKey) {
+async function moveTierItem(itemId, rowId, columnKey) {
   const { error } = await supabaseClient.rpc('move_tierlist_item', {
     input_code: state.adminCode,
     input_item_id: itemId,
@@ -420,7 +420,7 @@ export async function moveTierItem(itemId, rowId, columnKey) {
 
 // ---- Modal "Mover a..." (uso principal en móvil, donde no hay drag&drop) ----
 
-export function openTierMoveModal(itemId) {
+function openTierMoveModal(itemId) {
   const item = state.tierItems.find(it => it.id === itemId);
   if (!item) return;
   state.movingTierItemId = itemId;

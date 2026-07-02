@@ -184,6 +184,8 @@ js/
 
 La auditoría post-refactor confirmó que no hay imports rotos ni módulos huérfanos. También se eliminaron dos ciclos innecesarios del área de Logs (`logs.js` ↔ `blocks-editor.js` y `logs.js` ↔ `categories.js`). Los ciclos que quedan están acotados al subsistema de Guía de Armas, donde la UI tiene un ciclo real render↔acción: abrir el detalle de un arma dispara acciones admin que a su vez recargan datos y vuelven a renderizar el catálogo/detalle.
 
+En la misma auditoría se limpió la superficie pública de los módulos: las funciones/constantes que solo se usan dentro de su propio archivo dejaron de exportarse. El grafo queda con **0 imports rotos**, **0 módulos huérfanos** y **0 exports sobrantes**.
+
 ES Modules soporta estos ciclos porque las referencias cruzadas se usan dentro de funciones, no durante la evaluación inicial del módulo. Aun así, quedan registrados como deuda técnica de arquitectura:
 
 - `weapons-detail.js` ↔ `weapons-admin.js`.

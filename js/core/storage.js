@@ -63,9 +63,9 @@ export function updateAssetPreview(prefix, url) {
 // oldUrl: URL previa (si viene de Storage) — se borra para no dejar huérfanos.
 // Devuelve la URL pública de la imagen subida, o lanza error.
 
-export const STORAGE_MAX_BYTES = 3 * 1024 * 1024; // 3 MB
-export const STORAGE_ALLOWED   = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-export const STORAGE_BUCKET    = 'culones';
+const STORAGE_MAX_BYTES = 3 * 1024 * 1024; // 3 MB
+const STORAGE_ALLOWED   = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const STORAGE_BUCKET    = 'culones';
 
 
 export async function uploadImageToStorage(file, folder, oldUrl = '') {

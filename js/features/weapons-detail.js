@@ -90,7 +90,7 @@ export function renderWeaponDetail() {
 }
 
 
-export function renderWeaponRankBody(weapon, rank, admin) {
+function renderWeaponRankBody(weapon, rank, admin) {
   let html = '';
 
   // ---- Descripción del rango ----
@@ -175,7 +175,7 @@ export function renderWeaponRankBody(weapon, rank, admin) {
 }
 
 
-export function renderAbilityCard(ab, idx, rankId, admin) {
+function renderAbilityCard(ab, idx, rankId, admin) {
   const level = ab.level ?? 0;
   const levelMax = ab.level_max ?? 10;
   const pct = levelMax > 0 ? Math.min(100, Math.max(0, Math.round((level / levelMax) * 100))) : 0;
@@ -201,7 +201,7 @@ export function renderAbilityCard(ab, idx, rankId, admin) {
 }
 
 
-export function renderRecipeTrade(recipe) {
+function renderRecipeTrade(recipe) {
   const materials = asArray(recipe.materials);
   const result = recipe.result || {};
   const matsHtml = materials.map(m => {
@@ -228,7 +228,7 @@ export function renderRecipeTrade(recipe) {
 }
 
 
-export function bindWeaponDetailEvents(container) {
+function bindWeaponDetailEvents(container) {
   container.querySelectorAll('[data-action="select-rank"]').forEach(btn =>
     btn.addEventListener('click', () => { state.currentWeaponRankId = btn.dataset.rankId; renderWeaponDetail(); }));
   container.querySelectorAll('[data-action="add-rank"]').forEach(btn =>

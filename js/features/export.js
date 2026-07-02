@@ -13,7 +13,7 @@ import { loadTierlist } from './tierlist.js';
 import { asArray, formatDate, showToast } from '../core/utils.js';
 import { fetchWeaponsDataForExport } from './weapons-data.js';
 
-export function formatEquipmentText(raw) {
+function formatEquipmentText(raw) {
   const list = parseEquipment(raw);
   if (!list.length) return '';
   return list.map(eq => {
@@ -23,19 +23,19 @@ export function formatEquipmentText(raw) {
 }
 
 
-export function formatEnchantmentsText(arr) {
+function formatEnchantmentsText(arr) {
   return asArray(arr).map(e => e.name).filter(Boolean).join(', ');
 }
 
 
-export function formatExtraFieldsText(arr) {
+function formatExtraFieldsText(arr) {
   const list = asArray(arr);
   if (!list.length) return '';
   return list.map(f => `${f.key}: ${f.value ?? ''}`).join('; ');
 }
 
 
-export function formatLibreFieldsText(fields) {
+function formatLibreFieldsText(fields) {
   if (!fields || !fields.length) return '';
   return fields.map(f => {
     if (f.subfields && f.subfields.length) {
@@ -47,12 +47,12 @@ export function formatLibreFieldsText(fields) {
 }
 
 
-export function timestamp() {
+function timestamp() {
   return new Date().toISOString().slice(0, 10);
 }
 
 
-export function downloadFile(content, filename, mimeType) {
+function downloadFile(content, filename, mimeType) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -69,7 +69,7 @@ export function downloadFile(content, filename, mimeType) {
 // Paleta de colores consistente para todas las hojas.
 // ---------------------------------------------------------
 
-export const XL_STYLE = {
+const XL_STYLE = {
   // Encabezado principal (fila de columnas)
   header: {
     font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
@@ -118,7 +118,7 @@ export const XL_STYLE = {
  * @returns {object} Hoja de trabajo SheetJS.
  */
 
-export function buildXlSheet(sheetTitle, headers, rows, numericCols = [], colWidths = []) {
+function buildXlSheet(sheetTitle, headers, rows, numericCols = [], colWidths = []) {
   const ws = {};
   const R_TITLE  = 0; // fila 0: título
   const R_HEADER = 1; // fila 1: encabezados
@@ -183,7 +183,7 @@ export function buildXlSheet(sheetTitle, headers, rows, numericCols = [], colWid
 // DESCARGA DE WORKBOOK XLSX
 // ---------------------------------------------------------
 
-export function downloadXlsx(workbook, filename) {
+function downloadXlsx(workbook, filename) {
   const buf = XLSX.write(workbook, { bookType: 'xlsx', type: 'array', cellStyles: true });
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
@@ -202,7 +202,7 @@ export function downloadXlsx(workbook, filename) {
 // pero genera objetos de hoja SheetJS en lugar de texto CSV.
 // ---------------------------------------------------------
 
-export function buildLogsSheets() {
+function buildLogsSheets() {
   // — Hoja 1: Logs —
   const logsHeaders = [
     'ID', 'Título', 'Descripción', 'Categoría', 'Emoji Cat.',
@@ -287,7 +287,7 @@ export function buildLogsSheets() {
 // EXPORTACIÓN LOGS → EXCEL
 // ---------------------------------------------------------
 
-export function exportLogsXlsx() {
+function exportLogsXlsx() {
   const { wsLogs, wsMobs, wsItems, wsLibres } = buildLogsSheets();
 
   const wb = XLSX.utils.book_new();
@@ -306,7 +306,7 @@ export function exportLogsXlsx() {
 // EXPORTACIÓN TIERLIST → EXCEL
 // ---------------------------------------------------------
 
-export function buildTierlistSheets() {
+function buildTierlistSheets() {
   // — Hoja: Filas de tier —
   const rowsHeaders = ['ID', 'Nombre de la Fila', 'Color', 'Orden'];
   const rowsData = state.tierRows.map(r => [r.id, r.name, r.color, r.sort_order ?? '']);
@@ -331,7 +331,7 @@ export function buildTierlistSheets() {
 }
 
 
-export function exportTierlistXlsx() {
+function exportTierlistXlsx() {
   const { wsRows, wsItems } = buildTierlistSheets();
 
   const wb = XLSX.utils.book_new();
@@ -350,7 +350,7 @@ export function exportTierlistXlsx() {
 // Armas, Categorías de armas, Tipos de armas y Configuración.
 // ---------------------------------------------------------
 
-export async function exportAllXlsx() {
+async function exportAllXlsx() {
   // Asegurar tierlist cargada (solo datos, sin render extra)
   if (!state.tierlistLoaded) await loadTierlist();
 

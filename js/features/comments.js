@@ -20,12 +20,12 @@ export async function loadComments(logId) {
 }
 
 
-export function isCommentVisible(c) {
+function isCommentVisible(c) {
   return isAdmin() || !c.hidden;
 }
 
 
-export function renderCommentNode(c, repliesByParent, isReply) {
+function renderCommentNode(c, repliesByParent, isReply) {
   const liked = state.likedCommentIds.has(c.id);
   const hiddenTag = c.hidden ? `<span class="comment-hidden-tag">OCULTO</span>` : '';
   const replies = (repliesByParent[c.id] || []).filter(isCommentVisible);
@@ -50,7 +50,7 @@ export function renderCommentNode(c, repliesByParent, isReply) {
 }
 
 
-export function renderCommentsList() {
+function renderCommentsList() {
   const list = document.getElementById('comments-list');
   const flat = state.commentsFlat;
   const repliesByParent = {};

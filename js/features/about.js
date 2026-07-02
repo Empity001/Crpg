@@ -11,7 +11,7 @@ import { state } from '../core/state.js';
 import { uploadImageToStorage } from '../core/storage.js';
 import { escapeHtml, showToast } from '../core/utils.js';
 
-export const ABOUT_BLOCK_KINDS = {
+const ABOUT_BLOCK_KINDS = {
   heading:   { label: '🔤 Título',     icon: '🔤' },
   text:      { label: '📝 Texto',      icon: '📝' },
   image:     { label: '🖼 Imagen',     icon: '🖼' },
@@ -51,7 +51,7 @@ export function renderAboutContent() {
 }
 
 
-export function openAboutEditor() {
+function openAboutEditor() {
   state.aboutEditorBlocks = JSON.parse(JSON.stringify(state.aboutBlocks || []));
   renderAboutEditorBlocks();
   document.getElementById('about-editor-error').classList.add('hidden');
@@ -59,7 +59,7 @@ export function openAboutEditor() {
 }
 
 
-export function renderAboutEditorBlocks() {
+function renderAboutEditorBlocks() {
   const container = document.getElementById('about-blocks-editor');
   if (!container) return;
   if (state.aboutEditorBlocks.length === 0) {
@@ -132,7 +132,7 @@ export function renderAboutEditorBlocks() {
 }
 
 
-export function addAboutBlock(kind) {
+function addAboutBlock(kind) {
   const block = { kind };
   if (kind === 'image') { block.url = ''; block.caption = ''; }
   else if (kind !== 'divider') block.content = '';
@@ -143,7 +143,7 @@ export function addAboutBlock(kind) {
 }
 
 
-export async function saveAboutContent() {
+async function saveAboutContent() {
   const errorBox = document.getElementById('about-editor-error');
   errorBox.classList.add('hidden');
   if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }

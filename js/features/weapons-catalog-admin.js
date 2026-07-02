@@ -62,7 +62,7 @@ export async function submitWeaponCategory() {
 }
 
 
-export async function deleteWeaponCategory(id) {
+async function deleteWeaponCategory(id) {
   const cat = getWeaponCategory(id);
   if (!confirm(`¿Borrar la categoría "${cat ? cat.label : ''}"?`)) return;
   if (!state.adminCode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
@@ -127,7 +127,7 @@ export async function submitWeaponType() {
 }
 
 
-export async function deleteWeaponType(id) {
+async function deleteWeaponType(id) {
   const t = getWeaponType(id);
   if (!confirm(`¿Borrar el tipo "${t ? t.label : ''}"?`)) return;
   if (!state.adminCode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }

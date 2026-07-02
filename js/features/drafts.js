@@ -10,20 +10,20 @@ import { renderDraftBlocksList } from './blocks-editor.js';
 import { isAdmin, state } from '../core/state.js';
 import { escapeHtml, formatDate, showToast } from '../core/utils.js';
 
-export const DRAFT_AUTOSAVE_INTERVAL = 30000; // 30 segundos
+const DRAFT_AUTOSAVE_INTERVAL = 30000; // 30 segundos
 
-export let _draftAutosaveTimer = null;
+let _draftAutosaveTimer = null;
 
-export let _draftHasUnsaved = false;
+let _draftHasUnsaved = false;
 
 
-export function draftKey(logId) {
+function draftKey(logId) {
   return logId === 'new' ? 'culones_draft_log_new' : `culones_draft_log_${logId}`;
 }
 
 /** Captura el estado actual del form de log en un objeto serializable */
 
-export function captureDraftData() {
+function captureDraftData() {
   return {
     title: document.getElementById('log-title-input')?.value || '',
     description: document.getElementById('log-desc-input')?.value || '',
@@ -62,7 +62,7 @@ export function saveDraft(logId, isManual = false) {
 
 /** Lee un borrador de localStorage */
 
-export function loadDraftFromStorage(logId) {
+function loadDraftFromStorage(logId) {
   const key = draftKey(logId || 'new');
   try {
     const raw = localStorage.getItem(key);
@@ -116,7 +116,7 @@ export function checkAndShowDraftBanner(logId) {
 }
 
 
-export function hideDraftBanner() {
+function hideDraftBanner() {
   const banner = document.getElementById('log-draft-banner');
   if (banner) banner.classList.add('hidden');
 }
@@ -154,13 +154,13 @@ export function stopDraftAutosave() {
 }
 
 
-export function markDraftDirty() {
+function markDraftDirty() {
   _draftHasUnsaved = true;
   updateDraftAutosaveStatus('unsaved');
 }
 
 
-export function updateDraftAutosaveStatus(state, savedAt = null) {
+function updateDraftAutosaveStatus(state, savedAt = null) {
   const el = document.getElementById('draft-autosave-status');
   if (!el) return;
   switch(state) {
@@ -185,7 +185,7 @@ export function initBeforeUnload() {
 // LISTA DE TODOS LOS BORRADORES (pestaña herramientas)
 // ---------------------------------------------------------
 
-export function getAllDrafts() {
+function getAllDrafts() {
   const drafts = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);

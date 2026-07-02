@@ -15,7 +15,7 @@ import { checkAndShowDraftBanner, clearDraft, startDraftAutosave, stopDraftAutos
 import { PAGE_SIZE, RELEVANCE_LABELS, RELEVANCE_ORDER, TIER_COLUMNS, getCategory, isAdmin, state, suppressNextRealtimeReload } from '../core/state.js';
 import { asArray, escapeHtml, formatDate, showToast, toDatetimeLocalValue } from '../core/utils.js';
 
-export function sortLogs(logs) {
+function sortLogs(logs) {
   const sorted = [...logs];
   switch (state.sortMode) {
     case 'date_asc': sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); break;
@@ -73,7 +73,7 @@ export async function loadLogs() {
 // no comparación). Encantamientos en cyan.
 // ---------------------------------------------------------
 
-export function buildLogCardHtml(log) {
+function buildLogCardHtml(log) {
   const isLiked = state.likedLogIds.has(log.id);
   const cat = getCategory(log.category);
   const ctx = `card-${log.id}`;
@@ -101,7 +101,7 @@ export function buildLogCardHtml(log) {
 }
 
 
-export function bindCardEvents(card) {
+function bindCardEvents(card) {
   card.addEventListener('click', (e) => {
     if (e.target.closest('.log-like-btn') || e.target.closest('.icon-btn') || e.target.closest('.block-chip')) return;
     openDetailModal(card.dataset.logId);
@@ -116,7 +116,7 @@ export function bindCardEvents(card) {
 }
 
 
-export function renderLoadMoreBtn(grid, remaining) {
+function renderLoadMoreBtn(grid, remaining) {
   const existing = document.getElementById('load-more-btn');
   if (existing) existing.remove();
   if (remaining <= 0) return;
@@ -171,7 +171,7 @@ export function renderLogs(changedLogId = null) {
 // LIKES
 // ---------------------------------------------------------
 
-export async function toggleLike(logId) {
+async function toggleLike(logId) {
   const { data, error } = await supabaseClient.rpc('toggle_like', { input_log_id: logId, input_client_id: state.clientId });
   if (error) { console.error(error); showToast('No se pudo procesar el like', 'error'); return; }
   if (state.likedLogIds.has(logId)) state.likedLogIds.delete(logId); else state.likedLogIds.add(logId);
@@ -186,7 +186,7 @@ export async function toggleLike(logId) {
 // DETALLE DE LOG + COMENTARIOS
 // ---------------------------------------------------------
 
-export async function openDetailModal(logId) {
+async function openDetailModal(logId) {
   const log = state.logs.find(l => l.id === logId);
   if (!log) return;
   state.currentDetailLogId = logId;
@@ -334,7 +334,7 @@ export async function submitLog() {
 }
 
 
-export async function deleteLog(logId) {
+async function deleteLog(logId) {
   if (!confirm('¿Seguro que quieres borrar este log?')) return;
   const { error } = await supabaseClient.rpc('delete_log', { input_code: state.adminCode, input_id: logId });
   if (error) { showToast('No se pudo borrar el log', 'error'); return; }

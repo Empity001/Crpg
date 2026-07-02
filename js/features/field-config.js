@@ -70,7 +70,7 @@ export function openFieldConfigModal() {
 }
 
 
-export function renderFieldConfigList(kind) {
+function renderFieldConfigList(kind) {
   const container = document.getElementById(`fieldcfg-${kind}-list`);
   const list = state.fieldConfigDraft[kind];
   container.innerHTML = list.map((f, idx) => `
@@ -98,7 +98,7 @@ export function renderFieldConfigList(kind) {
 }
 
 
-export function moveFieldConfig(kind, idx, dir) {
+function moveFieldConfig(kind, idx, dir) {
   const list = state.fieldConfigDraft[kind];
   const newIdx = idx + dir;
   if (newIdx < 0 || newIdx >= list.length) return;

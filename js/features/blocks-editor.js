@@ -116,7 +116,7 @@ export function openMobModal(editIndex = null) {
 }
 
 
-export function renderMobEquipmentEditor() {
+function renderMobEquipmentEditor() {
   const container = document.getElementById('mob-equipment-list');
   if (!container) return;
   if (state.mobEquipmentDraft.length === 0) {
@@ -232,7 +232,7 @@ export function submitMobBlock() {
 // ITEM MODAL
 // ---------------------------------------------------------
 
-export function renderItemEnchantEditor() {
+function renderItemEnchantEditor() {
   const container = document.getElementById('item-enchant-list');
   if (!container) return;
   const list = state.itemEnchantDraft;
@@ -336,12 +336,12 @@ export function openLibreModal(editIndex = null) {
 }
 
 
-export function getLibreFields() {
+function getLibreFields() {
   return document.getElementById('libre-modal')._fields || [];
 }
 
 
-export function renderLibreFieldsEditor() {
+function renderLibreFieldsEditor() {
   const container = document.getElementById('libre-fields-list');
   const fields = getLibreFields();
   if (fields.length === 0) {

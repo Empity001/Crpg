@@ -12,7 +12,7 @@ import { state, suppressNextRealtimeReload, suppressNextTierlistReload } from '.
 import { loadTierlist } from './tierlist.js';
 import { asArray, escapeHtml, showToast } from '../core/utils.js';
 
-export let _importPayload = null; // datos del archivo leído
+let _importPayload = null; // datos del archivo leído
 
 export let _importConflicts = []; // [{item, resolution: 'overwrite'|'skip'}]
 
@@ -32,7 +32,7 @@ export async function handleImportFile(file) {
 }
 
 
-export async function analyzeAndShowImportConflicts(payload) {
+async function analyzeAndShowImportConflicts(payload) {
   const type = payload.type;
   const allConflicts = [];
 
@@ -83,7 +83,7 @@ export async function analyzeAndShowImportConflicts(payload) {
 }
 
 
-export function showImportConflictModal(conflicts) {
+function showImportConflictModal(conflicts) {
   const modal = document.getElementById('import-conflict-modal');
   const summaryEl = document.getElementById('import-conflict-summary');
   const listEl = document.getElementById('import-conflict-list');

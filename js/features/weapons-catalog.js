@@ -11,7 +11,7 @@ import { escapeHtml, safeUrl } from '../core/utils.js';
 import { openWeaponDetail } from './weapons-detail.js';
 import { getWeaponCategory, getWeaponType, isWeaponVisible } from './weapons-state.js';
 
-export function weaponMatchesFilters(w) {
+function weaponMatchesFilters(w) {
   if (!isWeaponVisible(w)) return false;
   if (state.weaponActiveCategoryFilter !== 'all' && (w.category_id || '') !== state.weaponActiveCategoryFilter) return false;
   if (state.weaponActiveTypeFilter !== 'all' && (w.type_id || '') !== state.weaponActiveTypeFilter) return false;
