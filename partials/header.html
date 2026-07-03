@@ -1,0 +1,50 @@
+<!-- ============ FONDO DE PARTÍCULAS / SCANLINES ============ -->
+<div class="crt-overlay" aria-hidden="true"></div>
+<div class="bg-grid" aria-hidden="true"></div>
+
+<!-- ============ HUD SUPERIOR FIJO ============ -->
+<header class="hud-top">
+  <div class="hud-brand">
+    <div class="hud-logo">⛏</div>
+    <div class="hud-titles">
+      <span class="hud-title">CULONES<span class="accent">-RPG</span></span>
+      <span class="hud-subtitle">Pagina oficial</span>
+    </div>
+  </div>
+
+  <div class="hud-spacer"></div>
+
+  <div class="admin-mode-badge hidden" id="admin-mode-badge" aria-live="polite">
+    <span class="admin-mode-pulse"></span>
+    <span>Administrator Mode</span>
+  </div>
+
+  <button id="admin-toggle-btn" class="btn-admin-toggle" type="button">
+    <span class="dot-offline" id="admin-dot"></span>
+    <span id="admin-toggle-label">ADMIN</span>
+  </button>
+</header>
+
+<!-- ============ NAV TIPO PESTAÑAS DE NAVEGADOR ============ -->
+<!-- Navegación real entre páginas (cada pestaña es un archivo .html
+     independiente). El estado "activo" y el texto de active-tab-path
+     se aplican en runtime desde js/app/shell.js según la página actual. -->
+<nav class="browser-tabs" role="tablist" aria-label="Secciones">
+  <a class="tab-item" data-page="logs" href="index.html" role="tab" aria-selected="false">
+    <span class="tab-icon">📜</span> Logs
+  </a>
+  <a class="tab-item" data-page="weapons" href="weapons.html" role="tab" aria-selected="false">
+    <span class="tab-icon">⚔️</span> Guía de Armas
+  </a>
+  <a class="tab-item" data-page="tierlist" href="tierlist.html" role="tab" aria-selected="false">
+    <span class="tab-icon">🏆</span> Tierlist
+  </a>
+  <a class="tab-item" data-page="about" href="about.html" role="tab" aria-selected="false">
+    <span class="tab-icon">🎮</span> Acerca del Server
+  </a>
+  <a class="tab-item admin-tab hidden" data-page="admin" href="admin.html" role="tab" aria-selected="false" id="admin-panel-tab">
+    <span class="tab-icon">🛠</span> Herramientas
+  </a>
+  <div class="tab-spacer"></div>
+  <div class="tab-fake-url">culones-rpg.gg/<span id="active-tab-path">logs</span></div>
+</nav>

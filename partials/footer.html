@@ -1,0 +1,115 @@
+<!-- ============ MODAL: LOGIN DE ADMIN ============ -->
+<!-- Presente en todas las páginas: el botón ADMIN del header vive en
+     el partial de header, así que este modal debe estar disponible
+     sin importar en qué página esté el usuario. -->
+<div class="modal-overlay hidden" id="admin-modal">
+  <div class="modal-box admin-login-box" role="dialog" aria-modal="true" aria-labelledby="admin-login-title">
+    <button class="modal-close" id="close-admin-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title admin-login-title" id="admin-login-title">Secure Administrator Gateway</h3>
+    <div class="admin-terminal-panel" aria-live="polite">
+      <div class="admin-terminal-line admin-terminal-command" data-admin-terminal-line="0">service admin-gateway stop</div>
+      <div class="admin-terminal-line admin-terminal-command" data-admin-terminal-line="1">service admin-gateway start</div>
+      <div class="admin-terminal-line admin-terminal-command" data-admin-terminal-line="2">service admin-gateway status</div>
+      <div class="admin-terminal-line admin-terminal-output" data-admin-terminal-line="3">admin-gateway.service - Secure Administrator Gateway daemon</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-indent" data-admin-terminal-line="4">Loaded: loaded (/etc/culones/security/admin-gateway)</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-indent" data-admin-terminal-line="5">Active: active (listening) since now; status=SEALED</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-indent" data-admin-terminal-line="6">Process: 4207 ExecStart=/usr/bin/culones-auth --mode=administrator --scope=volatile</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-indent" data-admin-terminal-line="7">Process: 4211 ExecHash=7c3aed:8b5cf6:a78bfa:0000:operator-gate</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-indent" data-admin-terminal-line="8">CGroup: /system.slice/administrator.slice/session-gateway.service</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-tree" data-admin-terminal-line="9">4218 /usr/bin/session-watch --ttl=24h --source=discord-bot</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-tree" data-admin-terminal-line="10">4222 /usr/bin/rpc-proxy --target=validate_admin_code --policy=no-escalation</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-tree" data-admin-terminal-line="11">4229 /usr/bin/ui-guard --theme=violet --panic=deny</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-branch" data-admin-terminal-line="12">acl-snapshot.service</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-leaf" data-admin-terminal-line="13">route: logs.write -> challenge_required</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-leaf" data-admin-terminal-line="14">route: media.delete -> destructive_confirm</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-leaf" data-admin-terminal-line="15">route: discord.code -> ttl_24h</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-branch" data-admin-terminal-line="16">visual-shell.service</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-leaf" data-admin-terminal-line="17">hud-frame: armed</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-leaf" data-admin-terminal-line="18">color-space: 0B0B0F/FFFFFF/7C3AED</div>
+      <div class="admin-terminal-line admin-terminal-output admin-terminal-leaf" data-admin-terminal-line="19">animations: 150ms..300ms</div>
+      <div class="admin-terminal-line admin-terminal-muted" data-admin-terminal-line="20">kernel: violet bus handshake accepted on channel admin0</div>
+      <div class="admin-terminal-line admin-terminal-muted" data-admin-terminal-line="21">kernel: entropy pool warmed [seed: 7C3AED-111018-0B0B0F]</div>
+      <div class="admin-terminal-line admin-terminal-muted" data-admin-terminal-line="22">security: ACL map synchronized: logs,tierlist,weapons,media,storage</div>
+      <div class="admin-terminal-line admin-terminal-muted" data-admin-terminal-line="23">security: archive shadow index mounted read-only</div>
+      <div class="admin-terminal-line admin-terminal-muted" data-admin-terminal-line="24">supabase: rpc route validate_admin_code bound to transient operator shell</div>
+      <div class="admin-terminal-line admin-terminal-muted" data-admin-terminal-line="25">storage: external resource quarantine: bypassed; no persistent write</div>
+      <div class="admin-terminal-line admin-terminal-muted" data-admin-terminal-line="26">realtime: admin heartbeat prepared; observer count = masked</div>
+      <div class="admin-terminal-line admin-terminal-output" data-admin-terminal-line="27">Gateway integrity check: OK</div>
+      <div class="admin-terminal-line admin-terminal-output" data-admin-terminal-line="28">Permission lattice: LOCKED</div>
+      <div class="admin-terminal-line admin-terminal-output" data-admin-terminal-line="29">Operator challenge required.</div>
+      <div class="admin-terminal-line admin-terminal-command" data-admin-terminal-line="30">preload admin-toolchain --all --cipher=vlt-7c3 --dry-auth</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="31">[logs.panel] blob=7C3A:ED11:0180:9F2A::aW5nZXN0L2FjdGlvbi1sb2dz::sealed</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="32">fields.enc: title,date,visibility,actor_hash,action_vector</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="33">hydrate.plan: lazy-admin-panel -> render-after-auth</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="34">[logs.export] keyring=KDF:8B5C:F6AA:1307 status=prewarmed payload=0x4d2f9c77</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="35">writer: json.snapshot sealed=true mediarefs=true</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="36">validator: checksum-before-download</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="37">[tierlist.rows] manifest=v3.enc shard=violet-00 sig=A78BFA-ROW-LOCK</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="38">row.matrix: label,color,rank,asset_ref,sort_order</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="39">drag.guard: reorder_requires_admin_session</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="40">[tierlist.assets] cache-map=img://sha256:7c3aed8b5cf6a78bfa001118</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="41">selector: light-mode preview-only</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="42">legacy: image_url compatibility bridge active</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="43">[weapons.catalog] hydrate=deferred scope=rank,type,category hash=6D28D9FF</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="44">ranks.bin: E2F0:7C3A:Q9D1:sealed</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="45">types.bin: 1110:1816:3227:masked</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="46">categories.bin: slug-rpc/create_category_slug</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="47">[weapons.recipes] lattice=material_graph.enc checksum=111018-161322-7C3</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="48">material.edges: encrypted adjacency list loaded</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="49">section.blocks: mob/item linkage guarded</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="50">[media.library] index=compressed vector=png,jpg,webp,gif,svg mask=archived</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="51">archived.vault: restore/delete requires confirmAction</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="52">usage.trace: background,tierlist,weapons,about</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="53">duplicate.detector: hash-name-size triad</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="54">[media.picker] light-list rpc=list_media_picker_assets cipher-suite=fast-preview</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="55">preload: preview,name,type only</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="56">denied: usages,archived,delete,restore,metadata-heavy</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="57">[background.layer] presentation-matrix=fit,pos,repeat,opacity owner=usage</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="58">opacity.pipeline: css-variable -> overlay alpha</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="59">positioning: center/right/left mapped to usage context</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="60">[storage.bucket] policy-shadow=readonly-before-auth nonce=0xA7BFA7BFA7</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="61">[realtime.bus] channels=comments,logs,weapons state=armed handshake=masked</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="62">[discord.bot] /getcode bridge=standby ttl=24h secret=**************</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="63">[exports.backup] serializer=json+mediarefs digest=VLT::4a6f::9bb1::sealed</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="64">[comments.moderation] queue=shadow-loaded action=hide/delete/restore gate=admin</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="65">[about.editor] blocks=richtext,image,external-url fingerprint=purple-admin</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="66">[category.manager] slug-rpc=create_category_slug migration=009 state=compatible</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="67">[draft.recovery] local-vault=sessionStorage aes=fake-violet-256 status=available</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="68">[critical.actions] confirmAction modal=armed destructive=visual-confirm-required</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="69">[admin.ui] theme=0B0B0F/FFFFFF/7C3AED hud-frame=enabled glow=low</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="70">[perf.guard] media-library=lazy selector=light-mode admin-metadata=deferred</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="71">[routing.table] pages=index,admin,tierlist,weapons,about,asset-view status=hot</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="72">nav.guard: admin.html requires session flag before render</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="73">partial.loader: header/footer checksum verified</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="74">[modal.kernel] overlays=confirm,media,fullscreen,admin-console queue=isolated</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="75">focus.trap: pending operator challenge</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="76">escape.route: exit command bound to closeAdminLoginModal</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="77">[session.memory] localStorage=culones_admin_code state=sealed-until-rpc</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="78">restore.path: updateAdminUI -> admin-only visibility sweep</div>
+      <div class="admin-terminal-line admin-terminal-cipher admin-terminal-cipher-child" data-admin-terminal-line="79">logout.path: purge token, refresh hud, redirect if activeTab=admin</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="80">[qa.flags] live-server=true github-pages=deployment_queued ignore-deploy=true</div>
+      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="81">[operator.shell] packet=eyJtb2RlIjoiYWRtaW4iLCJwZXJtIjoiZGVueS11bnRpbC1jb2RlIn0=</div>
+      <div class="admin-terminal-line admin-terminal-output" data-admin-terminal-line="82">Encrypted admin tool manifest staged: 26 modules / 56 subroutes</div>
+      <div class="admin-terminal-line admin-terminal-output" data-admin-terminal-line="83">No plaintext privileges released before challenge.</div>
+      <div class="admin-terminal-line admin-terminal-command" data-admin-terminal-line="84">open secure-shell --administrator --no-public-session</div>
+      <div class="admin-terminal-line admin-terminal-output" data-admin-terminal-line="85">Introduce access code:</div>
+      <form class="admin-login-form hidden" id="admin-login-form">
+        <label class="admin-command-row" for="admin-code-input">
+          <span class="admin-terminal-prompt">root@culones:/admin#</span>
+          <span class="admin-command-prefix">auth --code</span>
+          <input type="text" id="admin-code-input" class="admin-code-input" placeholder="XXXXXXXX" maxlength="32" autocomplete="off" />
+        </label>
+        <button class="admin-login-submit" id="submit-admin-code" type="submit">
+          <span class="btn-spinner" aria-hidden="true"></span>
+          <span class="btn-label">EXECUTE</span>
+        </button>
+        <p class="admin-console-help">Use /getcode en Discord para generar un código temporal.</p>
+      </form>
+      <div class="admin-access-state hidden" id="admin-access-state"></div>
+      <div class="modal-error hidden" id="admin-modal-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TOASTS ============ -->
+<div class="toast-container" id="toast-container"></div>
