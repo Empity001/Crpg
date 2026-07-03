@@ -1,0 +1,230 @@
+/* =========================================================
+   ACERCA DEL SERVER — panel público renderizado dinámicamente
+   ========================================================= */
+.about-admin-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 0 4px;
+}
+.about-content {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 0 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+/* Bloques renderizados */
+.about-block-heading {
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--gold);
+  margin: 0;
+  line-height: 1.5;
+}
+.about-block-text {
+  font-size: 14px;
+  color: var(--ink-300);
+  line-height: 1.8;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.about-block-image {
+  width: 100%;
+  border-radius: var(--radius-md);
+  display: block;
+  max-height: 420px;
+  object-fit: cover;
+}
+.about-block-divider {
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  margin: 4px 0;
+}
+.about-block-highlight {
+  background: rgba(243,183,58,0.07);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 12px 16px;
+  font-size: 13.5px;
+  color: var(--ink-200);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.about-block-image-caption {
+  font-size: 11.5px;
+  color: var(--ink-600);
+  text-align: center;
+  font-style: italic;
+  margin-top: -10px;
+}
+
+/* =========================================================
+   EDITOR DE "ACERCA DEL SERVER" (modal admin)
+   ========================================================= */
+.about-blocks-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 46vh;
+  overflow-y: auto;
+  margin: 8px 0 14px;
+  padding-right: 4px;
+}
+.about-editor-block {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 10px 10px 12px;
+  transition: border-color 0.15s;
+}
+.about-editor-block:focus-within { border-color: var(--border-strong); }
+.about-editor-block-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.about-editor-block-kind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-600);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.about-editor-block-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.about-editor-block-actions button {
+  background: none;
+  border: 1px solid var(--border-dim);
+  color: var(--ink-600);
+  border-radius: var(--radius-sm);
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.about-editor-block-actions button:hover { border-color: var(--border-strong); color: var(--ink-100); }
+.about-editor-block-actions .del-about-block:hover { border-color: var(--magenta); color: var(--magenta); }
+.about-editor-block textarea.modal-input {
+  min-height: 60px;
+  resize: vertical;
+}
+.about-add-block-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.about-add-label {
+  font-size: 11.5px;
+  color: var(--ink-600);
+}
+.btn-add-about-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  color: var(--ink-300);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.btn-add-about-block:hover { border-color: var(--gold); color: var(--gold); }
+
+/* Separador visual dentro del editor */
+.about-editor-block.is-divider { align-items: center; }
+
+.about-block-image-upload-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.about-block-image-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft);
+  flex-shrink: 0;
+}
+.about-block-img-btn { width: auto; }
+.about-editor-divider-preview {
+  flex: 1;
+  height: 1px;
+  background: var(--border-soft);
+  border-radius: 1px;
+}
+
+/* =========================================================
+   FAVICON — preview y fila de input
+   ========================================================= */
+.favicon-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 6px 0 0;
+}
+.favicon-preview {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  overflow: hidden;
+}
+.favicon-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* =========================================================
+   FONDO DE LA PÁGINA (secciones de Herramientas)
+   ========================================================= */
+.bg-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+.bg-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.bg-mode-option:hover { border-color: var(--border-strong); }
+.bg-mode-option input[type="radio"] { accent-color: var(--gold); margin-top: 3px; flex-shrink: 0; }
+.bg-mode-option:has(input:checked) { border-color: var(--gold); background: rgba(243,183,58,0.06); }
+.bg-mode-option strong { display: block; font-size: 12.5px; color: var(--ink-100); margin-bottom: 2px; }
+.bg-mode-option span { font-size: 11.5px; color: var(--ink-600); line-height: 1.5; }
+.bg-tabs-options { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.bg-tab-checkbox {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-dim);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--ink-300);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.bg-tab-checkbox input[type="checkbox"] { accent-color: var(--gold); }
+.bg-tab-checkbox:has(input:checked) { border-color: var(--gold); color: var(--ink-100); }

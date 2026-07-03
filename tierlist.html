@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>culones-rpg · Tierlist</title>
+<meta name="description" content="Tierlist del servidor Minecraft RPG/Gacha culones-rpg" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/tierlist.css" />
+<link rel="stylesheet" href="css/admin-tools.css" />
+<link rel="stylesheet" href="css/weapons.css" />
+<link rel="stylesheet" href="css/about.css" />
+<link rel="stylesheet" href="css/media.css" />
+</head>
+<body>
+
+<div id="shell-header"></div>
+
+<main class="app-main">
+  <section class="tab-panel is-active" id="panel-tierlist">
+    <div class="tierlist-toolbar">
+      <p class="tierlist-toolbar-hint"></p>
+      <button class="btn-new-log hidden" id="open-new-tier-row-btn" type="button">+ Nueva fila</button>
+    </div>
+
+    <div class="tierlist-board" id="tierlist-board">
+      <div class="logs-empty" id="tierlist-loading">
+        <div class="spinner"></div>
+        <p>Cargando tierlist...</p>
+      </div>
+    </div>
+
+    <div class="tierlist-bench-section">
+      <div class="tierlist-bench-head">
+        <span class="stat-blocks-heading">★ SIN CLASIFICAR</span>
+        <button class="btn-new-log hidden" id="open-new-tier-item-btn" type="button">+ Nuevo elemento</button>
+      </div>
+      <div class="tierlist-bench-columns" id="tierlist-bench-columns"></div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ MODALES DE ESTA PÁGINA (Tierlist) ============ -->
+<div class="modal-overlay hidden" id="tier-row-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-tier-row-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title" id="tier-row-modal-title">🏆 NUEVA FILA</h3>
+
+    <label class="field-label">Nombre de la fila</label>
+    <input type="text" id="tier-row-name-input" class="modal-input" maxlength="40" placeholder="Ej: SSS, S, A, Roto..." />
+
+    <label class="field-label">Color</label>
+    <input type="color" id="tier-row-color-input" class="modal-color-input" value="#9a92b8" />
+
+    <div class="modal-error hidden" id="tier-row-modal-error"></div>
+    <button class="btn-primary" id="submit-tier-row-btn">Guardar fila</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="tier-item-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-tier-item-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title" id="tier-item-modal-title">🎴 NUEVO ELEMENTO</h3>
+
+    <label class="field-label">Nombre</label>
+    <input type="text" id="tier-item-name-input" class="modal-input" maxlength="80" placeholder="Ej: Espada de Pyrois" />
+
+    <label class="field-label">Columna</label>
+    <select id="tier-item-column-input" class="modal-select">
+      <option value="weapon">Arma</option>
+      <option value="subweapon">Sub-arma</option>
+      <option value="accessory">Accesorio</option>
+    </select>
+
+    <label class="field-label">Imagen</label>
+
+    <!-- Zona principal: click o drag-and-drop para subir archivo -->
+    <div class="tier-img-dropzone" id="tier-item-dropzone">
+      <input type="file" id="tier-item-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
+      <input type="hidden" id="tier-item-image-input" />
+      <button type="button" class="btn-upload-img hidden" id="tier-item-image-upload-btn">Subir</button>
+      <div class="tier-img-dropzone-icon" id="tier-item-dropzone-icon">🖼</div>
+      <p class="tier-img-dropzone-label" id="tier-item-dropzone-label">Arrastrá una imagen aquí o hacé click para elegir</p>
+      <p class="tier-img-dropzone-hint">PNG, JPG, WEBP, GIF, SVG o APNG · máx. 8 MB</p>
+      <div class="tier-img-uploading hidden" id="tier-item-upload-progress">
+        <span class="tier-img-spinner"></span> Subiendo…
+      </div>
+    </div>
+
+    <div class="asset-preview hidden" id="tier-item-image-preview-wrap">
+      <img id="tier-item-image-preview" alt="Vista previa" class="pixel-art" />
+      <div class="asset-preview-actions">
+        <button type="button" class="link-btn js-open-asset" id="tier-item-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+        <button type="button" class="link-btn tier-img-clear-btn" id="tier-item-image-clear-btn">✕ Quitar imagen</button>
+      </div>
+    </div>
+
+    <div class="modal-error hidden" id="tier-item-modal-error"></div>
+    <button class="btn-primary" id="submit-tier-item-btn">Guardar elemento</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="tier-move-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-tier-move-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title">↕ MOVER ELEMENTO</h3>
+    <p class="modal-hint" id="tier-move-item-name"></p>
+
+    <label class="field-label">Fila (tier)</label>
+    <select id="tier-move-row-select" class="modal-select">
+      <option value="">★ Sin clasificar</option>
+    </select>
+
+    <label class="field-label">Columna</label>
+    <select id="tier-move-column-select" class="modal-select">
+      <option value="weapon">Arma</option>
+      <option value="subweapon">Sub-arma</option>
+      <option value="accessory">Accesorio</option>
+    </select>
+
+    <div class="modal-error hidden" id="tier-move-modal-error"></div>
+    <button class="btn-primary" id="submit-tier-move-btn">Mover aquí</button>
+  </div>
+</div>
+
+<div id="shell-footer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="module" src="js/pages/tierlist.js"></script>
+</body>
+</html>
