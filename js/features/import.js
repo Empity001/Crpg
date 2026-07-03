@@ -13,6 +13,7 @@ import { loadTierlist } from './tierlist.js';
 import { isMediaInfrastructureMissing, listMediaAssets, upsertMediaAsset } from '../core/media.js';
 import { countSummary, localAuditTime, recordAdminAction } from '../core/audit.js';
 import { asArray, escapeHtml, showToast } from '../core/utils.js';
+import { backupTypeLabel } from './backup-helpers.js';
 
 let _importPayload = null; // datos del archivo leído
 
@@ -143,11 +144,11 @@ function showImportConflictModal(conflicts) {
       </div>
     </div>`).join('');
 
-  listEl.querySelectorAll('input[type="radio"]').forEach(radio => {
-    radio.addEventListener('change', () => {
-      _importConflicts[Number(radio.dataset.idx)].resolution = radio.value;
-    });
-  });
+  listEl.onchange = (event) => {
+    const radio = event.target.closest('input[type="radio"][data-idx]');
+    if (!radio) return;
+    _importConflicts[Number(radio.dataset.idx)].resolution = radio.value;
+  };
 
   modal.classList.remove('hidden');
 }
@@ -232,9 +233,7 @@ export async function confirmImport() {
   document.getElementById('import-conflict-modal').classList.add('hidden');
   document.getElementById('import-file-input').value = '';
   showToast(`Importación completa: ${imported} ok${errors > 0 ? `, ${errors} error(es)` : ''}`, errors > 0 ? 'error' : 'success');
-  const importType = _importPayload?.type === 'full_backup'
-    ? 'Backup completo'
-    : (_importPayload?.type === 'tierlist' ? 'Tierlist' : 'Logs');
+  const importType = backupTypeLabel(_importPayload?.type || 'logs');
   const details = [
     countSummary('logs', importedCounts.log),
     countSummary('filas tierlist', importedCounts.tier_row),

@@ -26,6 +26,43 @@ import { closeAdminLoginModal, logoutAdmin, openAdminLoginModal, submitAdminCode
 import { loadAppSettings } from '../features/field-config.js';
 import { isAdmin, state } from '../core/state.js';
 import { openAssetFullscreen } from '../core/storage.js';
+import { registerModalLifecycleCleanup, setupModalLifecycleObserver } from '../core/utils.js';
+
+let modalVisualCleanupsRegistered = false;
+
+function registerModalVisualCleanups() {
+  if (modalVisualCleanupsRegistered) return;
+  modalVisualCleanupsRegistered = true;
+
+  [
+    ['admin-modal', { onClose: closeAdminLoginModal }],
+    ['app-confirm-modal', { resetTextSelectors: ['#app-confirm-title', '#app-confirm-message', '#app-confirm-accept'] }],
+    ['media-picker-modal', { clearSelectors: ['#media-picker-grid'] }],
+    ['media-confirm-modal', { clearSelectors: ['#media-confirm-preview', '#media-confirm-usage'] }],
+    ['media-external-modal', { clearSelectors: ['#media-external-preview'], resetTextSelectors: ['#media-external-status'] }],
+    ['media-edit-modal', { clearSelectors: ['#media-edit-preview'] }],
+    ['action-log-modal', { clearSelectors: ['#action-log-list'] }],
+    ['import-conflict-modal', { clearSelectors: ['#import-conflict-list'], resetTextSelectors: ['#import-conflict-summary'] }],
+    ['detail-modal', { clearSelectors: ['#detail-content', '#comments-list'] }],
+    ['log-modal', { clearSelectors: ['#draft-blocks-list'] }],
+    ['category-modal', { clearSelectors: ['#category-manage-list'] }],
+    ['field-config-modal', { clearSelectors: ['#fieldcfg-mob-list', '#fieldcfg-item-list'] }],
+    ['mob-modal', { clearSelectors: ['#mob-equipment-list', '#mob-extra-fields-list'], assetPreviewPrefixes: ['mob'] }],
+    ['item-modal', { clearSelectors: ['#item-enchant-list', '#item-extra-fields-list'], assetPreviewPrefixes: ['item'] }],
+    ['libre-modal', { clearSelectors: ['#libre-fields-list'], assetPreviewPrefixes: ['libre'] }],
+    ['tier-item-modal', { assetPreviewPrefixes: ['tier-item'] }],
+    ['tier-move-modal', { resetTextSelectors: ['#tier-move-item-name'] }],
+    ['weapon-modal', { assetPreviewPrefixes: ['weapon'] }],
+    ['weapon-category-modal', { clearSelectors: ['#weapon-category-manage-list'] }],
+    ['weapon-type-modal', { clearSelectors: ['#weapon-type-manage-list'] }],
+    ['weapon-rank-modal', { assetPreviewPrefixes: ['weapon-rank'] }],
+    ['weapon-stats-modal', { clearSelectors: ['#weapon-stats-list'] }],
+    ['weapon-ability-modal', { clearSelectors: ['#weapon-ability-stats-list'] }],
+    ['weapon-recipe-modal', { clearSelectors: ['#weapon-recipe-materials-list'], resetTextSelectors: ['#weapon-recipe-result-img-name'], hideSelectors: ['#weapon-recipe-result-img-name'] }],
+    ['weapon-section-modal', { clearSelectors: ['#weapon-section-fields-list'] }],
+    ['about-editor-modal', { clearSelectors: ['#about-blocks-editor'] }],
+  ].forEach(([id, config]) => registerModalLifecycleCleanup(id, config));
+}
 
 function wireHeaderNav(pageKey) {
   document.querySelectorAll('.tab-item').forEach(tab => {
@@ -85,6 +122,8 @@ function wireAssetFullscreenDelegation() {
 export async function bootShell(pageKey) {
   state.activeTab = pageKey;
   await loadSharedShell();
+  registerModalVisualCleanups();
+  setupModalLifecycleObserver();
   wireHeaderNav(pageKey);
   wireAdminModal();
   wireAssetFullscreenDelegation();

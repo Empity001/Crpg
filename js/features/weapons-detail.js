@@ -10,7 +10,7 @@ import { supabaseClient } from '../config.js';
 import { renderKeyValueRows } from './blocks-display.js';
 import { isAdmin, state } from '../core/state.js';
 import { asArray, escapeHtml, safeUrl } from '../core/utils.js';
-import { getCurrentWeapon, getWeaponCategory, getWeaponRanks, getWeaponType } from './weapons-state.js';
+import { getCurrentWeapon, getWeaponCategory, getWeaponRanks, getWeaponType, replaceWeaponRank } from './weapons-state.js';
 
 function loadWeaponAdminActions() {
   return import('./weapons-admin.js');
@@ -295,25 +295,37 @@ function bindWeaponDetailEvents(container) {
   });
 }
 
-// Aplica un cambio parcial a un rango, conservando todo lo demás
-// tal cual está — upsert_weapon_rank siempre reemplaza el rango
-// completo (mismo patrón que update_log con mobs/items, o
-// set_field_config con la config entera).
+function isMissingPatchRankRpc(error) {
+  const msg = String(error?.message || '').toLowerCase();
+  return msg.includes('patch_weapon_rank') || msg.includes('function') || msg.includes('schema cache');
+}
 
 export async function saveRankPatch(rankId, patch) {
   const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
   if (!rank) return { error: { message: 'Este rango ya no existe' } };
-  return supabaseClient.rpc('upsert_weapon_rank', {
+  const patchResult = await supabaseClient.rpc('patch_weapon_rank', {
+    input_code: state.adminCode,
+    input_id: rank.id,
+    ...patch,
+  });
+  if (!patchResult.error) {
+    replaceWeaponRank(patchResult.data);
+    return patchResult;
+  }
+  if (!isMissingPatchRankRpc(patchResult.error)) return patchResult;
+
+  const fallback = await supabaseClient.rpc('upsert_weapon_rank', {
     input_code: state.adminCode,
     input_id: rank.id,
     input_weapon_id: rank.weapon_id,
-    input_name: rank.name,
-    input_description: rank.description,
-    input_image_url: rank.image_url,
-    input_stats: rank.stats,
-    input_abilities: rank.abilities,
-    input_extra_sections: rank.extra_sections,
-    input_upgrade_recipe: rank.upgrade_recipe,
-    ...patch,
+    input_name: patch.input_name ?? rank.name,
+    input_description: patch.input_description ?? rank.description,
+    input_image_url: patch.input_image_url ?? rank.image_url,
+    input_stats: patch.input_stats ?? rank.stats,
+    input_abilities: patch.input_abilities ?? rank.abilities,
+    input_extra_sections: patch.input_extra_sections ?? rank.extra_sections,
+    input_upgrade_recipe: patch.input_clear_upgrade_recipe ? null : (patch.input_upgrade_recipe ?? rank.upgrade_recipe),
   });
+  if (!fallback.error) replaceWeaponRank(fallback.data);
+  return fallback;
 }

@@ -36,6 +36,120 @@ export function showToast(message, type = 'default') {
   setTimeout(() => toast.remove(), 4000);
 }
 
+const modalLifecycleCleanups = new Map();
+let modalLifecycleObserver = null;
+
+function uniqueList(...lists) {
+  return [...new Set(lists.flat().filter(Boolean))];
+}
+
+function cleanupVideoElement(video) {
+  try {
+    video.pause();
+    video.removeAttribute('src');
+    video.querySelectorAll('source').forEach(source => source.removeAttribute('src'));
+    video.load();
+  } catch (error) {
+    // Best-effort cleanup; hidden previews should never block modal closing.
+  }
+}
+
+function pauseModalMedia(root) {
+  root.querySelectorAll('video').forEach(cleanupVideoElement);
+}
+
+function clearElementContent(element) {
+  pauseModalMedia(element);
+  element.replaceChildren();
+}
+
+function clearAssetPreview(prefix) {
+  const wrap = document.getElementById(`${prefix}-image-preview-wrap`);
+  const img = document.getElementById(`${prefix}-image-preview`);
+  const fullscreenBtn = document.getElementById(`${prefix}-image-fullscreen-btn`);
+  if (img) {
+    img.removeAttribute('src');
+    img.removeAttribute('srcset');
+  }
+  if (fullscreenBtn) {
+    delete fullscreenBtn.dataset.assetSrc;
+    delete fullscreenBtn.dataset.assetTitle;
+  }
+  wrap?.classList.add('hidden');
+}
+
+export function registerModalLifecycleCleanup(modalId, config = {}) {
+  if (!modalId) return;
+  const current = modalLifecycleCleanups.get(modalId) || {};
+  const callbacks = [...(current.onCloseCallbacks || [])];
+  if (typeof config.onClose === 'function' && !callbacks.includes(config.onClose)) {
+    callbacks.push(config.onClose);
+  }
+  modalLifecycleCleanups.set(modalId, {
+    clearSelectors: uniqueList(current.clearSelectors || [], config.clearSelectors || []),
+    hideSelectors: uniqueList(current.hideSelectors || [], config.hideSelectors || []),
+    resetTextSelectors: uniqueList(current.resetTextSelectors || [], config.resetTextSelectors || []),
+    assetPreviewPrefixes: uniqueList(current.assetPreviewPrefixes || [], config.assetPreviewPrefixes || []),
+    onCloseCallbacks: callbacks,
+  });
+}
+
+export function cleanupModalVisualResources(modal) {
+  if (!modal) return;
+  pauseModalMedia(modal);
+  const config = modalLifecycleCleanups.get(modal.id);
+  if (!config) return;
+
+  (config.clearSelectors || []).forEach(selector => {
+    modal.querySelectorAll(selector).forEach(clearElementContent);
+  });
+  (config.resetTextSelectors || []).forEach(selector => {
+    modal.querySelectorAll(selector).forEach(element => { element.textContent = ''; });
+  });
+  (config.hideSelectors || []).forEach(selector => {
+    modal.querySelectorAll(selector).forEach(element => element.classList.add('hidden'));
+  });
+  (config.assetPreviewPrefixes || []).forEach(clearAssetPreview);
+  (config.onCloseCallbacks || []).forEach(callback => callback(modal));
+}
+
+function handleModalLifecycleChange(modal) {
+  const isHidden = modal.classList.contains('hidden');
+  if (!isHidden) {
+    modal.dataset.visualResourcesCleaned = 'false';
+    return;
+  }
+  if (modal.dataset.visualResourcesCleaned === 'true') return;
+  cleanupModalVisualResources(modal);
+  modal.dataset.visualResourcesCleaned = 'true';
+}
+
+export function setupModalLifecycleObserver() {
+  if (modalLifecycleObserver || !document.body) return;
+  modalLifecycleObserver = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+      const target = mutation.target;
+      if (mutation.type === 'attributes' && target instanceof Element && target.classList.contains('modal-overlay')) {
+        handleModalLifecycleChange(target);
+      }
+      if (mutation.type === 'childList') {
+        mutation.addedNodes.forEach(node => {
+          if (!(node instanceof Element)) return;
+          if (node.classList.contains('modal-overlay')) handleModalLifecycleChange(node);
+          node.querySelectorAll?.('.modal-overlay').forEach(handleModalLifecycleChange);
+        });
+      }
+    });
+  });
+  modalLifecycleObserver.observe(document.body, {
+    attributes: true,
+    attributeFilter: ['class'],
+    childList: true,
+    subtree: true,
+  });
+  document.querySelectorAll('.modal-overlay').forEach(handleModalLifecycleChange);
+}
+
 function ensureConfirmModal() {
   let modal = document.getElementById('app-confirm-modal');
   if (modal) return modal;

@@ -16,6 +16,7 @@ import { isMediaInfrastructureMissing, listMediaAssets } from '../core/media.js'
 import { countSummary, localAuditTime, recordAdminAction } from '../core/audit.js';
 import { asArray, formatDate, showToast } from '../core/utils.js';
 import { fetchWeaponsDataForExport } from './weapons-data.js';
+import { auditDetails, backupFileStamp, backupTypeLabel, downloadFile } from './backup-helpers.js';
 
 function formatEquipmentText(raw) {
   const list = parseEquipment(raw);
@@ -25,19 +26,6 @@ function formatEquipmentText(raw) {
     return ench.length ? `${eq.name} [${ench.join(', ')}]` : eq.name;
   }).join('; ');
 }
-
-function exportTypeLabel(type) {
-  return {
-    logs: 'Logs',
-    tierlist: 'Tierlist',
-    all: 'Backup completo',
-  }[type] || type || 'Exportación';
-}
-
-function auditCountDetails(parts) {
-  return parts.filter(Boolean).join(', ');
-}
-
 
 function formatEnchantmentsText(arr) {
   return asArray(arr).map(e => e.name).filter(Boolean).join(', ');
@@ -63,11 +51,6 @@ function formatLibreFieldsText(fields) {
 }
 
 
-function timestamp() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-
 async function getMediaAssetsForExport() {
   const { data, error } = await listMediaAssets({ includeArchived: true });
   if (error) {
@@ -77,18 +60,6 @@ async function getMediaAssetsForExport() {
   return data || [];
 }
 
-
-function downloadFile(content, filename, mimeType) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
 
 // ---------------------------------------------------------
 // ESTILOS EXCEL COMPARTIDOS
@@ -324,7 +295,7 @@ function exportLogsXlsx() {
   XLSX.utils.book_append_sheet(wb, wsItems,  'Items');
   XLSX.utils.book_append_sheet(wb, wsLibres, 'Bloques Libres');
 
-  downloadXlsx(wb, `culones-logs-${timestamp()}.xlsx`);
+  downloadXlsx(wb, `culones-logs-${backupFileStamp()}.xlsx`);
   showToast(`${state.logs.length} logs exportados a Excel (4 hojas)`, 'success');
 }
 
@@ -400,7 +371,7 @@ function exportTierlistXlsx() {
   XLSX.utils.book_append_sheet(wb, wsRows,  'Filas Tier');
   XLSX.utils.book_append_sheet(wb, wsItems, 'Items Tier');
 
-  downloadXlsx(wb, `culones-tierlist-${timestamp()}.xlsx`);
+  downloadXlsx(wb, `culones-tierlist-${backupFileStamp()}.xlsx`);
   showToast('Tierlist exportada a Excel (2 hojas)', 'success');
 }
 
@@ -524,7 +495,7 @@ async function exportAllXlsx() {
   XLSX.utils.book_append_sheet(wb, wsMedia,    'Multimedia');
   XLSX.utils.book_append_sheet(wb, wsCfg,      'Configuración');
 
-  downloadXlsx(wb, `culones-backup-${timestamp()}.xlsx`);
+  downloadXlsx(wb, `culones-backup-${backupFileStamp()}.xlsx`);
   showToast('Backup completo exportado a Excel (14 hojas)', 'success');
 }
 
@@ -548,22 +519,22 @@ export async function exportData(type, format) {
       }));
       downloadFile(
         JSON.stringify({ version: 1, type: 'logs', exported_at: new Date().toISOString(), data: logsWithBlocks }, null, 2),
-        `culones-logs-${timestamp()}.json`, 'application/json',
+        `culones-logs-${backupFileStamp()}.json`, 'application/json',
       );
       showToast(`${logsWithBlocks.length} logs exportados`, 'success');
       await recordAdminAction(
         'export_created',
-        `Se exportó un backup de Logs (${auditCountDetails([format.toUpperCase(), countSummary('logs', logsWithBlocks.length)])}) a las ${localAuditTime()}.`
+        `Se exportó un backup de Logs (${auditDetails([format.toUpperCase(), countSummary('logs', logsWithBlocks.length)])}) a las ${localAuditTime()}.`
       );
 
     } else if (type === 'tierlist') {
       if (!state.tierlistLoaded) await loadTierlist();
       downloadFile(
         JSON.stringify({ version: 1, type: 'tierlist', exported_at: new Date().toISOString(), rows: state.tierRows, items: state.tierItems }, null, 2),
-        `culones-tierlist-${timestamp()}.json`, 'application/json',
+        `culones-tierlist-${backupFileStamp()}.json`, 'application/json',
       );
       showToast('Tierlist exportada', 'success');
-      const tierDetails = auditCountDetails([format.toUpperCase(), countSummary('filas', state.tierRows.length), countSummary('items', state.tierItems.length)]);
+      const tierDetails = auditDetails([format.toUpperCase(), countSummary('filas', state.tierRows.length), countSummary('items', state.tierItems.length)]);
       await recordAdminAction(
         'export_created',
         `Se exportó un backup de Tierlist (${tierDetails}) a las ${localAuditTime()}.`
@@ -593,9 +564,9 @@ export async function exportData(type, format) {
         media_assets: mediaAssets,
         field_config: state.fieldConfig,
       };
-      downloadFile(JSON.stringify(backup, null, 2), `culones-backup-${timestamp()}.json`, 'application/json');
+      downloadFile(JSON.stringify(backup, null, 2), `culones-backup-${backupFileStamp()}.json`, 'application/json');
       showToast('Backup completo exportado', 'success');
-      const backupDetails = auditCountDetails([
+      const backupDetails = auditDetails([
         format.toUpperCase(),
         countSummary('logs', logsWithBlocks.length),
         countSummary('armas', weaponData.weapons.length),
@@ -620,12 +591,12 @@ export async function exportData(type, format) {
       exportLogsXlsx();
       await recordAdminAction(
         'export_created',
-        `Se exportó un backup de Logs (${auditCountDetails([format.toUpperCase(), countSummary('logs', state.logs.length)])}) a las ${localAuditTime()}.`
+        `Se exportó un backup de Logs (${auditDetails([format.toUpperCase(), countSummary('logs', state.logs.length)])}) a las ${localAuditTime()}.`
       );
     } else if (type === 'tierlist') {
       if (!state.tierlistLoaded) await loadTierlist();
       exportTierlistXlsx();
-      const tierDetails = auditCountDetails([format.toUpperCase(), countSummary('filas', state.tierRows.length), countSummary('items', state.tierItems.length)]);
+      const tierDetails = auditDetails([format.toUpperCase(), countSummary('filas', state.tierRows.length), countSummary('items', state.tierItems.length)]);
       await recordAdminAction(
         'export_created',
         `Se exportó un backup de Tierlist (${tierDetails}) a las ${localAuditTime()}.`
@@ -634,7 +605,7 @@ export async function exportData(type, format) {
       await exportAllXlsx();
       await recordAdminAction(
         'export_created',
-        `Se exportó un ${exportTypeLabel(type)} (${format.toUpperCase()}) a las ${localAuditTime()}.`
+        `Se exportó un ${backupTypeLabel(type)} (${format.toUpperCase()}) a las ${localAuditTime()}.`
       );
     }
   }

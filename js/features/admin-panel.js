@@ -14,6 +14,7 @@ import { initFaviconTool } from './favicon.js';
 import { _importConflicts, confirmImport, handleImportFile } from './import.js';
 import { initMediaLibraryPanel } from './media-library.js';
 import { confirmAction, showToast } from '../core/utils.js';
+import { deleteRemoteDraft, listRemoteDrafts } from './drafts-store.js';
 
 export function initAdminPanel() {
   // Export buttons
@@ -65,7 +66,7 @@ export function initAdminPanel() {
   document.getElementById('drafts-clear-all-btn')?.addEventListener('click', async () => {
     if (!(await confirmAction({
       title: 'Eliminar borradores',
-      message: 'Eliminar TODOS los borradores guardados en este dispositivo. Esta acción no se puede deshacer.',
+      message: 'Eliminar TODOS los borradores guardados en este dispositivo y en Supabase. Esta acción no se puede deshacer.',
       confirmLabel: 'Eliminar borradores',
       danger: true,
     }))) return;
@@ -75,11 +76,13 @@ export function initAdminPanel() {
       if (k.startsWith('culones_draft_')) keys.push(k);
     }
     keys.forEach(k => localStorage.removeItem(k));
-    renderDraftsList();
+    const remoteDrafts = await listRemoteDrafts();
+    await Promise.all(remoteDrafts.map(draft => deleteRemoteDraft(draft.logId || 'new')));
+    await renderDraftsList();
     showToast('Todos los borradores eliminados');
   });
 
-  renderDraftsList();
+  void renderDraftsList();
   initMediaLibraryPanel();
   initBackgroundTool();
   initFaviconTool();

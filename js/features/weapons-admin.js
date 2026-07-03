@@ -15,7 +15,7 @@ import { attachMediaPickerButton, openMediaPicker } from './media-library.js';
 import { renderWeaponsGrid } from './weapons-catalog.js';
 import { openWeaponCategoryModal, openWeaponTypeModal, renderWeaponCategorySelectOptions, renderWeaponTypeSelectOptions, submitWeaponCategory, submitWeaponType } from './weapons-catalog-admin.js';
 import { reloadWeaponData } from './weapons-data.js';
-import { closeWeaponDetail, openWeaponDetail, saveRankPatch } from './weapons-detail.js';
+import { closeWeaponDetail, openWeaponDetail, renderWeaponDetail, saveRankPatch } from './weapons-detail.js';
 import { getWeaponRanks } from './weapons-state.js';
 
 export function openWeaponModal(weaponId = null) {
@@ -46,6 +46,13 @@ export function openWeaponModal(weaponId = null) {
   }
   document.getElementById('weapon-modal-error').classList.add('hidden');
   document.getElementById('weapon-modal').classList.remove('hidden');
+}
+
+function finishRankPatch(message, modalId = null) {
+  if (modalId) document.getElementById(modalId)?.classList.add('hidden');
+  showToast(message, 'success');
+  suppressNextWeaponsReload();
+  renderWeaponDetail();
 }
 
 
@@ -144,25 +151,31 @@ async function submitWeaponRank() {
   if (!name) { errorBox.textContent = 'Ponle un nombre al rango.'; errorBox.classList.remove('hidden'); return; }
   if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
 
-  const existing = state.editingWeaponRankId ? getWeaponRanks(state.currentWeaponId).find(r => r.id === state.editingWeaponRankId) : null;
-
-  const { error } = await supabaseClient.rpc('upsert_weapon_rank', {
-    input_code: state.adminCode,
-    input_id: state.editingWeaponRankId,
-    input_weapon_id: state.currentWeaponId,
-    input_name: name,
-    input_description: description,
-    input_image_url: imageUrl,
-    input_stats: existing ? existing.stats : [],
-    input_abilities: existing ? existing.abilities : [],
-    input_extra_sections: existing ? existing.extra_sections : [],
-    input_upgrade_recipe: existing ? existing.upgrade_recipe : null,
-  });
+  const result = state.editingWeaponRankId
+    ? await saveRankPatch(state.editingWeaponRankId, {
+        input_name: name,
+        input_description: description,
+        input_image_url: imageUrl,
+      })
+    : await supabaseClient.rpc('upsert_weapon_rank', {
+        input_code: state.adminCode,
+        input_id: null,
+        input_weapon_id: state.currentWeaponId,
+        input_name: name,
+        input_description: description,
+        input_image_url: imageUrl,
+        input_stats: [],
+        input_abilities: [],
+        input_extra_sections: [],
+        input_upgrade_recipe: null,
+      });
+  const { error } = result;
   if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
   document.getElementById('weapon-rank-modal').classList.add('hidden');
   showToast(state.editingWeaponRankId ? 'Rango actualizado' : 'Rango creado', 'success');
   suppressNextWeaponsReload();
-  await reloadWeaponData();
+  if (state.editingWeaponRankId) renderWeaponDetail();
+  else await reloadWeaponData();
 }
 
 
@@ -207,9 +220,7 @@ async function submitWeaponStats() {
   const { error } = await saveRankPatch(state.editingWeaponRankId, { input_stats: cleanStats });
   if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
   document.getElementById('weapon-stats-modal').classList.add('hidden');
-  showToast('Estadísticas guardadas', 'success');
-  suppressNextWeaponsReload();
-  await reloadWeaponData();
+  finishRankPatch('Estadísticas guardadas');
 }
 
 // ---------------------------------------------------------
@@ -271,9 +282,7 @@ async function submitWeaponAbility() {
   const { error } = await saveRankPatch(rank.id, { input_abilities: abilities });
   if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
   document.getElementById('weapon-ability-modal').classList.add('hidden');
-  showToast('Habilidad guardada', 'success');
-  suppressNextWeaponsReload();
-  await reloadWeaponData();
+  finishRankPatch('Habilidad guardada');
 }
 
 
@@ -290,9 +299,7 @@ export async function deleteAbility(rankId, idx) {
   abilities.splice(idx, 1);
   const { error } = await saveRankPatch(rankId, { input_abilities: abilities });
   if (error) { showToast('No se pudo borrar', 'error'); return; }
-  showToast('Habilidad eliminada', 'success');
-  suppressNextWeaponsReload();
-  await reloadWeaponData();
+  finishRankPatch('Habilidad eliminada');
 }
 
 // ---------------------------------------------------------
@@ -390,9 +397,7 @@ async function submitWeaponRecipe() {
   const { error } = await saveRankPatch(state.editingWeaponRankId, { input_upgrade_recipe: recipe });
   if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
   document.getElementById('weapon-recipe-modal').classList.add('hidden');
-  showToast('Receta guardada', 'success');
-  suppressNextWeaponsReload();
-  await reloadWeaponData();
+  finishRankPatch('Receta guardada');
 }
 
 
@@ -403,12 +408,10 @@ async function clearWeaponRecipe() {
     confirmLabel: 'Quitar receta',
     danger: true,
   }))) return;
-  const { error } = await saveRankPatch(state.editingWeaponRankId, { input_upgrade_recipe: null });
+  const { error } = await saveRankPatch(state.editingWeaponRankId, { input_clear_upgrade_recipe: true });
   if (error) { showToast('No se pudo quitar la receta', 'error'); return; }
   document.getElementById('weapon-recipe-modal').classList.add('hidden');
-  showToast('Receta eliminada', 'success');
-  suppressNextWeaponsReload();
-  await reloadWeaponData();
+  finishRankPatch('Receta eliminada');
 }
 
 // ---------------------------------------------------------
@@ -471,9 +474,7 @@ async function submitWeaponSection() {
   const { error } = await saveRankPatch(rank.id, { input_extra_sections: sections });
   if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
   document.getElementById('weapon-section-modal').classList.add('hidden');
-  showToast('Sección guardada', 'success');
-  suppressNextWeaponsReload();
-  await reloadWeaponData();
+  finishRankPatch('Sección guardada');
 }
 
 
@@ -490,9 +491,7 @@ export async function deleteSection(rankId, idx) {
   sections.splice(idx, 1);
   const { error } = await saveRankPatch(rankId, { input_extra_sections: sections });
   if (error) { showToast('No se pudo borrar', 'error'); return; }
-  showToast('Sección eliminada', 'success');
-  suppressNextWeaponsReload();
-  await reloadWeaponData();
+  finishRankPatch('Sección eliminada');
 }
 
 // ---------------------------------------------------------

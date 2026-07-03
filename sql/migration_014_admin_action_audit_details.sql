@@ -488,6 +488,7 @@ declare
   new_weapon public.weapons;
   category_label text;
   type_label text;
+  weapon_context text;
   rank_label text;
 begin
   if not public.validate_admin_code(input_code) then
@@ -500,6 +501,15 @@ begin
 
   select label into category_label from public.weapon_categories where id = input_category_id;
   select label into type_label from public.weapon_types where id = input_type_id;
+  weapon_context := case
+    when category_label is not null and type_label is not null
+      then format(' (categoría: %s, tipo: %s)', category_label, type_label)
+    when category_label is not null
+      then format(' (categoría: %s)', category_label)
+    when type_label is not null
+      then format(' (tipo: %s)', type_label)
+    else ''
+  end;
   rank_label := coalesce(nullif(trim(input_initial_rank_name), ''), 'MK1');
 
   insert into public.weapons (name, image_url, category_id, type_id, published)
@@ -514,15 +524,9 @@ begin
     'Admin',
     'weapon_created',
     format(
-      'Se creó el arma "%s"%s%s con rango inicial "%s" (oculta hasta publicarla).',
+      'Se creó el arma "%s"%s con rango inicial "%s" (oculta hasta publicarla).',
       new_weapon.name,
-      case when category_label is not null then format(' (categoría: %s', category_label) else '' end,
-      case
-        when category_label is not null and type_label is not null then format(', tipo: %s)', type_label)
-        when category_label is not null then ')'
-        when type_label is not null then format(' (tipo: %s)', type_label)
-        else ''
-      end,
+      weapon_context,
       rank_label
     )
   );
@@ -550,6 +554,7 @@ declare
   result public.weapons;
   category_label text;
   type_label text;
+  weapon_context text;
 begin
   if not public.validate_admin_code(input_code) then
     raise exception 'Código de administrador inválido o expirado';
@@ -566,21 +571,24 @@ begin
 
   select label into category_label from public.weapon_categories where id = result.category_id;
   select label into type_label from public.weapon_types where id = result.type_id;
+  weapon_context := case
+    when category_label is not null and type_label is not null
+      then format(' (categoría: %s, tipo: %s)', category_label, type_label)
+    when category_label is not null
+      then format(' (categoría: %s)', category_label)
+    when type_label is not null
+      then format(' (tipo: %s)', type_label)
+    else ''
+  end;
 
   insert into public.action_log (actor, action, description)
   values (
     'Admin',
     'weapon_updated',
     format(
-      'Se editó el arma "%s"%s%s.',
+      'Se editó el arma "%s"%s.',
       coalesce(nullif(trim(result.name), ''), 'arma sin nombre'),
-      case when category_label is not null then format(' (categoría: %s', category_label) else '' end,
-      case
-        when category_label is not null and type_label is not null then format(', tipo: %s)', type_label)
-        when category_label is not null then ')'
-        when type_label is not null then format(' (tipo: %s)', type_label)
-        else ''
-      end
+      weapon_context
     )
   );
 
@@ -642,6 +650,7 @@ declare
   old_weapon public.weapons;
   category_label text;
   type_label text;
+  weapon_context text;
 begin
   if not public.validate_admin_code(input_code) then
     raise exception 'Código de administrador inválido o expirado';
@@ -650,6 +659,15 @@ begin
   select * into old_weapon from public.weapons where id = input_id;
   select label into category_label from public.weapon_categories where id = old_weapon.category_id;
   select label into type_label from public.weapon_types where id = old_weapon.type_id;
+  weapon_context := case
+    when category_label is not null and type_label is not null
+      then format(' (categoría: %s, tipo: %s)', category_label, type_label)
+    when category_label is not null
+      then format(' (categoría: %s)', category_label)
+    when type_label is not null
+      then format(' (tipo: %s)', type_label)
+    else ''
+  end;
 
   delete from public.weapons where id = input_id;
 
@@ -659,15 +677,9 @@ begin
       'Admin',
       'weapon_deleted',
       format(
-        'Se eliminó el arma "%s"%s%s.',
+        'Se eliminó el arma "%s"%s.',
         coalesce(nullif(trim(old_weapon.name), ''), 'arma sin nombre'),
-        case when category_label is not null then format(' (categoría: %s', category_label) else '' end,
-        case
-          when category_label is not null and type_label is not null then format(', tipo: %s)', type_label)
-          when category_label is not null then ')'
-          when type_label is not null then format(' (tipo: %s)', type_label)
-          else ''
-        end
+        weapon_context
       )
     );
   end if;

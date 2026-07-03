@@ -252,7 +252,7 @@ Si en el futuro se agrega un módulo nuevo, conviene repetir el paso 3 (import d
 | `action_log` | Bitácora de acciones de admin (solo inserción, lectura admin-gated) | 005 |
 | `tierlist_rows` | Filas de la tierlist (nombre, color, sort_order) | 006 |
 | `tierlist_items` | Elementos de la tierlist (row_id nullable=banco, column_key, image_url) | 006 |
-| `drafts` | Borradores guardados en Supabase (actualmente no se usa — ver nota abajo) | 007 |
+| `drafts` | Borradores guardados en Supabase, sincronizados best-effort desde el frontend admin | 007 |
 | `weapon_categories` | Categorías de armas (label, color) | 008 |
 | `weapon_types` | Tipos de armas (label) | 008 |
 | `weapons` | Armas (name, image_url, published, category_id, type_id) | 008 |
@@ -284,12 +284,12 @@ Si en el futuro se agrega un módulo nuevo, conviene repetir el paso 3 (import d
 
 ## Sistema de borradores (estado real)
 
-**Importante**: hay **dos sistemas** de borradores que coexisten de forma no completamente integrada:
+**Importante**: hay **dos capas** de borradores que coexisten de forma integrada:
 
-1. **localStorage** (el que se usa activamente): `draftKey(logId)` → `'culones_draft_log_new'` o `'culones_draft_log_${id}'`. Captura título, descripción, categoría, relevancia, fecha, mobs, items, libres. Autoguardado cada 30s mientras el modal de log está abierto, y al cerrar el modal. Se muestra en la pestaña 🛠 Herramientas como lista de borradores recuperables. **Funciona completamente, solo para logs.**
-2. **Supabase (tabla `drafts`)**: la tabla existe (migration_007) con RPC `save_draft`, `list_drafts`, `delete_draft`. Pero **ninguna función del frontend actual llama a estas RPCs** — el frontend usa localStorage. La tabla fue diseñada para sincronizar borradores entre dispositivos, pero no está conectada.
+1. **localStorage**: `draftKey(logId)` → `'culones_draft_log_new'` o `'culones_draft_log_${id}'`. Captura título, descripción, categoría, relevancia, fecha, mobs, items, libres. Autoguardado cada 30s mientras el modal de log está abierto, y al cerrar el modal. Funciona como respaldo inmediato del navegador.
+2. **Supabase (tabla `drafts`)**: `drafts-store.js` sincroniza best-effort con RPC `upsert_draft`, `get_draft`, `list_drafts` y `delete_draft` cuando hay sesión admin activa. Herramientas mezcla borradores locales y remotos, y Logs puede restaurar borradores remotos desde `?draftKey=remote:log:...`.
 
-**Pendiente**: conectar el sistema de borradores de localStorage al de Supabase, o decidir que solo se usa localStorage (más simple, pero no sincroniza entre dispositivos).
+**Pendiente**: QA manual con dos navegadores/dispositivos tras confirmar que `migration_007_drafts.sql` está aplicada en Supabase.
 
 ---
 
@@ -307,7 +307,7 @@ Si en el futuro se agrega un módulo nuevo, conviene repetir el paso 3 (import d
 - Catálogo de armas con categorías y tipos dinámicos.
 - Cada arma tiene múltiples rangos (`weapon_ranks`), y cada rango contiene en JSONB: `stats` (pares clave/valor), `abilities` (habilidades con nivel, stats propios), `upgrade_recipe` (materiales → resultado), `extra_sections` (secciones libres de contenido futuro).
 - Admin puede publicar/ocultar armas (campo `published`). Las armas no publicadas solo las ve el admin.
-- `saveRankPatch(rankId, patch)` envía el objeto completo del rango en cada edición parcial — funciona pero es frágil (ver problemas conocidos).
+- `saveRankPatch(rankId, patch)` usa `patch_weapon_rank` (migration_015) para updates parciales por campo y conserva fallback al RPC viejo si la migración aún no está aplicada.
 - **Vista de detalle** inline dentro del panel de weapons (no es un modal separado) con `openWeaponDetail()` / `closeWeaponDetail()`.
 
 ---
@@ -326,7 +326,7 @@ Si en el futuro se agrega un módulo nuevo, conviene repetir el paso 3 (import d
 
 Contiene:
 - **Biblioteca Multimedia**: índice reusable de recursos internos de Storage, selector, buscador, filtros, metadatos, duplicados e indexado de usos.
-- **📝 Borradores**: lista de borradores de log guardados en localStorage en este dispositivo. Botón "Limpiar todos".
+- **📝 Borradores**: lista de borradores de log guardados en localStorage y sincronizados con Supabase cuando hay sesión admin activa. Botón "Limpiar todos".
 - **📤 Exportar**: exportación a Excel (.xlsx) o JSON. Excel genera archivos con múltiples hojas (Logs, Mobs, Items, Libres para la sección de logs; Filas y Elementos para tierlist; Todo combina todo, incluida hoja/lista `Multimedia`). También export de armas en `exportAllXlsx`.
 - **📥 Importar**: importación de JSON. Analiza conflictos antes de aplicar y muestra modal de confirmación con lista de conflictos detectados, incluyendo `media_assets` en backups completos.
 - **🕒 Acciones**: botón discreto en la cabecera del panel admin que abre el modal de bitácora (`action_log`).
@@ -368,20 +368,21 @@ Procesos automáticos:
 4. `migration_004_advanced_features.sql` — comment_likes, app_settings, campos configurables
 5. `migration_005_action_log.sql` — bitácora de acciones
 6. `migration_006_tierlist.sql` — tierlist_rows + tierlist_items
-7. `migration_007_drafts.sql` — tabla drafts (existe pero frontend usa localStorage)
+7. `migration_007_drafts.sql` — tabla drafts + RPCs de borradores sincronizables
 8. `migration_008_weapons.sql` — guía de armas completa
 9. `migration_009_fix_create_category_slug.sql` — fix de normalización de slugs de categoría
 10. `migration_010_storage.sql` — bucket `culones` + políticas RLS de Storage
 11. `migration_011_media_library.sql` — Biblioteca Multimedia (`media_assets`) + MIME ampliados + RPCs admin-gated
 12. `migration_012_media_library_archive_cleanup.sql` — borrado definitivo de registros multimedia archivados
+13. `migration_013_media_picker_light_list.sql` — listado liviano para selector multimedia rápido
+14. `migration_014_admin_action_audit_details.sql` — action logs más descriptivos
+15. `migration_015_patch_weapon_rank.sql` — PATCH parcial de `weapon_ranks`
 
 ---
 
 ## Problemas conocidos
 
-- **`saveRankPatch` envía objeto completo**: en vez de hacer un PATCH parcial, manda todos los campos del rango en cada edición. Funciona bien ahora que el `SELECT` trae todos los campos, pero si se agrega una columna nueva a `weapon_ranks` y se olvida añadirla al `select()` de `reloadWeaponData()`, puede causar pérdida silenciosa de datos al guardar. Solución correcta: cambiar a updates parciales por campo.
-- **Modal de habilidades hace demasiadas consultas**: cada edición de habilidad recarga todo el arma.
-- **Borradores no sincronizados entre dispositivos**: la tabla `drafts` en Supabase existe pero no está conectada al frontend. Los borradores solo existen en localStorage del navegador actual.
+- Pendiente QA manual completa con Live Server tras aplicar `migration_015_patch_weapon_rank.sql` en Supabase.
 
 ---
 
@@ -411,11 +412,74 @@ Pasada 2 — Guía de Armas:
 - `weapons-catalog.js` usa delegación de eventos para filtros y tarjetas.
 - Validación: grafo de imports estáticos con `cycles 0`; `node --check` en 40 JS; `git diff --check` sin errores.
 
+Pasada 3 — CSS global:
+
+- Se inició la limpieza segura de `css/style.css` sin rediseñar ni mover bloques grandes.
+- Se añadieron tokens semánticos para superficies, texto, bordes y blancos del entorno admin/multimedia.
+- Se reemplazaron hardcodes repetidos de la sección Multimedia por variables existentes o nuevas (`--admin-purple`, `--admin-ink`, `--admin-surface-*`, `--admin-border-*`, etc.).
+- Se separó el bloque `SISTEMA MULTIMEDIA` a `css/media.css`, cargado después de `css/style.css` en `index.html`, `admin.html`, `about.html`, `tierlist.html` y `weapons.html` para conservar la cascada.
+- No se eliminaron reglas ni selectores; los hardcodes de un solo uso quedan para revisión posterior si realmente aportan simplificación.
+- Validación: balance de llaves correcto en `css/style.css` y `css/media.css`; `git diff --check` sin errores en CSS/HTML/PROJECT_MEMORY.
+
+Pasada 4 — CSS legacy por capas:
+
+- Se separaron bloques legacy consecutivos de `css/style.css` en capas dedicadas: `css/tierlist.css`, `css/admin-tools.css`, `css/weapons.css` y `css/about.css`.
+- Las páginas HTML cargan las capas en orden estable: `style.css`, capas legacy y `media.css`.
+- No se cambiaron reglas internas, selectores ni comportamiento visual esperado.
+- Validación: balance de llaves correcto en todas las hojas CSS separadas.
+
+Pasada 5 — Export/Import:
+
+- Se creó `js/features/backup-helpers.js` para helpers compartidos de backup: fecha de archivo, etiqueta de tipo, detalle de auditoría y descarga de archivo.
+- `export.js` usa los helpers compartidos y conserva la firma pública `exportData(type, format)`.
+- `import.js` usa la etiqueta compartida de tipo de backup.
+- El modal de conflictos de importación pasó a delegación de evento con `listEl.onchange`, evitando listeners por fila en cada render.
+- Validación: `node --check` en `backup-helpers.js`, `export.js` e `import.js`.
+
+Pasada 6 — Migración 014:
+
+- Se simplificó la composición repetida de contexto de armas en `create_weapon`, `update_weapon` y `delete_weapon` usando `weapon_context`.
+- No se añadieron RPC nuevas ni objetos extra de Supabase.
+- Se conservaron firmas, grants y descripciones esperadas.
+- Validación: bloques `$$` balanceados; 14 funciones `create or replace function`; 14 `grant execute`.
+
+Pasada 7 — Guía de Armas / PATCH de rangos:
+
+- Se agregó `sql/migration_015_patch_weapon_rank.sql` con RPC `patch_weapon_rank`.
+- `saveRankPatch()` ahora envía solo los campos modificados y actualiza el rango en memoria con la respuesta de Supabase.
+- Se mantiene fallback compatible a `upsert_weapon_rank` si `migration_015` aún no está aplicada.
+- Editar nombre/descripcion/imagen de un rango existente usa patch parcial; crear rango nuevo sigue usando `upsert_weapon_rank`.
+- Validación: `node --check` en módulos de armas; SQL `$$` balanceado.
+
+Pasada 8 — Modal de habilidades / weapons-admin:
+
+- Guardar estadísticas, habilidades, receta y secciones extra ya no recarga todo el catálogo de armas.
+- Los cambios parciales actualizan `state.weaponRanksByWeapon` y re-renderizan solo el detalle del arma abierta.
+- `weapons-admin.js` centraliza el cierre de updates parciales con `finishRankPatch()`.
+- Validación: `node --check` en `weapons-admin.js`, `weapons-detail.js` y `weapons-state.js`.
+
+Pasada 9 — Borradores Supabase:
+
+- Se creó `js/features/drafts-store.js` como capa compartida para localStorage + Supabase.
+- `drafts.js` guarda siempre local y sincroniza best-effort con `upsert_draft`.
+- `drafts-list.js` mezcla borradores locales y remotos, y puede abrir o borrar ambos.
+- `admin-panel.js` limpia borradores locales y remotos desde Herramientas.
+- `js/pages/logs.js` puede restaurar borradores remotos desde `?draftKey=remote:log:...`.
+- Validación: `node --check` en módulos de borradores y página Logs.
+
+Pasada 10 — CSS global / tokens seguros:
+
+- Se añadieron tokens semánticos para estados admin: danger, success, warning, cyan, blancos translúcidos y bordes de controles.
+- `admin-tools.css` usa tokens en export/import, borradores y botones danger sin cambiar selectores.
+- `media.css` usa tokens para botones danger, placeholders y bordes de inputs/tabs.
+- `style.css` declara `--purple` como token real para bloques libres y elimina fallbacks repetidos `#b07cff`.
+- No se movieron bloques grandes ni se eliminaron selectores.
+- Validación: balance de llaves CSS y `git diff --check`.
+
 Pendiente recomendado para la siguiente sesión:
 
-- Ordenar `css/style.css` por capas/componentes sin rediseñar la UI.
-- Mantener CSS sin cambios visuales: solo tokens, agrupación, comentarios y eliminación segura si se puede demostrar.
-- Después, revisar `export.js`/`import.js` y `migration_014_admin_action_audit_details.sql` con el mismo enfoque incremental.
+- Aplicar `migration_015_patch_weapon_rank.sql` en Supabase.
+- Hacer QA manual con Live Server: armas, habilidades, borradores Supabase y P3 móvil.
 
 ---
 
@@ -438,10 +502,9 @@ Objetivo: cerrar la etapa de modularización/multipágina dejando el repo limpio
 
 Pendientes técnicos incluidos en esta prioridad:
 
-- Decidir si los borradores seguirán solo en localStorage o si se conectarán a la tabla `drafts` de Supabase.
 - Verificar que las hojas de Excel de exportación de Tierlist y "Todo" reflejan las columnas actuales.
-- Optimizar el modal de habilidades de armas para no recargar todo el arma en cada edición.
-- Cambiar `saveRankPatch()` a updates parciales por campo para evitar pérdida silenciosa de datos si `weapon_ranks` crece en el futuro.
+- Aplicar `migration_015_patch_weapon_rank.sql` en Supabase antes de dar por cerrado el PATCH parcial en producción.
+- Hacer QA manual completa con Live Server.
 
 #### Checklist de auditoría local
 

@@ -10,17 +10,13 @@
 import { renderDraftBlocksList } from './blocks-editor.js';
 import { isAdmin, state } from '../core/state.js';
 import { formatDate, showToast } from '../core/utils.js';
+import { deleteLocalDraft, deleteRemoteDraft, getRemoteDraft, loadLocalDraft, saveLocalDraft, upsertRemoteDraft } from './drafts-store.js';
 
 const DRAFT_AUTOSAVE_INTERVAL = 30000; // 30 segundos
 
 let _draftAutosaveTimer = null;
 
 let _draftHasUnsaved = false;
-
-
-function draftKey(logId) {
-  return logId === 'new' ? 'culones_draft_log_new' : `culones_draft_log_${logId}`;
-}
 
 /** Captura el estado actual del form de log en un objeto serializable */
 
@@ -41,7 +37,6 @@ function captureDraftData() {
 
 export function saveDraft(logId, isManual = false) {
   if (!isAdmin()) return;
-  const key = draftKey(logId || 'new');
   const data = captureDraftData();
   // No guardar si está completamente vacío
   if (!data.title && !data.description && data.mobs.length === 0 && data.items.length === 0 && data.libres.length === 0) return;
@@ -52,30 +47,21 @@ export function saveDraft(logId, isManual = false) {
     data,
   };
   try {
-    localStorage.setItem(key, JSON.stringify(draft));
+    saveLocalDraft(logId || 'new', draft);
     _draftHasUnsaved = false;
     updateDraftAutosaveStatus('saved', draft.savedAt);
     if (isManual) showToast('Borrador guardado', 'success');
+    void upsertRemoteDraft(logId || 'new', draft);
   } catch(e) {
     showToast('No se pudo guardar el borrador (localStorage lleno?)', 'error');
   }
 }
 
-/** Lee un borrador de localStorage */
-
-function loadDraftFromStorage(logId) {
-  const key = draftKey(logId || 'new');
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch(e) { return null; }
-}
-
 /** Elimina un borrador */
 
 export function clearDraft(logId) {
-  localStorage.removeItem(draftKey(logId || 'new'));
+  deleteLocalDraft(logId || 'new');
+  void deleteRemoteDraft(logId || 'new');
 }
 
 /** Restaura los datos de un borrador al form */
@@ -97,13 +83,13 @@ export function restoreDraft(draft) {
 
 /** Muestra el banner de borrador disponible si existe uno */
 
-export function checkAndShowDraftBanner(logId) {
+export async function checkAndShowDraftBanner(logId) {
   const banner = document.getElementById('log-draft-banner');
   const timeEl = document.getElementById('log-draft-banner-time');
   if (!banner) return;
-  const draft = loadDraftFromStorage(logId || 'new');
+  let draft = loadLocalDraft(logId || 'new');
+  if (!draft) draft = await getRemoteDraft(logId || 'new');
   if (!draft) { banner.classList.add('hidden'); return; }
-  const when = new Date(draft.savedAt);
   timeEl.textContent = `Guardado el ${formatDate(draft.savedAt)}`;
   banner.classList.remove('hidden');
 

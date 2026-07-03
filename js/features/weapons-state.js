@@ -20,5 +20,13 @@ export function getWeaponRanks(weaponId) {
   return (state.weaponRanksByWeapon[weaponId] || []).slice().sort((a, b) => a.sort_order - b.sort_order);
 }
 
+export function replaceWeaponRank(rank) {
+  if (!rank?.weapon_id) return;
+  const list = state.weaponRanksByWeapon[rank.weapon_id] || [];
+  const idx = list.findIndex(item => item.id === rank.id);
+  if (idx >= 0) list[idx] = rank;
+  else list.push(rank);
+  state.weaponRanksByWeapon[rank.weapon_id] = list;
+}
 
 export function getCurrentWeapon() { return state.weapons.find(w => w.id === state.currentWeaponId) || null; }

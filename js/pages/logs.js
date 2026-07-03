@@ -15,13 +15,18 @@ import { registerAdminUiRefreshHandler } from '../features/auth.js';
 import { loadCategories, openNewCategoryModal, setCategoryFiltersChangedHandler, submitCategory } from '../features/categories.js';
 import { cancelReply, deleteCommentAction, startReplyTo, submitComment, toggleCommentHidden, toggleCommentLike } from '../features/comments.js';
 import { initBeforeUnload, restoreDraft, saveDraft, stopDraftAutosave } from '../features/drafts.js';
+import { loadDraftByKey } from '../features/drafts-store.js';
 import { openFieldConfigModal, saveFieldConfig, setFieldConfigSavedHandler } from '../features/field-config.js';
 import { initSortControl, loadLogs, openEditLogModal, openNewLogModal, renderLogs, submitLog } from '../features/logs.js';
 import { attachMediaPickerButton } from '../features/media-library.js';
 import { state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
+import { registerModalLifecycleCleanup } from '../core/utils.js';
 
 function initLogsModals() {
+  registerModalLifecycleCleanup('log-modal', { onClose: stopDraftAutosave });
+  registerModalLifecycleCleanup('detail-modal', { onClose: cancelReply });
+
   document.getElementById('open-new-log-btn').addEventListener('click', openNewLogModal);
   document.getElementById('close-log-modal').addEventListener('click', () => {
     stopDraftAutosave();
@@ -128,15 +133,13 @@ function initLogsModals() {
 // ?draftKey=...&logId=... (ver drafts.js), abrimos el modal
 // correspondiente y restauramos el borrador automáticamente.
 
-function checkIncomingDraftLink() {
+async function checkIncomingDraftLink() {
   const params = new URLSearchParams(window.location.search);
   const draftKey = params.get('draftKey');
   if (!draftKey) return;
-  const raw = localStorage.getItem(draftKey);
   window.history.replaceState({}, '', 'index.html');
-  if (!raw) return;
-  let draft;
-  try { draft = JSON.parse(raw); } catch (e) { return; }
+  const draft = await loadDraftByKey(draftKey);
+  if (!draft) return;
   const logId = params.get('logId');
   if (logId) openEditLogModal(logId); else openNewLogModal();
   setTimeout(() => restoreDraft(draft), 60);
@@ -153,7 +156,7 @@ async function init() {
   await loadCategories();
   await loadLogs();
   initLogsRealtime();
-  checkIncomingDraftLink();
+  await checkIncomingDraftLink();
 }
 
 document.addEventListener('DOMContentLoaded', init);

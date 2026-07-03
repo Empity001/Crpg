@@ -26,7 +26,7 @@ import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { localAuditTime, mediaAuditLabel, recordAdminAction } from '../core/audit.js';
 import { uploadMediaToStorage } from '../core/storage.js';
-import { asArray, debounce, escapeHtml, safeUrl, showToast } from '../core/utils.js';
+import { asArray, debounce, escapeHtml, registerModalLifecycleCleanup, safeUrl, showToast } from '../core/utils.js';
 import {
   assetFileName,
   assetMatchesFilters,
@@ -114,6 +114,45 @@ function pickerCacheFresh(key = pickerQueryKey()) {
     && pickerAssetsQueryKey === key
     && pickerAssetsLoadedAt
     && (Date.now() - pickerAssetsLoadedAt) < MEDIA_CACHE_TTL_MS;
+}
+
+function schedulePickerInitialRender(callback) {
+  const run = () => window.setTimeout(callback, 70);
+  if (typeof window.requestAnimationFrame !== 'function') {
+    run();
+    return;
+  }
+  window.requestAnimationFrame(() => window.requestAnimationFrame(run));
+}
+
+function scheduleClosedPickerGridCleanup(token) {
+  window.setTimeout(() => {
+    if (pickerState || pickerOpenToken !== token) return;
+    const grid = document.getElementById('media-picker-grid');
+    if (grid) {
+      grid.classList.remove('is-opening');
+      grid.innerHTML = '';
+    }
+    setPickerStatus('');
+  }, 160);
+}
+
+function cleanupPickerLifecycle() {
+  document.getElementById('media-picker-grid')?.classList.remove('is-opening');
+  pickerOpenToken++;
+  pickerLoadToken++;
+  pickerLoading = false;
+  pickerState = null;
+  setPickerStatus('');
+}
+
+function cleanupExternalMediaLifecycle() {
+  externalPreviewToken++;
+  const btn = document.getElementById('save-media-external-btn');
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = 'Usar URL';
+  }
 }
 
 async function reloadMediaAssets() {
@@ -647,6 +686,7 @@ export function initMediaLibraryPanel() {
 function ensureExternalModal() {
   let modal = document.getElementById('media-external-modal');
   if (modal) return modal;
+  registerModalLifecycleCleanup('media-external-modal', { onClose: cleanupExternalMediaLifecycle });
   modal = document.createElement('div');
   modal.className = 'modal-overlay hidden media-modal-overlay';
   modal.id = 'media-external-modal';
@@ -687,7 +727,9 @@ async function previewExternalUrl() {
   const preview = document.getElementById('media-external-preview');
   const status = document.getElementById('media-external-status');
   const fallbackKind = document.getElementById('media-external-kind')?.value || 'image';
+  const modal = document.getElementById('media-external-modal');
   const token = ++externalPreviewToken;
+  if (modal?.classList.contains('hidden')) return null;
   if (!preview || !status) return null;
   if (!url) {
     preview.innerHTML = '<p class="media-usage-empty">Pega una URL para generar vista previa.</p>';
@@ -702,6 +744,7 @@ async function previewExternalUrl() {
   }
   status.textContent = 'Detectando recurso externo...';
   const mime = await detectExternalMime(safe);
+  if (modal?.classList.contains('hidden')) return null;
   if (token !== externalPreviewToken) return null;
   const urlKind = mediaKindFromUrlFallback(safe);
   const mediaKind = mime ? mediaKindFromMime(mime) : (urlKind === 'other' ? fallbackKind : urlKind);
@@ -874,6 +917,7 @@ function readPickerPresentation() {
 function ensurePickerModal() {
   let modal = document.getElementById('media-picker-modal');
   if (modal) return modal;
+  registerModalLifecycleCleanup('media-picker-modal', { onClose: cleanupPickerLifecycle });
   modal = document.createElement('div');
   modal.className = 'modal-overlay hidden media-modal-overlay';
   modal.id = 'media-picker-modal';
@@ -1066,8 +1110,10 @@ function renderPickerGrid() {
 
 function closeMediaPicker() {
   document.getElementById('media-picker-modal')?.classList.add('hidden');
+  document.getElementById('media-picker-grid')?.classList.remove('is-opening');
   pickerOpenToken++;
   pickerState = null;
+  scheduleClosedPickerGridCleanup(pickerOpenToken);
 }
 
 export async function openMediaPicker({ title = 'Biblioteca Multimedia', allowedKinds = ['image'], currentUrl = '', onSelect = () => {} } = {}) {
@@ -1087,20 +1133,28 @@ export async function openMediaPicker({ title = 'Biblioteca Multimedia', allowed
     ? 'image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng,video/mp4,video/webm'
     : 'image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng';
   writePresentationControls('picker', DEFAULT_MEDIA_PRESENTATION);
-  modal.classList.remove('hidden');
   const grid = document.getElementById('media-picker-grid');
   const key = pickerQueryKey();
-  if (pickerCacheFresh(key)) {
-    renderPickerGrid();
-    return;
-  }
-  if (pickerAssetsQueryKey === key && pickerAssets.length) {
-    renderPickerGrid();
-  } else {
-    grid.innerHTML = '<p class="media-empty">Cargando recursos...</p>';
-    setPickerStatus('Cargando recursos...');
-  }
-  await loadPickerAssets({ reset: true });
+  grid.classList.add('is-opening');
+  grid.innerHTML = '<p class="media-empty">Preparando selector...</p>';
+  setPickerStatus('');
+  modal.classList.remove('hidden');
+
+  schedulePickerInitialRender(async () => {
+    if (!pickerState || pickerState.token !== token) return;
+    grid.classList.remove('is-opening');
+    if (pickerCacheFresh(key)) {
+      renderPickerGrid();
+      return;
+    }
+    if (pickerAssetsQueryKey === key && pickerAssets.length) {
+      renderPickerGrid();
+    } else {
+      grid.innerHTML = '<p class="media-empty">Cargando recursos...</p>';
+      setPickerStatus('Cargando recursos...');
+    }
+    await loadPickerAssets({ reset: true });
+  });
 }
 
 export function attachMediaPickerButton({ targetInputId, insertAfterId, label = 'Biblioteca', allowedKinds = ['image'], title = 'Seleccionar recurso', onSelect = () => {} }) {
