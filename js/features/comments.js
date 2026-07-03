@@ -8,7 +8,7 @@
 
 import { supabaseClient } from '../config.js';
 import { isAdmin, state } from '../core/state.js';
-import { escapeHtml, formatDate, showToast } from '../core/utils.js';
+import { confirmAction, escapeHtml, formatDate, showToast } from '../core/utils.js';
 
 export async function loadComments(logId) {
   const list = document.getElementById('comments-list');
@@ -99,7 +99,12 @@ export async function toggleCommentHidden(commentId, currentlyHidden) {
 
 
 export async function deleteCommentAction(commentId) {
-  if (!confirm('¿Seguro que quieres borrar este comentario? (sus respuestas también se borrarán)')) return;
+  if (!(await confirmAction({
+    title: 'Borrar comentario',
+    message: 'Borrar este comentario y sus respuestas asociadas.',
+    confirmLabel: 'Borrar comentario',
+    danger: true,
+  }))) return;
   if (!state.adminCode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
   const { error } = await supabaseClient.rpc('delete_comment', { input_code: state.adminCode, input_id: commentId });
   if (error) { showToast('No se pudo borrar el comentario', 'error'); return; }

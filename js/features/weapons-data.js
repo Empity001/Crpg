@@ -9,8 +9,21 @@
 import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { renderWeaponCategoryFilters, renderWeaponTypeFilters, renderWeaponsGrid } from './weapons-catalog.js';
-import { renderWeaponCategoryManageList, renderWeaponCategorySelectOptions, renderWeaponTypeManageList, renderWeaponTypeSelectOptions } from './weapons-catalog-admin.js';
 import { renderWeaponDetail } from './weapons-detail.js';
+
+async function renderWeaponAdminMetaControls() {
+  const {
+    renderWeaponCategoryManageList,
+    renderWeaponCategorySelectOptions,
+    renderWeaponTypeManageList,
+    renderWeaponTypeSelectOptions,
+  } = await import('./weapons-catalog-admin.js');
+
+  renderWeaponCategorySelectOptions();
+  renderWeaponTypeSelectOptions();
+  renderWeaponCategoryManageList();
+  renderWeaponTypeManageList();
+}
 
 export async function loadWeaponMeta() {
   const [catsRes, typesRes] = await Promise.all([
@@ -28,10 +41,7 @@ export async function loadWeaponMeta() {
   if (!typesRes.error) state.weaponTypes = typesRes.data || [];
   renderWeaponCategoryFilters();
   renderWeaponTypeFilters();
-  renderWeaponCategorySelectOptions();
-  renderWeaponTypeSelectOptions();
-  renderWeaponCategoryManageList();
-  renderWeaponTypeManageList();
+  await renderWeaponAdminMetaControls();
   return true;
 }
 

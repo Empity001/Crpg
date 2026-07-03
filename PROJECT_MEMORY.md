@@ -4,7 +4,7 @@ Registro de sesiones de desarrollo. Cada entrada resume qué se hizo, qué qued�
 
 ---
 
-# Estado actual del proyecto (tras auditoría local post-refactor)
+# Estado actual del proyecto (tras P2/P3 y primera pasada de Optimización General)
 
 ## Arquitectura general
 
@@ -167,6 +167,7 @@ js/
 │   ├── export.js                # Exportación a Excel (SheetJS) y JSON
 │   ├── import.js                # Importación de JSON + detección de conflictos
 │   ├── media-library.js         # Biblioteca Multimedia + selector reutilizable
+│   ├── media-library-helpers.js # Helpers puros de Multimedia: presentación, filtros, previews y assets livianos
 │   └── admin-panel.js           # Cableado de la página 🛠 Herramientas (export/import/drafts/fondo/favicon/multimedia)
 ├── app/                         # Orquestación / bootstrap compartido por TODAS las páginas
 │   ├── include.js                # Carga partials/header.html y partials/footer.html vía fetch
@@ -188,19 +189,21 @@ js/
 - `pages/*` es la capa más externa, específica de cada página: importa `app/shell.js` + `app/realtime.js` + solo los `features/*` que esa página necesita, y cablea el resto del DOM de esa página en concreto.
 - Cada archivo exporta explícitamente (`export function`/`export const`) todo lo que otro módulo necesita — no hay nada colgado de `window` salvo lo que ya venía de terceros (`window.supabase`, `XLSX`).
 
-### Dependencias circulares (intencionales / conocidas)
+### Dependencias circulares
 
-La auditoría post-refactor confirmó que no hay imports rotos ni módulos huérfanos. También se eliminaron dos ciclos innecesarios del área de Logs (`logs.js` ↔ `blocks-editor.js` y `logs.js` ↔ `categories.js`). Los ciclos que quedan están acotados al subsistema de Guía de Armas, donde la UI tiene un ciclo real render↔acción: abrir el detalle de un arma dispara acciones admin que a su vez recargan datos y vuelven a renderizar el catálogo/detalle.
+La auditoría post-refactor confirmó que no hay imports rotos ni módulos huérfanos. También se eliminaron dos ciclos innecesarios del área de Logs (`logs.js` ↔ `blocks-editor.js` y `logs.js` ↔ `categories.js`).
 
-En la misma auditoría se limpió la superficie pública de los módulos: las funciones/constantes que solo se usan dentro de su propio archivo dejaron de exportarse. El grafo queda con **0 imports rotos**, **0 módulos huérfanos** y **0 exports sobrantes**.
+Actualización de la Fase de Optimización General (2026-07-03):
 
-ES Modules soporta estos ciclos porque las referencias cruzadas se usan dentro de funciones, no durante la evaluación inicial del módulo. Aun así, quedan registrados como deuda técnica de arquitectura:
+- El grafo de imports estáticos queda con **0 ciclos**.
+- Los 5 ciclos internos conocidos de la Guía de Armas fueron eliminados.
+- `weapons-detail.js` ya no importa estáticamente `weapons-admin.js`; carga acciones admin bajo demanda con `import('./weapons-admin.js')` cuando el usuario pulsa botones administrativos del detalle.
+- `weapons-data.js` ya no importa estáticamente `weapons-catalog-admin.js`; renderiza selects/listas admin bajo demanda con import dinámico.
+- `weapons-catalog.js` y `weapons-detail.js` usan delegación de eventos para reducir listeners recreados en cada render.
 
-- `weapons-detail.js` ↔ `weapons-admin.js`.
-- `weapons-catalog.js` ↔ `weapons-detail.js` ↔ `weapons-admin.js`.
-- Ciclos más largos entre `weapons-data.js`, `weapons-catalog.js`, `weapons-catalog-admin.js`, `weapons-detail.js` y `weapons-admin.js`.
+En la misma auditoría se limpió la superficie pública de los módulos: las funciones/constantes que solo se usan dentro de su propio archivo dejaron de exportarse. El grafo queda con **0 imports rotos**, **0 módulos huérfanos**, **0 exports sobrantes** y **0 ciclos estáticos**.
 
-No se consideran bloqueantes ahora mismo, pero si la Guía de Armas crece conviene introducir una capa de eventos/callbacks o un pequeño coordinador para separar render, carga de datos y acciones admin.
+La relación render↔acción de Armas sigue existiendo a nivel de flujo de usuario, pero ya no como dependencia circular de módulos.
 
 ### Decisiones técnicas
 
@@ -266,8 +269,9 @@ Si en el futuro se agrega un módulo nuevo, conviene repetir el paso 3 (import d
 - `js/core/storage.js`: conserva `uploadImageToStorage()` para no romper llamadas existentes, pero ahora delega en `uploadMediaToStorage()`. Campos de imagen aceptan PNG, JPG/JPEG, WEBP, GIF, SVG y APNG hasta 8 MB; la biblioteca acepta además MP4 y WEBM hasta 25 MB.
 - `sql/migration_011_media_library.sql`: crea `media_assets`, amplía MIME/tamaño del bucket `culones`, y expone RPCs protegidas por `validate_admin_code`.
 - `sql/migration_012_media_library_archive_cleanup.sql`: agrega RPC admin-gated para borrado definitivo de registros multimedia archivados.
+- `sql/migration_013_media_picker_light_list.sql`: agrega RPC liviana para modo selector; devuelve solo recursos activos y columnas básicas paginadas, sin archivados ni metadatos administrativos completos.
 - Biblioteca en **Herramientas**: búsqueda, filtros por tipo/origen, orden, vista previa, nombre visible, MIME, tamaño, hash, tags, descripción, archivado/restauración, borrado definitivo, listado de usos detectados, render progresivo y modo minimizado.
-- Selector multimedia reutilizable: disponible en Logs (mob/item/libre), Tierlist, Guía de Armas (arma/rango/receta/materiales), About, fondo de página y favicon. El picker usa cache temporal, tarjetas compactas, búsqueda con debounce y paginación incremental para no renderizar demasiados assets al abrir.
+- Selector multimedia reutilizable: disponible en Logs (mob/item/libre), Tierlist, Guía de Armas (arma/rango/receta/materiales), About, fondo de página y favicon. El picker usa modo liviano separado: RPC paginada mínima, cache temporal, búsqueda con debounce y carga incremental; no carga usos, archivados ni acciones administrativas al abrir.
 - Recursos externos: vuelven como URLs temporales por uso desde el selector; no se guardan en `media_assets` ni aparecen en la biblioteca interna. El modal intenta detectar MIME/tipo y generar vista previa antes de aceptar, con fallback manual si CORS/HEAD no permite detección.
 - Duplicados: los uploads calculan hash y reutilizan el recurso existente si ya fue registrado.
 - Usos detectados: la biblioteca indexa URLs actuales en Logs, Tierlist, Armas, recetas, fondo, favicon y bloques de About.
@@ -375,10 +379,43 @@ Procesos automáticos:
 
 ## Problemas conocidos
 
-- **Ciclos restantes en módulos de Armas**: el grafo de imports ya no tiene módulos huérfanos ni imports rotos, pero quedan 5 ciclos internos entre `weapons-data.js`, `weapons-catalog.js`, `weapons-detail.js`, `weapons-admin.js` y `weapons-catalog-admin.js`. Funcionan hoy, pero conviene partir datos/UI/admin en una pasada dedicada antes de crecer mucho esa sección.
 - **`saveRankPatch` envía objeto completo**: en vez de hacer un PATCH parcial, manda todos los campos del rango en cada edición. Funciona bien ahora que el `SELECT` trae todos los campos, pero si se agrega una columna nueva a `weapon_ranks` y se olvida añadirla al `select()` de `reloadWeaponData()`, puede causar pérdida silenciosa de datos al guardar. Solución correcta: cambiar a updates parciales por campo.
 - **Modal de habilidades hace demasiadas consultas**: cada edición de habilidad recarga todo el arma.
 - **Borradores no sincronizados entre dispositivos**: la tabla `drafts` en Supabase existe pero no está conectada al frontend. Los borradores solo existen en localStorage del navegador actual.
+
+---
+
+## Fase de Optimización General (iniciada 2026-07-03)
+
+Objetivo: mejorar arquitectura, rendimiento, limpieza y mantenibilidad sin añadir funcionalidades nuevas ni cambiar el comportamiento visible.
+
+Auditoría inicial:
+
+- Archivos más pesados detectados: `css/style.css`, `js/features/media-library.js`, `js/features/weapons-admin.js`, `js/features/export.js` y `sql/migration_014_admin_action_audit_details.sql`.
+- Riesgos principales: CSS monolítico, `media-library.js` con demasiadas responsabilidades, ciclos de imports en Armas, render/listeners repetidos en grids y modales, y migración SQL 014 extensa que reemplaza varias RPC.
+- Validación base: `node --check` en todos los JS y `git diff --check` sin errores.
+
+Pasada 1 — Multimedia:
+
+- Se creó `js/features/media-library-helpers.js` para helpers puros de presentación, filtros, orden, preview y assets del picker.
+- `media-library.js` conserva el control de estado, carga, modales y flujos de usuario.
+- Biblioteca/Selector Multimedia ahora usa delegación de eventos en el grid para escoger, copiar, editar, archivar, restaurar y eliminar, evitando recrear listeners por tarjeta.
+- Validación: `node --check` en 40 JS, `git diff --check` sin errores.
+
+Pasada 2 — Guía de Armas:
+
+- Se eliminaron los 5 ciclos estáticos de imports detectados en Armas.
+- `weapons-detail.js` carga acciones admin bajo demanda con import dinámico.
+- `weapons-data.js` carga controles admin de categorías/tipos bajo demanda con import dinámico.
+- `weapons-detail.js` usa delegación de eventos para los botones del detalle.
+- `weapons-catalog.js` usa delegación de eventos para filtros y tarjetas.
+- Validación: grafo de imports estáticos con `cycles 0`; `node --check` en 40 JS; `git diff --check` sin errores.
+
+Pendiente recomendado para la siguiente sesión:
+
+- Ordenar `css/style.css` por capas/componentes sin rediseñar la UI.
+- Mantener CSS sin cambios visuales: solo tokens, agrupación, comentarios y eliminación segura si se puede demostrar.
+- Después, revisar `export.js`/`import.js` y `migration_014_admin_action_audit_details.sql` con el mismo enfoque incremental.
 
 ---
 
@@ -432,7 +469,7 @@ Completado en repo:
 Verificado por scripts/local:
 
 - `node --check` sobre todos los JS.
-- `work/audit-imports.cjs`: `IMPORT_PROBLEMS 0`, `ORPHAN_MODULES 0`, `CYCLES 5` (los 5 ciclos conocidos de Armas).
+- Grafo local de imports estáticos: `CYCLES 0` tras la primera pasada de Optimización General.
 - `work/audit-exports.cjs`: `UNUSED_EXPORTED_SYMBOLS 0`.
 - `work/check-html.cjs`: todas las páginas y partials `OK`.
 - `work/audit-css.cjs`: sin eliminación segura pendiente.
@@ -457,8 +494,10 @@ Implementado en repo:
 
 - [x] `sql/migration_011_media_library.sql` crea `media_assets`, amplía MIME/tamaño del bucket y agrega RPCs admin-gated.
 - [x] `sql/migration_012_media_library_archive_cleanup.sql` agrega borrado definitivo admin-gated para recursos archivados.
+- [x] `sql/migration_013_media_picker_light_list.sql` agrega listado liviano paginado para el Selector Multimedia.
 - [x] `js/core/media.js` centraliza MIME, tipo dinámico, hash SHA-256, duplicados, Storage path helpers y RPCs.
 - [x] `js/core/storage.js` mantiene `uploadImageToStorage()` compatible y agrega `uploadMediaToStorage()`.
+- [x] `js/features/media-library-helpers.js` separa helpers puros de Multimedia: normalización de presentación, filtros, orden, previews y normalización de assets livianos.
 - [x] Biblioteca Multimedia en `admin.html` con buscador, filtros, vista previa, metadatos, usos detectados, archivado y subida de recursos propios.
 - [x] Selector multimedia reutilizable en Logs, Tierlist, Guía de Armas, About, fondo y favicon.
 - [x] Soporte de imagen ampliado: PNG, JPG/JPEG, WEBP, GIF, SVG y APNG.
@@ -469,7 +508,8 @@ Implementado en repo:
 - [x] Fondo guarda `background_config.presentation` por uso para aplicar fit, posición, repetición y opacidad.
 - [x] Biblioteca Multimedia tiene vista de Archivados con restauración, borrado definitivo, modal propio de confirmación y advertencia de usos.
 - [x] Biblioteca minimizable y render progresivo para evitar pintar listas grandes completas.
-- [x] Selector multimedia optimizado para uso real: cache temporal, sin indexar usos al abrir, tarjetas compactas, `loading="lazy"`/`decoding="async"`, búsqueda con debounce y carga incremental sin reconstruir todo al pulsar "Mostrar mas".
+- [x] Selector multimedia optimizado para uso real: modo liviano separado, RPC mínima paginada, cache temporal, sin indexar usos al abrir, sin cargar archivados/metadatos administrativos, `loading="lazy"`/`decoding="async"`, búsqueda con debounce y carga incremental sin reconstruir todo al pulsar "Mostrar mas".
+- [x] Primera pasada de optimización: `media-library.js` queda más liviano y el grid de Biblioteca/Selector usa delegación de eventos para evitar listeners por tarjeta.
 - [x] Export/import de backup completo incluye `media_assets`; Excel completo añade hoja `Multimedia`.
 - [x] UI nueva de P2 ya usa identidad visual de P3: negros profundos, blanco principal y morado `#7C3AED`.
 - [x] Compatibilidad mantenida con `image_url`: los formularios siguen guardando URLs.
@@ -478,19 +518,20 @@ Checklist manual para comprobar:
 
 - [x] Ejecutar `sql/migration_011_media_library.sql` en Supabase.
 - [x] Ejecutar `sql/migration_012_media_library_archive_cleanup.sql` en Supabase.
+- [x] Ejecutar `sql/migration_013_media_picker_light_list.sql` en Supabase para activar el modo selector rápido.
 - [x] Entrar a Herramientas con código admin real y verificar que la Biblioteca Multimedia carga sin aviso de migración faltante.
 - [x] Subir PNG, JPG/JPEG, WEBP, GIF, SVG y APNG desde la biblioteca.
 - [x] Subir dos veces el mismo archivo y confirmar que se reutiliza por duplicado/hash.
-- [ ] Registrar una URL externa y comprobar MIME/tipo/fallback..
-- [ ] Registrar una URL externa y comprobar preview antes de usarla.
+- [x] Registrar una URL externa y comprobar MIME/tipo/fallback..
+- [x] Registrar una URL externa y comprobar preview antes de usarla.
 - [x] Usar el selector en mob, item, bloque libre, tierlist, arma, rango, material de receta, resultado de receta, About, fondo y favicon.
 - [x] Pulsar "Indexar usados" y confirmar que muestra usos actuales.
 - [x] Editar nombre, descripción, tags y opciones de presentación de un recurso.
-- [ ] Elegir un fondo desde la biblioteca y comprobar fit, posición, repetición y opacidad.
-- [ ] Minimizar la Biblioteca Multimedia, confirmar que desaparece el grid, expandir y comprobar búsqueda/filtros/orden.
+- [x] Elegir un fondo desde la biblioteca y comprobar fit, posición, repetición y opacidad.
+- [x] Minimizar la Biblioteca Multimedia, confirmar que desaparece el grid, expandir y comprobar búsqueda/filtros/orden.
 - [ ] Con Live Server, abrir el selector multimedia desde Logs, Tierlist, Guía de Armas, About, fondo y favicon; comprobar que abre fluido, muestra tarjetas compactas, filtra/busca sin lag perceptible y "Mostrar mas" agrega recursos sin parpadeo completo.
-- [ ] Archivar un recurso, verlo en Archivados, restaurarlo y comprobar que vuelve a la biblioteca principal.
-- [ ] Intentar eliminar definitivamente un recurso archivado con usos y confirmar que el modal advierte dónde se usa.
+- [x] Archivar un recurso, verlo en Archivados, restaurarlo y comprobar que vuelve a la biblioteca principal.
+- [x] Intentar eliminar definitivamente un recurso archivado con usos y confirmar que el modal advierte dónde se usa.
 - [x] Exportar backup JSON/XLSX completo y confirmar `media_assets` / hoja `Multimedia`.
 - [x] Importar un backup completo con multimedia y revisar resolución de conflictos.
 
@@ -779,6 +820,34 @@ Si en el futuro se añade un nuevo módulo, la respuesta nunca debe ser "crear o
 ### Prioridad 3 — Rediseño completo de la Interfaz del Administrador
 
 Objetivo: mejorar la experiencia visual y de uso del modo administrador sin modificar la lógica real de autenticación, Supabase, RPC, permisos ni bot de Discord.
+
+Estado local inicial:
+
+- [x] Login de admin convertido en modal tipo terminal con secuencia: inicialización, conexión, verificación de permisos y espera de autenticación.
+- [x] Estados visuales `ACCESS GRANTED` y `ACCESS DENIED` agregados sin cambiar la RPC `validate_admin_code`.
+- [x] Indicador permanente `Administrator Mode` en el HUD cuando hay sesión admin activa.
+- [x] Botón Admin cambia visualmente entre `ADMIN` y `LOGOUT`, manteniendo la lógica existente.
+- [x] Botones administrativos y paneles de Herramientas adoptan identidad negro/blanco/morado `#7C3AED`.
+- [x] Confirmaciones críticas migradas de `confirm()` nativo a modal propio reutilizable (`confirmAction`) para borrar/limpiar/quitar/restaurar según corresponda.
+- [x] Animaciones discretas de entrada, glow, loading, granted/denied y hover/click en rango 150–300ms.
+- [x] No se tocaron autenticación real, Supabase, RPCs existentes, permisos ni bot de Discord.
+
+Checklist manual de validación P3:
+
+- [x] Abrir Live Server local y verificar que GitHub Pages/deploy no se usa para QA.
+- [x] Pulsar `ADMIN` sin sesión activa y confirmar que aparece el modal terminal.
+- [x] Confirmar que la secuencia muestra: `Inicializando sistema...`, `Conectando...`, `Verificando permisos...`, `Esperando autenticación...`.
+- [x] Ingresar código inválido y confirmar `ACCESS DENIED`, vibración/destello rojo corto, botón vuelve de loading y el modal no se cierra.
+- [x] Ingresar código válido real del bot y confirmar `ACCESS GRANTED`, glow morado, cierre suave y activación de sesión.
+- [x] Confirmar que aparece el badge `Administrator Mode` en el HUD y el botón cambia a `LOGOUT`.
+- [x] Confirmar que cerrar sesión con `LOGOUT` oculta badge, herramientas admin-only y vuelve a portada si estás en `admin.html`.
+- [x] Revisar visualmente `admin.html`: Biblioteca Multimedia, Borradores, Exportar, Importar, Fondo y Favicon deben verse coherentes con negro profundo/blanco/morado.
+- [ ] Probar hover/click/disabled/loading en botones administrativos principales.
+- [x] Ejecutar acciones críticas y confirmar que usan modal propio: borrar log, borrar comentario, borrar fila/elemento tierlist, borrar arma/rango/habilidad/sección, quitar receta, borrar categorías/tipos, quitar fondo y limpiar borradores.
+- [x] Confirmar que las acciones críticas canceladas no ejecutan RPC ni modifican datos.
+- [x] Confirmar que las acciones críticas aceptadas mantienen el comportamiento funcional anterior.
+- [ ] Revisar en móvil/ancho estrecho que el badge `Administrator Mode`, modal de login y confirmaciones no se desbordan ni pisan otros elementos.
+- [x] Confirmar que los toasts de éxito en modo admin se sienten coherentes con la identidad morada.
 
 #### Objetivo visual
 

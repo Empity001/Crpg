@@ -36,6 +36,63 @@ export function showToast(message, type = 'default') {
   setTimeout(() => toast.remove(), 4000);
 }
 
+function ensureConfirmModal() {
+  let modal = document.getElementById('app-confirm-modal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.className = 'modal-overlay hidden app-confirm-overlay';
+  modal.id = 'app-confirm-modal';
+  modal.innerHTML = `
+    <div class="modal-box app-confirm-box">
+      <button class="modal-close" id="app-confirm-close" aria-label="Cerrar">✕</button>
+      <p class="admin-login-kicker">Administrator confirmation</p>
+      <h3 class="modal-title app-confirm-title" id="app-confirm-title"></h3>
+      <p class="modal-hint app-confirm-message" id="app-confirm-message"></p>
+      <div class="app-confirm-actions">
+        <button type="button" class="btn-secondary-admin" id="app-confirm-cancel">Cancelar</button>
+        <button type="button" class="btn-secondary-admin danger" id="app-confirm-accept"></button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  return modal;
+}
+
+export function confirmAction({
+  title = 'Confirmar acción',
+  message = '',
+  confirmLabel = 'Confirmar',
+  danger = true,
+} = {}) {
+  return new Promise(resolve => {
+    const modal = ensureConfirmModal();
+    const titleEl = document.getElementById('app-confirm-title');
+    const messageEl = document.getElementById('app-confirm-message');
+    const acceptBtn = document.getElementById('app-confirm-accept');
+    const cancelBtn = document.getElementById('app-confirm-cancel');
+    const closeBtn = document.getElementById('app-confirm-close');
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    acceptBtn.textContent = confirmLabel;
+    acceptBtn.className = danger ? 'btn-secondary-admin danger' : 'btn-secondary-admin';
+
+    const cleanup = (value) => {
+      modal.classList.add('hidden');
+      acceptBtn.onclick = null;
+      cancelBtn.onclick = null;
+      closeBtn.onclick = null;
+      modal.onclick = null;
+      resolve(value);
+    };
+
+    acceptBtn.onclick = () => cleanup(true);
+    cancelBtn.onclick = () => cleanup(false);
+    closeBtn.onclick = () => cleanup(false);
+    modal.onclick = (event) => { if (event.target === modal) cleanup(false); };
+    modal.classList.remove('hidden');
+    cancelBtn.focus();
+  });
+}
+
 
 export function escapeHtml(str) {
   const div = document.createElement('div');

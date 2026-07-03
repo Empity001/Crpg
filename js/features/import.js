@@ -11,6 +11,7 @@ import { loadLogsData } from './logs-data.js';
 import { state, suppressNextRealtimeReload, suppressNextTierlistReload } from '../core/state.js';
 import { loadTierlist } from './tierlist.js';
 import { isMediaInfrastructureMissing, listMediaAssets, upsertMediaAsset } from '../core/media.js';
+import { countSummary, localAuditTime, recordAdminAction } from '../core/audit.js';
 import { asArray, escapeHtml, showToast } from '../core/utils.js';
 
 let _importPayload = null; // datos del archivo leído
@@ -162,6 +163,7 @@ export async function confirmImport() {
   showToast(`Importando ${toImport.length} elemento(s)...`, 'default');
   let imported = 0;
   let errors = 0;
+  const importedCounts = { log: 0, tier_row: 0, tier_item: 0, media_asset: 0 };
 
   for (const conflict of toImport) {
     try {
@@ -195,6 +197,7 @@ export async function confirmImport() {
           });
         }
         imported++;
+        importedCounts.log++;
       } else if (conflict.kind === 'tier_row') {
         const row = conflict.item;
         if (conflict.isConflict) {
@@ -203,6 +206,7 @@ export async function confirmImport() {
           await supabaseClient.rpc('create_tierlist_row', { input_code: state.adminCode, input_name: row.name, input_color: row.color });
         }
         imported++;
+        importedCounts.tier_row++;
       } else if (conflict.kind === 'tier_item') {
         const item = conflict.item;
         await supabaseClient.rpc('upsert_tierlist_item', {
@@ -212,10 +216,12 @@ export async function confirmImport() {
           input_extra_fields: asArray(item.extra_fields),
         });
         imported++;
+        importedCounts.tier_item++;
       } else if (conflict.kind === 'media_asset') {
         const { error } = await upsertMediaAsset(conflict.item);
         if (error) throw error;
         imported++;
+        importedCounts.media_asset++;
       }
     } catch(e) {
       console.error('Import error:', e);
@@ -226,6 +232,19 @@ export async function confirmImport() {
   document.getElementById('import-conflict-modal').classList.add('hidden');
   document.getElementById('import-file-input').value = '';
   showToast(`Importación completa: ${imported} ok${errors > 0 ? `, ${errors} error(es)` : ''}`, errors > 0 ? 'error' : 'success');
+  const importType = _importPayload?.type === 'full_backup'
+    ? 'Backup completo'
+    : (_importPayload?.type === 'tierlist' ? 'Tierlist' : 'Logs');
+  const details = [
+    countSummary('logs', importedCounts.log),
+    countSummary('filas tierlist', importedCounts.tier_row),
+    countSummary('items tierlist', importedCounts.tier_item),
+    countSummary('recursos multimedia', importedCounts.media_asset),
+  ].filter(Boolean).join(', ');
+  await recordAdminAction(
+    'import_completed',
+    `Se importó un backup de ${importType}${details ? ` (${details})` : ''}${errors ? ` con ${errors} error(es)` : ''} a las ${localAuditTime()}.`
+  );
   suppressNextRealtimeReload();
   suppressNextTierlistReload();
   await loadLogsData();

@@ -10,8 +10,11 @@ import { supabaseClient } from '../config.js';
 import { renderKeyValueRows } from './blocks-display.js';
 import { isAdmin, state } from '../core/state.js';
 import { asArray, escapeHtml, safeUrl } from '../core/utils.js';
-import { deleteAbility, deleteSection, deleteWeaponAction, deleteWeaponRank, openWeaponAbilityModal, openWeaponModal, openWeaponRankModal, openWeaponRecipeModal, openWeaponSectionModal, openWeaponStatsModal, toggleWeaponPublished } from './weapons-admin.js';
 import { getCurrentWeapon, getWeaponCategory, getWeaponRanks, getWeaponType } from './weapons-state.js';
+
+function loadWeaponAdminActions() {
+  return import('./weapons-admin.js');
+}
 
 export function openWeaponDetail(weaponId) {
   state.currentWeaponId = weaponId;
@@ -229,36 +232,67 @@ function renderRecipeTrade(recipe) {
 
 
 function bindWeaponDetailEvents(container) {
-  container.querySelectorAll('[data-action="select-rank"]').forEach(btn =>
-    btn.addEventListener('click', () => { state.currentWeaponRankId = btn.dataset.rankId; renderWeaponDetail(); }));
-  container.querySelectorAll('[data-action="add-rank"]').forEach(btn =>
-    btn.addEventListener('click', () => openWeaponRankModal(null)));
-  container.querySelectorAll('[data-action="delete-rank"]').forEach(btn =>
-    btn.addEventListener('click', (e) => { e.stopPropagation(); deleteWeaponRank(btn.dataset.rankId); }));
-  container.querySelectorAll('[data-action="edit-weapon-info"]').forEach(btn =>
-    btn.addEventListener('click', () => openWeaponModal(state.currentWeaponId)));
-  container.querySelectorAll('[data-action="toggle-weapon-published"]').forEach(btn =>
-    btn.addEventListener('click', () => toggleWeaponPublished(state.currentWeaponId)));
-  container.querySelectorAll('[data-action="delete-weapon"]').forEach(btn =>
-    btn.addEventListener('click', () => deleteWeaponAction(state.currentWeaponId)));
-  container.querySelectorAll('[data-action="edit-rank-info"]').forEach(btn =>
-    btn.addEventListener('click', () => openWeaponRankModal(btn.dataset.rankId)));
-  container.querySelectorAll('[data-action="edit-stats"]').forEach(btn =>
-    btn.addEventListener('click', () => openWeaponStatsModal(btn.dataset.rankId)));
-  container.querySelectorAll('[data-action="add-ability"]').forEach(btn =>
-    btn.addEventListener('click', () => openWeaponAbilityModal(btn.dataset.rankId, null)));
-  container.querySelectorAll('[data-action="edit-ability"]').forEach(btn =>
-    btn.addEventListener('click', () => openWeaponAbilityModal(btn.dataset.rankId, Number(btn.dataset.abilityIdx))));
-  container.querySelectorAll('[data-action="delete-ability"]').forEach(btn =>
-    btn.addEventListener('click', () => deleteAbility(btn.dataset.rankId, Number(btn.dataset.abilityIdx))));
-  container.querySelectorAll('[data-action="edit-recipe"]').forEach(btn =>
-    btn.addEventListener('click', () => openWeaponRecipeModal(btn.dataset.rankId)));
-  container.querySelectorAll('[data-action="add-section"]').forEach(btn =>
-    btn.addEventListener('click', () => openWeaponSectionModal(btn.dataset.rankId, null)));
-  container.querySelectorAll('[data-action="edit-section"]').forEach(btn =>
-    btn.addEventListener('click', () => openWeaponSectionModal(btn.dataset.rankId, Number(btn.dataset.sectionIdx))));
-  container.querySelectorAll('[data-action="delete-section"]').forEach(btn =>
-    btn.addEventListener('click', () => deleteSection(btn.dataset.rankId, Number(btn.dataset.sectionIdx))));
+  if (container.dataset.weaponDetailActionsBound === 'true') return;
+  container.dataset.weaponDetailActionsBound = 'true';
+  container.addEventListener('click', async (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const btn = target?.closest('[data-action]');
+    if (!btn || !container.contains(btn)) return;
+
+    const { action, rankId, abilityIdx, sectionIdx } = btn.dataset;
+    if (action === 'select-rank') {
+      state.currentWeaponRankId = rankId;
+      renderWeaponDetail();
+      return;
+    }
+
+    const adminActions = await loadWeaponAdminActions();
+    switch (action) {
+      case 'add-rank':
+        adminActions.openWeaponRankModal(null);
+        break;
+      case 'delete-rank':
+        event.stopPropagation();
+        adminActions.deleteWeaponRank(rankId);
+        break;
+      case 'edit-weapon-info':
+        adminActions.openWeaponModal(state.currentWeaponId);
+        break;
+      case 'toggle-weapon-published':
+        adminActions.toggleWeaponPublished(state.currentWeaponId);
+        break;
+      case 'delete-weapon':
+        adminActions.deleteWeaponAction(state.currentWeaponId);
+        break;
+      case 'edit-rank-info':
+        adminActions.openWeaponRankModal(rankId);
+        break;
+      case 'edit-stats':
+        adminActions.openWeaponStatsModal(rankId);
+        break;
+      case 'add-ability':
+        adminActions.openWeaponAbilityModal(rankId, null);
+        break;
+      case 'edit-ability':
+        adminActions.openWeaponAbilityModal(rankId, Number(abilityIdx));
+        break;
+      case 'delete-ability':
+        adminActions.deleteAbility(rankId, Number(abilityIdx));
+        break;
+      case 'edit-recipe':
+        adminActions.openWeaponRecipeModal(rankId);
+        break;
+      case 'add-section':
+        adminActions.openWeaponSectionModal(rankId, null);
+        break;
+      case 'edit-section':
+        adminActions.openWeaponSectionModal(rankId, Number(sectionIdx));
+        break;
+      case 'delete-section':
+        adminActions.deleteSection(rankId, Number(sectionIdx));
+        break;
+    }
+  });
 }
 
 // Aplica un cambio parcial a un rango, conservando todo lo demás

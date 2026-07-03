@@ -21,6 +21,43 @@ function weaponMatchesFilters(w) {
   return true;
 }
 
+function bindWeaponCategoryFilterEvents(container) {
+  if (container.dataset.weaponCategoryFilterBound === 'true') return;
+  container.dataset.weaponCategoryFilterBound = 'true';
+  container.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const pill = target?.closest('.pill[data-wcat]');
+    if (!pill || !container.contains(pill)) return;
+    state.weaponActiveCategoryFilter = pill.dataset.wcat;
+    renderWeaponCategoryFilters();
+    renderWeaponsGrid();
+  });
+}
+
+function bindWeaponTypeFilterEvents(container) {
+  if (container.dataset.weaponTypeFilterBound === 'true') return;
+  container.dataset.weaponTypeFilterBound = 'true';
+  container.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const pill = target?.closest('.pill[data-wtype]');
+    if (!pill || !container.contains(pill)) return;
+    state.weaponActiveTypeFilter = pill.dataset.wtype;
+    renderWeaponTypeFilters();
+    renderWeaponsGrid();
+  });
+}
+
+function bindWeaponsGridEvents(grid) {
+  if (grid.dataset.weaponGridBound === 'true') return;
+  grid.dataset.weaponGridBound = 'true';
+  grid.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const card = target?.closest('.weapon-card[data-weapon-id]');
+    if (!card || !grid.contains(card)) return;
+    openWeaponDetail(card.dataset.weaponId);
+  });
+}
+
 
 export function renderWeaponCategoryFilters() {
   const container = document.getElementById('weapon-category-filters');
@@ -39,13 +76,7 @@ export function renderWeaponCategoryFilters() {
     container.appendChild(pill);
   });
   allPill.classList.toggle('is-active', state.weaponActiveCategoryFilter === 'all');
-  container.querySelectorAll('.pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      state.weaponActiveCategoryFilter = pill.dataset.wcat;
-      renderWeaponCategoryFilters();
-      renderWeaponsGrid();
-    });
-  });
+  bindWeaponCategoryFilterEvents(container);
 }
 
 
@@ -62,13 +93,7 @@ export function renderWeaponTypeFilters() {
     container.appendChild(pill);
   });
   allPill.classList.toggle('is-active', state.weaponActiveTypeFilter === 'all');
-  container.querySelectorAll('.pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      state.weaponActiveTypeFilter = pill.dataset.wtype;
-      renderWeaponTypeFilters();
-      renderWeaponsGrid();
-    });
-  });
+  bindWeaponTypeFilterEvents(container);
 }
 
 // ---------------------------------------------------------
@@ -104,7 +129,5 @@ export function renderWeaponsGrid() {
       </div>`;
   }).join('');
 
-  grid.querySelectorAll('.weapon-card').forEach(card => {
-    card.addEventListener('click', () => openWeaponDetail(card.dataset.weaponId));
-  });
+  bindWeaponsGridEvents(grid);
 }

@@ -7,7 +7,7 @@
 
 import { supabaseClient } from '../config.js';
 import { state, suppressNextWeaponsReload } from '../core/state.js';
-import { escapeHtml, showToast } from '../core/utils.js';
+import { confirmAction, escapeHtml, showToast } from '../core/utils.js';
 import { renderWeaponsGrid } from './weapons-catalog.js';
 import { loadWeaponMeta } from './weapons-data.js';
 import { getWeaponCategory, getWeaponType } from './weapons-state.js';
@@ -64,7 +64,12 @@ export async function submitWeaponCategory() {
 
 async function deleteWeaponCategory(id) {
   const cat = getWeaponCategory(id);
-  if (!confirm(`¿Borrar la categoría "${cat ? cat.label : ''}"?`)) return;
+  if (!(await confirmAction({
+    title: 'Borrar categoría',
+    message: `Borrar la categoría "${cat ? cat.label : ''}". Solo funcionará si ningún arma la está usando.`,
+    confirmLabel: 'Borrar categoría',
+    danger: true,
+  }))) return;
   if (!state.adminCode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
   const { error } = await supabaseClient.rpc('delete_weapon_category', { input_code: state.adminCode, input_id: id });
   if (error) { showToast(error.message.replace(/^.*?:\s*/, '') || 'No se pudo borrar', 'error'); return; }
@@ -129,7 +134,12 @@ export async function submitWeaponType() {
 
 async function deleteWeaponType(id) {
   const t = getWeaponType(id);
-  if (!confirm(`¿Borrar el tipo "${t ? t.label : ''}"?`)) return;
+  if (!(await confirmAction({
+    title: 'Borrar tipo',
+    message: `Borrar el tipo "${t ? t.label : ''}". Solo funcionará si ningún arma lo está usando.`,
+    confirmLabel: 'Borrar tipo',
+    danger: true,
+  }))) return;
   if (!state.adminCode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
   const { error } = await supabaseClient.rpc('delete_weapon_type', { input_code: state.adminCode, input_id: id });
   if (error) { showToast(error.message.replace(/^.*?:\s*/, '') || 'No se pudo borrar', 'error'); return; }

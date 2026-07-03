@@ -13,6 +13,7 @@ import { loadCategoriesData } from './categories.js';
 import { loadLogsData } from './logs-data.js';
 import { loadTierlist } from './tierlist.js';
 import { isMediaInfrastructureMissing, listMediaAssets } from '../core/media.js';
+import { countSummary, localAuditTime, recordAdminAction } from '../core/audit.js';
 import { asArray, formatDate, showToast } from '../core/utils.js';
 import { fetchWeaponsDataForExport } from './weapons-data.js';
 
@@ -23,6 +24,18 @@ function formatEquipmentText(raw) {
     const ench = (eq.enchantments || []).map(e => e.name).filter(Boolean);
     return ench.length ? `${eq.name} [${ench.join(', ')}]` : eq.name;
   }).join('; ');
+}
+
+function exportTypeLabel(type) {
+  return {
+    logs: 'Logs',
+    tierlist: 'Tierlist',
+    all: 'Backup completo',
+  }[type] || type || 'Exportación';
+}
+
+function auditCountDetails(parts) {
+  return parts.filter(Boolean).join(', ');
 }
 
 
@@ -538,6 +551,10 @@ export async function exportData(type, format) {
         `culones-logs-${timestamp()}.json`, 'application/json',
       );
       showToast(`${logsWithBlocks.length} logs exportados`, 'success');
+      await recordAdminAction(
+        'export_created',
+        `Se exportó un backup de Logs (${auditCountDetails([format.toUpperCase(), countSummary('logs', logsWithBlocks.length)])}) a las ${localAuditTime()}.`
+      );
 
     } else if (type === 'tierlist') {
       if (!state.tierlistLoaded) await loadTierlist();
@@ -546,6 +563,11 @@ export async function exportData(type, format) {
         `culones-tierlist-${timestamp()}.json`, 'application/json',
       );
       showToast('Tierlist exportada', 'success');
+      const tierDetails = auditCountDetails([format.toUpperCase(), countSummary('filas', state.tierRows.length), countSummary('items', state.tierItems.length)]);
+      await recordAdminAction(
+        'export_created',
+        `Se exportó un backup de Tierlist (${tierDetails}) a las ${localAuditTime()}.`
+      );
 
     } else if (type === 'all') {
       await loadLogsData();
@@ -573,6 +595,16 @@ export async function exportData(type, format) {
       };
       downloadFile(JSON.stringify(backup, null, 2), `culones-backup-${timestamp()}.json`, 'application/json');
       showToast('Backup completo exportado', 'success');
+      const backupDetails = auditCountDetails([
+        format.toUpperCase(),
+        countSummary('logs', logsWithBlocks.length),
+        countSummary('armas', weaponData.weapons.length),
+        countSummary('recursos multimedia', mediaAssets.length),
+      ]);
+      await recordAdminAction(
+        'export_created',
+        `Se exportó un Backup completo (${backupDetails}) a las ${localAuditTime()}.`
+      );
     }
     return;
   }
@@ -586,11 +618,24 @@ export async function exportData(type, format) {
     if (type === 'logs') {
       await loadLogsData();
       exportLogsXlsx();
+      await recordAdminAction(
+        'export_created',
+        `Se exportó un backup de Logs (${auditCountDetails([format.toUpperCase(), countSummary('logs', state.logs.length)])}) a las ${localAuditTime()}.`
+      );
     } else if (type === 'tierlist') {
       if (!state.tierlistLoaded) await loadTierlist();
       exportTierlistXlsx();
+      const tierDetails = auditCountDetails([format.toUpperCase(), countSummary('filas', state.tierRows.length), countSummary('items', state.tierItems.length)]);
+      await recordAdminAction(
+        'export_created',
+        `Se exportó un backup de Tierlist (${tierDetails}) a las ${localAuditTime()}.`
+      );
     } else if (type === 'all') {
       await exportAllXlsx();
+      await recordAdminAction(
+        'export_created',
+        `Se exportó un ${exportTypeLabel(type)} (${format.toUpperCase()}) a las ${localAuditTime()}.`
+      );
     }
   }
 }

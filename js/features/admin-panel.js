@@ -13,7 +13,7 @@ import { exportData } from './export.js';
 import { initFaviconTool } from './favicon.js';
 import { _importConflicts, confirmImport, handleImportFile } from './import.js';
 import { initMediaLibraryPanel } from './media-library.js';
-import { showToast } from '../core/utils.js';
+import { confirmAction, showToast } from '../core/utils.js';
 
 export function initAdminPanel() {
   // Export buttons
@@ -62,8 +62,13 @@ export function initAdminPanel() {
   });
 
   // Clear all drafts
-  document.getElementById('drafts-clear-all-btn')?.addEventListener('click', () => {
-    if (!confirm('¿Eliminar TODOS los borradores? Esta acción no se puede deshacer.')) return;
+  document.getElementById('drafts-clear-all-btn')?.addEventListener('click', async () => {
+    if (!(await confirmAction({
+      title: 'Eliminar borradores',
+      message: 'Eliminar TODOS los borradores guardados en este dispositivo. Esta acción no se puede deshacer.',
+      confirmLabel: 'Eliminar borradores',
+      danger: true,
+    }))) return;
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);

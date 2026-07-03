@@ -77,6 +77,7 @@ export function isMediaInfrastructureMissing(error) {
   const msg = String(error?.message || error || '').toLowerCase();
   return msg.includes('media_assets')
     || msg.includes('list_media_assets')
+    || msg.includes('list_media_picker_assets')
     || msg.includes('upsert_media_asset')
     || msg.includes('find_media_duplicate')
     || msg.includes('delete_media_asset')
@@ -97,6 +98,26 @@ export async function listMediaAssets({ includeArchived = false } = {}) {
   if (!state.adminCode) return { data: [], error: new Error('Admin requerido') };
   const { data, error } = await supabaseClient.rpc('list_media_assets', withAdminCode({
     input_include_archived: includeArchived,
+  }));
+  return { data: data || [], error };
+}
+
+export async function listMediaPickerAssets({
+  search = '',
+  kind = 'all',
+  source = 'all',
+  sort = 'recent',
+  limit = 32,
+  offset = 0,
+} = {}) {
+  if (!state.adminCode) return { data: [], error: new Error('Admin requerido') };
+  const { data, error } = await supabaseClient.rpc('list_media_picker_assets', withAdminCode({
+    input_search: search,
+    input_media_kind: kind,
+    input_source_type: source,
+    input_sort: sort,
+    input_limit: limit,
+    input_offset: offset,
   }));
   return { data: data || [], error };
 }

@@ -10,7 +10,7 @@ import { supabaseClient } from '../config.js';
 import { renderExtraFieldsEditor } from './blocks-editor.js';
 import { state, suppressNextWeaponsReload } from '../core/state.js';
 import { initImageUploader, updateAssetPreview, uploadImageToStorage } from '../core/storage.js';
-import { asArray, debounce, escapeHtml, showToast } from '../core/utils.js';
+import { asArray, confirmAction, debounce, escapeHtml, showToast } from '../core/utils.js';
 import { attachMediaPickerButton, openMediaPicker } from './media-library.js';
 import { renderWeaponsGrid } from './weapons-catalog.js';
 import { openWeaponCategoryModal, openWeaponTypeModal, renderWeaponCategorySelectOptions, renderWeaponTypeSelectOptions, submitWeaponCategory, submitWeaponType } from './weapons-catalog-admin.js';
@@ -95,7 +95,12 @@ export async function toggleWeaponPublished(weaponId) {
 
 
 export async function deleteWeaponAction(weaponId) {
-  if (!confirm('¿Borrar esta arma? Se perderán todos sus rangos, estadísticas y habilidades.')) return;
+  if (!(await confirmAction({
+    title: 'Borrar arma',
+    message: 'Borrar esta arma. Se perderán todos sus rangos, estadísticas y habilidades.',
+    confirmLabel: 'Borrar arma',
+    danger: true,
+  }))) return;
   const { error } = await supabaseClient.rpc('delete_weapon', { input_code: state.adminCode, input_id: weaponId });
   if (error) { showToast('No se pudo borrar', 'error'); return; }
   showToast('Arma eliminada', 'success');
@@ -166,7 +171,12 @@ export async function deleteWeaponRank(rankId) {
   const msg = ranks.length <= 1
     ? 'Este es el último rango del arma. ¿Borrarlo igual? El arma quedará sin rangos hasta que agregues otro.'
     : '¿Borrar este rango? Se perderán sus estadísticas, habilidades y receta.';
-  if (!confirm(msg)) return;
+  if (!(await confirmAction({
+    title: 'Borrar rango',
+    message: msg,
+    confirmLabel: 'Borrar rango',
+    danger: true,
+  }))) return;
   const { error } = await supabaseClient.rpc('delete_weapon_rank', { input_code: state.adminCode, input_id: rankId });
   if (error) { showToast('No se pudo borrar el rango', 'error'); return; }
   showToast('Rango eliminado', 'success');
@@ -268,7 +278,12 @@ async function submitWeaponAbility() {
 
 
 export async function deleteAbility(rankId, idx) {
-  if (!confirm('¿Borrar esta habilidad?')) return;
+  if (!(await confirmAction({
+    title: 'Borrar habilidad',
+    message: 'Borrar esta habilidad del rango.',
+    confirmLabel: 'Borrar habilidad',
+    danger: true,
+  }))) return;
   const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
   if (!rank) return;
   const abilities = JSON.parse(JSON.stringify(asArray(rank.abilities)));
@@ -382,7 +397,12 @@ async function submitWeaponRecipe() {
 
 
 async function clearWeaponRecipe() {
-  if (!confirm('¿Quitar la receta de mejora de este rango?')) return;
+  if (!(await confirmAction({
+    title: 'Quitar receta',
+    message: 'Quitar la receta de mejora de este rango.',
+    confirmLabel: 'Quitar receta',
+    danger: true,
+  }))) return;
   const { error } = await saveRankPatch(state.editingWeaponRankId, { input_upgrade_recipe: null });
   if (error) { showToast('No se pudo quitar la receta', 'error'); return; }
   document.getElementById('weapon-recipe-modal').classList.add('hidden');
@@ -458,7 +478,12 @@ async function submitWeaponSection() {
 
 
 export async function deleteSection(rankId, idx) {
-  if (!confirm('¿Borrar esta sección?')) return;
+  if (!(await confirmAction({
+    title: 'Borrar sección',
+    message: 'Borrar esta sección adicional del rango.',
+    confirmLabel: 'Borrar sección',
+    danger: true,
+  }))) return;
   const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
   if (!rank) return;
   const sections = JSON.parse(JSON.stringify(asArray(rank.extra_sections)));

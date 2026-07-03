@@ -7,7 +7,7 @@
 
 import { supabaseClient } from '../config.js';
 import { getCategory, state } from '../core/state.js';
-import { escapeHtml, showToast } from '../core/utils.js';
+import { confirmAction, escapeHtml, showToast } from '../core/utils.js';
 
 let onCategoryFiltersChanged = () => {};
 
@@ -112,7 +112,12 @@ export async function submitCategory() {
 
 async function deleteCategory(slug) {
   const cat = getCategory(slug);
-  if (!confirm(`¿Borrar la categoría "${cat.label}"?`)) return;
+  if (!(await confirmAction({
+    title: 'Borrar categoría',
+    message: `Borrar la categoría "${cat.label}". Solo funcionará si ningún log la está usando.`,
+    confirmLabel: 'Borrar categoría',
+    danger: true,
+  }))) return;
   if (!state.adminCode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
   const { error } = await supabaseClient.rpc('delete_category', { input_code: state.adminCode, input_slug: slug });
   if (error) { showToast(error.message.replace(/^.*?:\s*/, '') || 'No se pudo borrar', 'error'); return; }

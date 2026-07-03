@@ -9,7 +9,7 @@ import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { DEFAULT_MEDIA_PRESENTATION } from '../core/media.js';
 import { initGenericImageDropzone, syncGenericDropzoneState, updateAssetPreview } from '../core/storage.js';
-import { showToast } from '../core/utils.js';
+import { confirmAction, showToast } from '../core/utils.js';
 import { attachMediaPickerButton } from './media-library.js';
 
 const BACKGROUND_BASE_RGB = '12, 10, 20';
@@ -122,7 +122,12 @@ async function saveBackgroundConfig() {
 
 
 async function clearBackgroundConfig() {
-  if (!confirm('¿Quitar el fondo personalizado para todos?')) return;
+  if (!(await confirmAction({
+    title: 'Quitar fondo',
+    message: 'Quitar el fondo personalizado para todos los visitantes.',
+    confirmLabel: 'Quitar fondo',
+    danger: true,
+  }))) return;
   const i = document.getElementById('bg-image-input'); if (i) i.value = '';
   setBackgroundFormPresentation(DEFAULT_MEDIA_PRESENTATION);
   updateAssetPreview('bg', '');

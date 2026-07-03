@@ -14,7 +14,7 @@ import { cancelReply, loadComments } from './comments.js';
 import { checkAndShowDraftBanner, clearDraft, startDraftAutosave, stopDraftAutosave } from './drafts.js';
 import { loadLogsData } from './logs-data.js';
 import { PAGE_SIZE, RELEVANCE_LABELS, RELEVANCE_ORDER, TIER_COLUMNS, getCategory, isAdmin, state, suppressNextRealtimeReload } from '../core/state.js';
-import { asArray, escapeHtml, formatDate, showToast, toDatetimeLocalValue } from '../core/utils.js';
+import { asArray, confirmAction, escapeHtml, formatDate, showToast, toDatetimeLocalValue } from '../core/utils.js';
 
 function sortLogs(logs) {
   const sorted = [...logs];
@@ -310,7 +310,12 @@ export async function submitLog() {
 
 
 async function deleteLog(logId) {
-  if (!confirm('¿Seguro que quieres borrar este log?')) return;
+  if (!(await confirmAction({
+    title: 'Borrar log',
+    message: 'Borrar este log y sus datos asociados.',
+    confirmLabel: 'Borrar log',
+    danger: true,
+  }))) return;
   const { error } = await supabaseClient.rpc('delete_log', { input_code: state.adminCode, input_id: logId });
   if (error) { showToast('No se pudo borrar el log', 'error'); return; }
   showToast('Log eliminado', 'success');

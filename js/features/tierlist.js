@@ -9,7 +9,7 @@
 import { supabaseClient } from '../config.js';
 import { TIER_COLUMNS, isAdmin, state, suppressNextTierlistReload } from '../core/state.js';
 import { initImageUploader, updateAssetPreview, uploadImageToStorage } from '../core/storage.js';
-import { escapeHtml, safeUrl, showToast } from '../core/utils.js';
+import { confirmAction, escapeHtml, safeUrl, showToast } from '../core/utils.js';
 
 export function syncTierDropzoneState(url) {
   const zone  = document.getElementById('tier-item-dropzone');
@@ -312,7 +312,12 @@ export async function submitTierRow() {
 
 
 async function deleteTierRow(rowId) {
-  if (!confirm('¿Eliminar esta fila? Sus elementos pasarán a "Sin clasificar".')) return;
+  if (!(await confirmAction({
+    title: 'Eliminar fila',
+    message: 'Eliminar esta fila. Sus elementos pasarán a "Sin clasificar".',
+    confirmLabel: 'Eliminar fila',
+    danger: true,
+  }))) return;
   const { error } = await supabaseClient.rpc('delete_tierlist_row', { input_code: state.adminCode, input_id: rowId });
   if (error) { console.error(error); showToast('No se pudo borrar la fila', 'error'); return; }
   showToast('Fila eliminada', 'success');
@@ -397,7 +402,12 @@ export async function submitTierItem() {
 
 
 async function deleteTierItem(itemId) {
-  if (!confirm('¿Eliminar este elemento de la tierlist?')) return;
+  if (!(await confirmAction({
+    title: 'Eliminar elemento',
+    message: 'Eliminar este elemento de la tierlist.',
+    confirmLabel: 'Eliminar elemento',
+    danger: true,
+  }))) return;
   const { error } = await supabaseClient.rpc('delete_tierlist_item', { input_code: state.adminCode, input_id: itemId });
   if (error) { console.error(error); showToast('No se pudo eliminar', 'error'); return; }
   showToast('Elemento eliminado', 'success');

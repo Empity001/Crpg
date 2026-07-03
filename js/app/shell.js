@@ -22,7 +22,7 @@
 // =========================================================
 
 import { loadSharedShell } from './include.js';
-import { logoutAdmin, submitAdminCode, updateAdminUI } from '../features/auth.js';
+import { closeAdminLoginModal, logoutAdmin, openAdminLoginModal, submitAdminCode, updateAdminUI } from '../features/auth.js';
 import { loadAppSettings } from '../features/field-config.js';
 import { isAdmin, state } from '../core/state.js';
 import { openAssetFullscreen } from '../core/storage.js';
@@ -40,21 +40,33 @@ function wireHeaderNav(pageKey) {
 function wireAdminModal() {
   document.getElementById('admin-toggle-btn')?.addEventListener('click', () => {
     if (isAdmin()) logoutAdmin();
-    else document.getElementById('admin-modal').classList.remove('hidden');
+    else openAdminLoginModal();
   });
   document.getElementById('close-admin-modal')?.addEventListener('click', () => {
-    document.getElementById('admin-modal').classList.add('hidden');
+    closeAdminLoginModal();
   });
-  document.getElementById('submit-admin-code')?.addEventListener('click', submitAdminCode);
+  document.getElementById('admin-login-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    submitAdminCode();
+  });
+  document.getElementById('submit-admin-code')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    submitAdminCode();
+  });
   document.getElementById('admin-code-input')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') submitAdminCode();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitAdminCode();
+    }
   });
   // Cerrar cualquier modal-overlay al hacer click fuera de la caja.
   // Se delega en document porque los modales propios de cada página
   // todavía no existen en el DOM en este punto del arranque.
   document.addEventListener('click', (e) => {
     const overlay = e.target.closest('.modal-overlay');
-    if (overlay && e.target === overlay) overlay.classList.add('hidden');
+    if (!overlay || e.target !== overlay) return;
+    if (overlay.id === 'admin-modal') closeAdminLoginModal();
+    else overlay.classList.add('hidden');
   });
 }
 
