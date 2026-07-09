@@ -652,7 +652,7 @@ async function submitWeaponRecipe() {
     const slots = method.mode === 'crafting' ? asArray(method.grid)
       : ['furnace', 'smithing'].includes(method.mode) ? asArray(method.inputs)
         : asArray(method.materials);
-    return slots.some(slot => slot.name || slot.image_url) || method.result?.name || method.result?.image_url;
+    return slots.some(slot => slot.name || slot.image_url || slot.guide_link) || method.result?.name || method.result?.image_url || method.result?.guide_link;
   });
   if (!hasContent) { errorBox.textContent = 'Agrega al menos un material o un resultado.'; errorBox.classList.remove('hidden'); return; }
   const primary = methods[0] || normalizeRecipeMethod({ mode: 'trade' });
@@ -857,7 +857,7 @@ export function initWeaponModals() {
     if (getCurrentRecipeMode() === 'trade') {
       state.weaponRecipeMaterialsDraft = state.weaponRecipeMaterialsDraft
         .map(normalizeRecipeSlot)
-        .filter(slot => slot.name || slot.image_url);
+        .filter(slot => slot.name || slot.image_url || slot.guide_link);
     }
     renderRecipeMaterialsEditor();
   });

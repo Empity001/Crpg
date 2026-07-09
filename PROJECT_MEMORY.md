@@ -1151,3 +1151,16 @@ Objetivo: mejoras de capa superior una vez cerradas auditoría, multimedia y adm
 - El fondo configurable ya incluye la pestaña `kits`.
 - El bot extraido desde `culones-bot-main.zip` recibio un fix defensivo en `src/utils/embeds.js`: los logs extensos se compactan para no exceder limites de embeds de Discord.
 - Pendiente: probar en Discord real con un log largo y desplegar el bot corregido desde su repositorio/carpeta real.
+
+## Sesion 2026-07-09 (cont.) - Enlaces "Ver en Guias" en recetas de Guias
+
+- Se cerro el ultimo hueco del sistema de enlaces (`js/features/guide-links.js`, ya existente para Tierlist/Kits/Logs): ahora cada slot de material y el resultado dentro del editor de Mejora/Fabricacion de un rango de arma tienen su propio selector "Enlazar con Guias" (`guide_link: {weapon_id, rank_id}`), igual que el resto del sistema.
+- Cubre los 4 modos de receta: intercambio (`trade`), mesa de crafteo (`crafting`, grid 3x3), horno (`furnace`, 2 slots) y herreria (`smithing`, 3 slots) — tanto en materiales/inputs como en el resultado.
+- El vinculo se guarda dentro del JSON `upgrade_recipe` que ya existia (sin migracion nueva). En la vista de detalle (`weapons-detail.js` → `renderRecipeSlot`), si el slot tiene `guide_link`, el slot completo queda envuelto en un `<a>` que lleva a `weapons.html?weapon=...&rank=...`; si no tiene enlace, se ve exactamente igual pero sin ser clickeable.
+- Estilo (`css/weapons.css`, `.weapon-recipe-slot-link`): el link no se ve azul/subrayado, mantiene la estetica del slot Minecraft/morado y solo se nota clickeable con un hover sutil (glow), igual que el resto de la UI admin.
+- Al retomar este trabajo (quedo a medias en una sesion anterior) se encontraron y corrigieron 2 casos borde que se habian quedado sin el chequeo de `guide_link`, ambos en `js/features/weapons-admin.js`:
+  1. `submitWeaponRecipe()`: la validacion de "hay contenido para guardar" solo miraba `name`/`image_url` de los slots y del resultado — un material o resultado que **solo** tuviera enlace (sin nombre ni imagen) hacia fallar el guardado con "Agrega al menos un material o un resultado" aunque si tuviera contenido real (el enlace). Ahora tambien cuenta `guide_link`.
+  2. El listener de cambio de modo de receta (`weapon-recipe-mode-input`) filtraba los materiales al pasar a modo `trade` usando solo `name`/`image_url`, así que un slot que solo tuviera enlace se borraba silenciosamente al cambiar de modo. Ahora tambien respeta `guide_link`.
+- No se toco nada de lo que ya funcionaba: el selector por slot, la hidratacion (`hydrateGuideLinkSelect`), el guardado normal, la proteccion contra que subir imagen/usar biblioteca borre el enlace recien elegido, y el estilo visual — todo eso ya estaba bien y se dejo intacto.
+- Validado: sintaxis JS de `weapons-admin.js` y `weapons-detail.js` (`node --check`), sin tocar CSS ni HTML en esta sesion.
+- Pendiente real: probar visualmente en el navegador (crear una receta con un material solo-enlace, cambiar de modo y guardar, confirmar que no desaparece) — no se corrio un servidor local en esta sesion.
