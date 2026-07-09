@@ -218,6 +218,8 @@ async function buildMediaUsageIndex() {
     const weaponName = weapon?.name || 'Arma';
     addUsage(usage, rank.image_url, `Arma: ${weaponName} > Rango: ${rank.name}`);
     asArray(rank.upgrade_recipe?.materials).forEach(mat => addUsage(usage, mat.image_url, `Receta: ${weaponName} > ${mat.name}`));
+    asArray(rank.upgrade_recipe?.grid).forEach((mat, idx) => addUsage(usage, mat.image_url, `Crafteo: ${weaponName} > Slot ${idx + 1}${mat.name ? ` (${mat.name})` : ''}`));
+    asArray(rank.upgrade_recipe?.inputs).forEach((mat, idx) => addUsage(usage, mat.image_url, `Horno: ${weaponName} > ${idx === 0 ? 'Ingrediente' : 'Combustible'}${mat.name ? ` (${mat.name})` : ''}`));
     addUsage(usage, rank.upgrade_recipe?.result?.image_url, `Receta: ${weaponName} > Resultado`);
   });
 

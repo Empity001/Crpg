@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>culones-rpg · Guía de Armas</title>
-<meta name="description" content="Catálogo de armas y rangos del servidor Minecraft RPG/Gacha culones-rpg" />
+<title>culones-rpg · Guías</title>
+<meta name="description" content="Guías del servidor Minecraft RPG/Gacha culones-rpg" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -46,7 +46,7 @@
       <div class="weapons-grid" id="weapons-grid">
         <div class="logs-empty" id="weapons-loading">
           <div class="spinner"></div>
-          <p>Cargando catálogo de armas...</p>
+          <p>Cargando guías...</p>
         </div>
       </div>
     </div>
@@ -60,7 +60,7 @@
   </section>
 </main>
 
-<!-- ============ MODALES DE ESTA PÁGINA (Guía de Armas) ============ -->
+<!-- ============ MODALES DE ESTA PÁGINA (Guías) ============ -->
 <div class="modal-overlay hidden" id="weapon-modal">
   <div class="modal-box">
     <button class="modal-close" id="close-weapon-modal" aria-label="Cerrar">✕</button>
@@ -110,7 +110,7 @@
   <div class="modal-box">
     <button class="modal-close" id="close-weapon-category-modal" aria-label="Cerrar">✕</button>
     <h3 class="modal-title">🏷 CATEGORÍAS DE ARMA</h3>
-    <p class="modal-hint">Dinámicas y propias de la Guía de Armas — no se mezclan con las categorías de Logs. Aparecen como filtro automáticamente para todos los jugadores.</p>
+    <p class="modal-hint">Dinámicas y propias de Guías — no se mezclan con las categorías de Logs. Aparecen como filtro automáticamente para todos los jugadores.</p>
 
     <label class="field-label">Nombre</label>
     <input type="text" id="weapon-category-label-input" class="modal-input" maxlength="40" placeholder="Ej: MK1, Legendaria, Gacha S..." />
@@ -226,10 +226,29 @@
 <div class="modal-overlay hidden" id="weapon-recipe-modal">
   <div class="modal-box modal-box-wide">
     <button class="modal-close" id="close-weapon-recipe-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title">🔁 RECETA DE MEJORA</h3>
-    <p class="modal-hint">Materiales necesarios para mejorar DESDE este rango, más el arma/rango que se obtiene. Cualquier cantidad de materiales.</p>
+    <h3 class="modal-title">🔁 MEJORA/FABRICACIÓN</h3>
+    <p class="modal-hint">Configura cómo se obtiene este rango: intercambio, mesa de crafteo u horno.</p>
 
-    <label class="field-label">Materiales</label>
+    <div class="field-row">
+      <div class="field-col">
+        <label class="field-label">Tipo de receta</label>
+        <select id="weapon-recipe-mode-input" class="modal-select">
+          <option value="trade">Intercambio</option>
+          <option value="crafting">Mesa de crafteo</option>
+          <option value="furnace">Horno</option>
+        </select>
+      </div>
+      <div class="field-col hidden" id="weapon-recipe-furnace-type-wrap">
+        <label class="field-label">Tipo de horno</label>
+        <select id="weapon-recipe-furnace-type-input" class="modal-select">
+          <option value="furnace">Horno normal</option>
+          <option value="blast_furnace">Alto horno</option>
+          <option value="smoker">Ahumador</option>
+        </select>
+      </div>
+    </div>
+
+    <label class="field-label" id="weapon-recipe-materials-label">Materiales</label>
     <div id="weapon-recipe-materials-list" class="equip-editor-list"></div>
     <button type="button" class="link-btn" id="weapon-recipe-add-material-btn">+ Material</button>
 

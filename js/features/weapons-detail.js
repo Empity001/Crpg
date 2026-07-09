@@ -139,14 +139,14 @@ function renderWeaponRankBody(weapon, rank, admin) {
       </div>`;
   }
 
-  // ---- Receta de mejora ----
+  // ---- Mejora/fabricación ----
   const recipe = rank.upgrade_recipe;
   if (recipe || admin) {
     html += `
       <div class="weapon-section-block">
         <div class="weapon-section-head">
-          <h3 class="weapon-section-title">🔁 Mejora</h3>
-          ${admin ? `<div class="weapon-section-admin-actions"><button type="button" class="btn-secondary-admin" data-action="edit-recipe" data-rank-id="${rank.id}">✏️ Editar receta</button></div>` : ''}
+          <h3 class="weapon-section-title">🔁 Mejora/fabricación</h3>
+          ${admin ? `<div class="weapon-section-admin-actions"><button type="button" class="btn-secondary-admin" data-action="edit-recipe" data-rank-id="${rank.id}">✏️ Editar mejora/fabricación</button></div>` : ''}
         </div>
         ${recipe ? renderRecipeTrade(recipe) : '<p class="comments-empty">Este rango no tiene receta de mejora configurada.</p>'}
       </div>`;
@@ -205,28 +205,84 @@ function renderAbilityCard(ab, idx, rankId, admin) {
 
 
 function renderRecipeTrade(recipe) {
+  const mode = recipe.mode || 'trade';
+  if (mode === 'crafting') return renderCraftingRecipe(recipe);
+  if (mode === 'furnace') return renderFurnaceRecipe(recipe);
+  return renderTradeRecipe(recipe);
+}
+
+function renderRecipeSlot(item = {}, { result = false, empty = false } = {}) {
+  const safe = safeUrl(item.image_url);
+  const name = item.name || (empty ? 'Slot vacío' : 'Recurso sin nombre');
+  const qty = Number(item.qty) || 1;
+  return `
+    <div class="weapon-recipe-slot ${result ? 'is-result' : ''} ${safe ? 'has-image' : ''}"
+         tabindex="0"
+         data-minecraft-tooltip="${escapeHtml(name)}"
+         aria-label="${escapeHtml(name)}">
+      ${safe ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(name)}" class="pixel-art" loading="lazy" />` : ''}
+      ${!safe && !empty ? `<span class="tier-chip-initials">${escapeHtml((name || '?').slice(0, 2).toUpperCase())}</span>` : ''}
+      ${qty > 1 ? `<span class="weapon-recipe-material-qty">×${escapeHtml(String(qty))}</span>` : ''}
+    </div>`;
+}
+
+function renderRecipeResult(result = {}) {
+  return `
+    <div class="weapon-recipe-result">
+      ${renderRecipeSlot(result, { result: true, empty: !result?.name && !result?.image_url })}
+      <span class="weapon-recipe-result-name">${escapeHtml(result.name || '')}</span>
+    </div>`;
+}
+
+function renderTradeRecipe(recipe) {
   const materials = asArray(recipe.materials);
   const result = recipe.result || {};
   const matsHtml = materials.map(m => {
-    const safe = safeUrl(m.image_url);
     return `
       <div class="weapon-recipe-material">
-        <div class="weapon-recipe-material-thumb">
-          ${safe ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(m.name || '')}" class="js-open-asset" data-asset-src="${escapeHtml(safe)}" data-asset-title="${escapeHtml(m.name || '')}" />` : ''}
-          <span class="weapon-recipe-material-qty">×${escapeHtml(String(m.qty ?? 1))}</span>
-        </div>
+        ${renderRecipeSlot(m)}
         <span class="weapon-recipe-material-name">${escapeHtml(m.name || '')}</span>
       </div>`;
   }).join('');
-  const safeResult = safeUrl(result.image_url);
   return `
     <div class="weapon-recipe-trade">
       <div class="weapon-recipe-materials">${matsHtml || '<p class="comments-empty">Sin materiales.</p>'}</div>
       <span class="weapon-recipe-arrow">→</span>
-      <div class="weapon-recipe-result">
-        <div class="weapon-recipe-result-thumb">${safeResult ? `<img src="${escapeHtml(safeResult)}" alt="${escapeHtml(result.name || '')}" class="js-open-asset" data-asset-src="${escapeHtml(safeResult)}" data-asset-title="${escapeHtml(result.name || '')}" />` : ''}</div>
-        <span class="weapon-recipe-result-name">${escapeHtml(result.name || '')}</span>
+      ${renderRecipeResult(result)}
+    </div>`;
+}
+
+function renderCraftingRecipe(recipe) {
+  const grid = asArray(recipe.grid);
+  const result = recipe.result || {};
+  return `
+    <div class="weapon-recipe-crafting">
+      <div class="weapon-crafting-grid" aria-label="Mesa de crafteo">
+        ${Array.from({ length: 9 }, (_, idx) => renderRecipeSlot(grid[idx] || {}, { empty: true })).join('')}
       </div>
+      <span class="weapon-recipe-arrow">→</span>
+      ${renderRecipeResult(result)}
+    </div>`;
+}
+
+function renderFurnaceRecipe(recipe) {
+  const inputs = asArray(recipe.inputs);
+  const result = recipe.result || {};
+  const furnaceLabels = {
+    furnace: 'Horno normal',
+    blast_furnace: 'Alto horno',
+    smoker: 'Ahumador',
+  };
+  return `
+    <div class="weapon-recipe-furnace">
+      <div class="weapon-furnace-machine">
+        <span class="weapon-furnace-label">${escapeHtml(furnaceLabels[recipe.furnace_type] || 'Horno normal')}</span>
+        ${renderRecipeSlot(inputs[0] || {}, { empty: true })}
+        <span class="weapon-furnace-flame" aria-hidden="true">🔥</span>
+        ${renderRecipeSlot(inputs[1] || {}, { empty: true })}
+      </div>
+      <span class="weapon-recipe-arrow">→</span>
+      ${renderRecipeResult(result)}
     </div>`;
 }
 

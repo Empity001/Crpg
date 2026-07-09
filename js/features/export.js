@@ -440,11 +440,22 @@ async function exportAllXlsx() {
   // --- Hoja de ranks / versiones de armas ---
   const rankHeaders = ['ID', 'ID Arma', 'Nombre Arma', 'Nombre del Rank', 'Estadísticas', 'Habilidades (resumen)', 'Receta (resumen)', 'Orden'];
   const rankRows = [];
+  const summarizeRecipe = (recipe) => {
+    if (!recipe) return '';
+    if (recipe.mode === 'crafting') {
+      return asArray(recipe.grid).map((m, idx) => m?.name ? `Slot ${idx + 1}: ${m.name}×${m.qty || 1}` : '').filter(Boolean).join(', ');
+    }
+    if (recipe.mode === 'furnace') {
+      const labels = ['Ingrediente', 'Combustible'];
+      return asArray(recipe.inputs).map((m, idx) => m?.name ? `${labels[idx] || `Slot ${idx + 1}`}: ${m.name}×${m.qty || 1}` : '').filter(Boolean).join(', ');
+    }
+    return asArray(recipe.materials).map(m => `${m.name}×${m.qty}`).join(', ');
+  };
   weaponData.weapons.forEach(w => {
     (weaponData.ranksByWeapon[w.id] || []).forEach(rank => {
       const statsText     = asArray(rank.stats).map(s => `${s.label}: ${s.value}`).join('; ');
       const abilitiesText = asArray(rank.abilities).map(a => a.name).filter(Boolean).join(', ');
-      const recipeText    = asArray(rank.upgrade_recipe?.materials).map(m => `${m.name}×${m.qty}`).join(', ');
+      const recipeText    = summarizeRecipe(rank.upgrade_recipe);
       rankRows.push([
         rank.id, w.id, w.name, rank.name || '',
         statsText, abilitiesText, recipeText, rank.sort_order ?? '',

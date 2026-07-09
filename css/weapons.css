@@ -245,8 +245,98 @@
   gap: 16px;
   flex-wrap: wrap;
 }
+.weapon-recipe-crafting,
+.weapon-recipe-furnace {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
 .weapon-recipe-materials { display: flex; gap: 10px; flex-wrap: wrap; }
 .weapon-recipe-material { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 64px; }
+.weapon-crafting-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 48px);
+  grid-template-rows: repeat(3, 48px);
+  gap: 4px;
+  padding: 12px;
+  border: 2px solid rgba(255,255,255,0.12);
+  background: #b9b9b9;
+  box-shadow: inset 2px 2px 0 rgba(255,255,255,0.35), inset -2px -2px 0 rgba(0,0,0,0.25);
+}
+.weapon-furnace-machine {
+  display: grid;
+  grid-template-columns: 58px;
+  justify-items: center;
+  gap: 7px;
+  padding: 12px 14px;
+  border: 2px solid rgba(255,255,255,0.12);
+  background: #b9b9b9;
+  box-shadow: inset 2px 2px 0 rgba(255,255,255,0.35), inset -2px -2px 0 rgba(0,0,0,0.25);
+}
+.weapon-furnace-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #2a2a2a;
+  text-align: center;
+}
+.weapon-furnace-flame {
+  font-size: 20px;
+  line-height: 1;
+  filter: saturate(1.2);
+}
+.weapon-recipe-slot {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border: 2px solid #5c5c5c;
+  background: #8f8f8f;
+  box-shadow: inset 2px 2px 0 rgba(255,255,255,0.22), inset -2px -2px 0 rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+  overflow: visible;
+}
+.weapon-recipe-slot.is-result {
+  width: 60px;
+  height: 60px;
+  border-color: #4a4a4a;
+}
+.weapon-recipe-slot img {
+  width: 86%;
+  height: 86%;
+  object-fit: contain;
+  display: block;
+}
+.weapon-recipe-slot::after {
+  content: attr(data-minecraft-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) scale(0.96);
+  min-width: max-content;
+  max-width: 220px;
+  padding: 7px 9px;
+  border: 2px solid #7C3AED;
+  border-radius: 3px;
+  background: rgba(16, 4, 28, 0.96);
+  color: #f7f2ff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.25;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 30;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.45);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.weapon-recipe-slot:hover::after,
+.weapon-recipe-slot:focus::after,
+.weapon-recipe-slot:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
 .weapon-recipe-material-thumb {
   width: 56px; height: 56px;
   border-radius: var(--radius-sm);
@@ -285,6 +375,28 @@
 .weapon-material-row .wm-name { flex: 2; min-width: 100px; }
 .weapon-material-row .wm-image { flex: 2; min-width: 100px; }
 .weapon-material-row .wm-qty { flex: 0 0 60px; }
+.weapon-material-slot-label {
+  flex: 0 0 86px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-500);
+  text-transform: uppercase;
+}
+#weapon-recipe-materials-list[data-recipe-mode="crafting"] {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+#weapon-recipe-materials-list[data-recipe-mode="crafting"] .weapon-material-row {
+  align-content: flex-start;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.03);
+  padding: 8px;
+}
+#weapon-recipe-materials-list[data-recipe-mode="crafting"] .weapon-material-slot-label {
+  flex-basis: 100%;
+}
 
 /* ---------- Secciones extra (texto libre o clave/valor) ---------- */
 .weapon-extra-text { font-size: 13px; color: var(--ink-300); line-height: 1.6; white-space: pre-line; margin: 0; }
@@ -292,7 +404,25 @@
 @media (max-width: 720px) {
   .weapons-search-input { max-width: none; width: 100%; }
   .weapon-detail-header { flex-direction: column; align-items: center; text-align: center; }
-  .weapon-recipe-trade { justify-content: center; }
+  .weapon-recipe-trade,
+  .weapon-recipe-crafting,
+  .weapon-recipe-furnace { justify-content: center; }
+  .weapon-crafting-grid {
+    grid-template-columns: repeat(3, 42px);
+    grid-template-rows: repeat(3, 42px);
+    padding: 10px;
+  }
+  .weapon-recipe-slot {
+    width: 42px;
+    height: 42px;
+  }
+  .weapon-recipe-slot.is-result {
+    width: 54px;
+    height: 54px;
+  }
+  #weapon-recipe-materials-list[data-recipe-mode="crafting"] {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ─── Mensaje de error cuando faltan tablas (armas) ─── */
