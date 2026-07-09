@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>culones-rpg · Kits</title>
+<meta name="description" content="Kits recomendados del servidor Minecraft RPG/Gacha culones-rpg" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/tierlist.css" />
+<link rel="stylesheet" href="css/kits.css" />
+<link rel="stylesheet" href="css/admin-tools.css" />
+<link rel="stylesheet" href="css/weapons.css" />
+<link rel="stylesheet" href="css/about.css" />
+<link rel="stylesheet" href="css/media.css" />
+</head>
+<body>
+
+<div id="shell-header"></div>
+
+<main class="app-main">
+  <section class="tab-panel is-active" id="panel-kits">
+    <div class="kits-toolbar">
+      <div>
+        <h1 class="kits-title">Kits recomendados</h1>
+        <p class="kits-hint">Combinaciones de arma, accesorio y sub-arma preparadas por administradores.</p>
+      </div>
+      <button class="btn-new-log hidden" id="open-new-kit-btn" type="button">+ Nuevo kit</button>
+    </div>
+
+    <div class="kits-grid" id="kits-grid">
+      <div class="logs-empty" id="kits-loading">
+        <div class="spinner"></div>
+        <p>Cargando kits...</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="modal-overlay hidden" id="kit-modal">
+  <div class="modal-box kit-modal-box">
+    <button class="modal-close" id="close-kit-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title" id="kit-modal-title">Nuevo kit</h3>
+
+    <label class="field-label">Nombre del kit</label>
+    <input type="text" id="kit-name-input" class="modal-input" maxlength="80" placeholder="Ej: Pyrois crítico" />
+
+    <label class="field-label">Descripcion corta</label>
+    <textarea id="kit-description-input" class="modal-textarea" maxlength="240" rows="3" placeholder="Uso recomendado, sinergia o notas del kit"></textarea>
+
+    <label class="kit-published-toggle">
+      <input type="checkbox" id="kit-published-input" checked />
+      <span>Publicado</span>
+    </label>
+
+    <div class="kit-editor-columns" id="kit-columns-editor"></div>
+
+    <div class="modal-error hidden" id="kit-modal-error"></div>
+    <button class="btn-primary" id="submit-kit-btn">Guardar kit</button>
+  </div>
+</div>
+
+<div id="shell-footer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="module" src="js/pages/kits.js"></script>
+</body>
+</html>

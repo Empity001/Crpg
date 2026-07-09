@@ -41,6 +41,17 @@ export function suppressNextWeaponsReload() {
   _suppressRealtimeWeaponsTimer = setTimeout(() => { _suppressRealtimeWeapons = false; }, 3000);
 }
 
+
+export let _suppressRealtimeKits = false;
+
+let _suppressRealtimeKitsTimer = null;
+
+export function suppressNextKitsReload() {
+  _suppressRealtimeKits = true;
+  clearTimeout(_suppressRealtimeKitsTimer);
+  _suppressRealtimeKitsTimer = setTimeout(() => { _suppressRealtimeKits = false; }, 3000);
+}
+
 // ---------------------------------------------------------
 // PAGINACIÓN DE LOGS
 // Carga progresiva: muestra PAGE_SIZE logs y añade más bajo demanda.
@@ -109,6 +120,12 @@ export const state = {
   draggedTierItemId: null, // id del elemento que se está arrastrando (drag&drop PC)
   activeTab: 'logs',
 
+  // ---------- Kits recomendados ----------
+  kitsLoaded: false,
+  kits: [],
+  editingKitId: null,
+  kitDraftItems: { weapon: [], accessory: [], subweapon: [] },
+
   // ---------- Guía de Armas ----------
   weaponsLoaded: false,
   weaponCategories: [],   // [{id, label, color, sort_order}, ...]
@@ -142,6 +159,12 @@ export const TIER_COLUMNS = [
   { key: 'weapon', label: 'Arma' },
   { key: 'subweapon', label: 'Sub-arma' },
   { key: 'accessory', label: 'Accesorio' },
+];
+
+export const KIT_COLUMNS = [
+  { key: 'weapon', label: 'Arma' },
+  { key: 'accessory', label: 'Accesorio' },
+  { key: 'subweapon', label: 'Sub-arma' },
 ];
 
 // Configuración de fichas por defecto (respaldo si app_settings no

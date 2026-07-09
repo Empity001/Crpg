@@ -10,7 +10,8 @@
 import { supabaseClient } from '../config.js';
 import { loadComments } from '../features/comments.js';
 import { loadLogs } from '../features/logs.js';
-import { _suppressRealtimeReload, _suppressRealtimeTierlist, _suppressRealtimeWeapons, state } from '../core/state.js';
+import { _suppressRealtimeKits, _suppressRealtimeReload, _suppressRealtimeTierlist, _suppressRealtimeWeapons, state } from '../core/state.js';
+import { loadKits } from '../features/kits.js';
 import { loadTierlist } from '../features/tierlist.js';
 import { loadWeaponMeta, reloadWeaponData } from '../features/weapons-data.js';
 
@@ -46,6 +47,16 @@ export function initTierlistRealtime() {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tierlist_items' }, () => {
       if (state.tierlistLoaded && !_suppressRealtimeTierlist) loadTierlist();
+    })
+    .subscribe();
+}
+
+// Usada por la página de Kits (kits.html).
+
+export function initKitsRealtime() {
+  supabaseClient.channel('kits-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'kits' }, () => {
+      if (state.kitsLoaded && !_suppressRealtimeKits) loadKits();
     })
     .subscribe();
 }

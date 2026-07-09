@@ -1141,3 +1141,13 @@ Objetivo: mejoras de capa superior una vez cerradas auditoría, multimedia y adm
 - Dashboard con estadísticas.
 - Ampliar Sistema Multimedia con vídeo, audio u otros tipos.
 - PWA / caché offline como mejora opcional.
+
+## Sesion 2026-07-09 - Kits y bot de logs extensos
+
+- Se inicio la pestaña `Kits` como modulo propio reutilizando el patron visual de Tierlist: columnas fijas Arma / Accesorio / Sub-arma, cards publicas y editor admin.
+- Nueva migracion pendiente de aplicar: `sql/migration_016_kits.sql`.
+- El editor de kits usa selector multimedia en modo selector para elegir imagenes por slot.
+- `kits.html`, `css/kits.css`, `js/pages/kits.js` y `js/features/kits.js` quedan como base funcional.
+- El fondo configurable ya incluye la pestaña `kits`.
+- El bot extraido desde `culones-bot-main.zip` recibio un fix defensivo en `src/utils/embeds.js`: los logs extensos se compactan para no exceder limites de embeds de Discord.
+- Pendiente: probar en Discord real con un log largo y desplegar el bot corregido desde su repositorio/carpeta real.

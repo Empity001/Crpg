@@ -52,6 +52,7 @@ function registerModalVisualCleanups() {
     ['libre-modal', { clearSelectors: ['#libre-fields-list'], assetPreviewPrefixes: ['libre'] }],
     ['tier-item-modal', { assetPreviewPrefixes: ['tier-item'] }],
     ['tier-move-modal', { resetTextSelectors: ['#tier-move-item-name'] }],
+    ['kit-modal', { clearSelectors: ['#kit-columns-editor'] }],
     ['weapon-modal', { assetPreviewPrefixes: ['weapon'] }],
     ['weapon-category-modal', { clearSelectors: ['#weapon-category-manage-list'] }],
     ['weapon-type-modal', { clearSelectors: ['#weapon-type-manage-list'] }],

@@ -126,6 +126,7 @@ export function updateAdminUI() {
     'open-new-log-btn', 'open-field-config-btn', 'open-action-log-btn',
     'open-new-tier-row-btn', 'open-new-tier-item-btn', 'admin-panel-tab',
     'open-new-weapon-btn', 'open-weapon-category-manage-btn', 'open-weapon-type-manage-btn',
+    'open-new-kit-btn',
     'about-admin-toolbar',
   ];
   adminOnlyIds.forEach(id => {
