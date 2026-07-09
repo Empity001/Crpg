@@ -143,8 +143,10 @@ function renderKitEditor() {
             <button type="button" class="kit-row-btn danger" data-action="remove-kit-item" title="Quitar">✕</button>
             <div class="kit-url-row">
               <input type="text" class="modal-input" id="kit-${column.key}-${index}-image" data-kit-field="image_url" value="${escapeHtml(item.image_url)}" placeholder="URL de imagen" />
-              <button type="button" class="kit-row-btn" data-action="pick-kit-media" data-input-id="kit-${column.key}-${index}-image">Biblioteca</button>
-              <button type="button" class="kit-row-btn" data-action="clear-kit-image" title="Limpiar">Limpiar</button>
+              <div class="kit-url-btns">
+                <button type="button" class="kit-row-btn" data-action="pick-kit-media" data-input-id="kit-${column.key}-${index}-image">📁 Biblioteca</button>
+                <button type="button" class="kit-row-btn danger" data-action="clear-kit-image" title="Limpiar imagen">✕ Limpiar</button>
+              </div>
             </div>
             <select class="modal-select kit-guide-select" id="kit-${column.key}-${index}-guide" data-kit-field="guide_link"></select>
           </div>
