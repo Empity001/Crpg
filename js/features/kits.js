@@ -7,16 +7,17 @@ function emptyKitItems() {
   return { weapon: [], accessory: [], subweapon: [] };
 }
 
-function normalizeKitItems(items) {
+function normalizeKitItems(items, { keepEmpty = false } = {}) {
   const source = items && typeof items === 'object' && !Array.isArray(items) ? items : {};
   const normalized = emptyKitItems();
   KIT_COLUMNS.forEach((column) => {
-    normalized[column.key] = Array.isArray(source[column.key])
+    const list = Array.isArray(source[column.key])
       ? source[column.key].map((item) => ({
         name: String(item?.name || '').trim(),
         image_url: String(item?.image_url || '').trim(),
-      })).filter(item => item.name || item.image_url)
+      }))
       : [];
+    normalized[column.key] = keepEmpty ? list : list.filter(item => item.name || item.image_url);
   });
   return normalized;
 }
@@ -160,7 +161,7 @@ function syncKitDraftFromEditor() {
       image_url: row.querySelector('[data-kit-field="image_url"]')?.value.trim() || '',
     });
   });
-  state.kitDraftItems = normalizeKitItems(next);
+  state.kitDraftItems = normalizeKitItems(next, { keepEmpty: true });
 }
 
 function bindKitEditorEvents() {
@@ -214,7 +215,7 @@ export function openKitModal(kitId = null) {
   document.getElementById('kit-published-input').checked = kit ? !!kit.published : true;
   document.getElementById('kit-modal-error').classList.add('hidden');
 
-  state.kitDraftItems = normalizeKitItems(kit?.items);
+  state.kitDraftItems = normalizeKitItems(kit?.items, { keepEmpty: true });
   if (!kit) {
     KIT_COLUMNS.forEach((column) => {
       state.kitDraftItems[column.key].push({ name: '', image_url: '' });
@@ -242,13 +243,14 @@ export async function submitKit() {
   }
 
   syncKitDraftFromEditor();
+  const kitItems = normalizeKitItems(state.kitDraftItems);
   const { error } = await supabaseClient.rpc('upsert_kit', {
     input_code: state.adminCode,
     input_id: state.editingKitId,
     input_name: name,
     input_description: description,
     input_published: published,
-    input_items: state.kitDraftItems,
+    input_items: kitItems,
   });
 
   if (error) {
