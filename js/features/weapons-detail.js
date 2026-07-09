@@ -10,6 +10,8 @@ import { supabaseClient } from '../config.js';
 import { renderKeyValueRows } from './blocks-display.js';
 import { isAdmin, state } from '../core/state.js';
 import { asArray, escapeHtml, safeUrl } from '../core/utils.js';
+import { guideLinkUrl } from './guide-links.js';
+import { getInfoVisuals, visibleRankSections } from './weapons-rank-extras.js';
 import { getCurrentWeapon, getWeaponCategory, getWeaponRanks, getWeaponType, replaceWeaponRank } from './weapons-state.js';
 
 function loadWeaponAdminActions() {
@@ -95,6 +97,22 @@ export function renderWeaponDetail() {
 
 function renderWeaponRankBody(weapon, rank, admin) {
   let html = '';
+  const infoVisuals = getInfoVisuals(rank.extra_sections);
+  const infoVisualsHtml = infoVisuals.length ? `
+    <div class="weapon-info-visuals">
+      ${infoVisuals.map((item) => {
+        const safe = safeUrl(item.image_url);
+        const link = guideLinkUrl(item.guide_link);
+        const content = `
+          <span class="weapon-info-visual-thumb">
+            ${safe ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(item.name || 'Recurso visual')}" class="pixel-art" loading="lazy" />` : `<span class="tier-chip-initials">${escapeHtml((item.name || '?').slice(0, 2).toUpperCase())}</span>`}
+          </span>
+          <span class="weapon-info-visual-name">${escapeHtml(item.name || 'Recurso visual')}</span>`;
+        return link
+          ? `<a class="weapon-info-visual-card" href="${escapeHtml(link)}">${content}</a>`
+          : `<div class="weapon-info-visual-card">${content}</div>`;
+      }).join('')}
+    </div>` : '';
 
   // ---- Descripción del rango ----
   html += `
@@ -104,6 +122,7 @@ function renderWeaponRankBody(weapon, rank, admin) {
         ${admin ? `<div class="weapon-section-admin-actions"><button type="button" class="btn-secondary-admin" data-action="edit-rank-info" data-rank-id="${rank.id}">✏️ Editar rango</button></div>` : ''}
       </div>
       ${rank.description ? `<p class="weapon-rank-desc">${escapeHtml(rank.description)}</p>` : (admin ? '<p class="comments-empty">Sin descripción todavía.</p>' : '')}
+      ${infoVisualsHtml}
     </div>`;
 
   // ---- Estadísticas ----
@@ -153,7 +172,7 @@ function renderWeaponRankBody(weapon, rank, admin) {
   }
 
   // ---- Secciones extra (futuro: curiosidades, notas, builds...) ----
-  const sections = asArray(rank.extra_sections);
+  const sections = visibleRankSections(rank.extra_sections);
   sections.forEach((sec, idx) => {
     html += `
       <div class="weapon-section-block">
@@ -205,10 +224,26 @@ function renderAbilityCard(ab, idx, rankId, admin) {
 
 
 function renderRecipeTrade(recipe) {
+  if (Array.isArray(recipe.methods) && recipe.methods.length) {
+    return `<div class="weapon-recipe-methods">${recipe.methods.map(renderRecipeMethod).join('')}</div>`;
+  }
+  return renderRecipeMethod(recipe);
+}
+
+function renderRecipeMethod(recipe) {
   const mode = recipe.mode || 'trade';
-  if (mode === 'crafting') return renderCraftingRecipe(recipe);
-  if (mode === 'furnace') return renderFurnaceRecipe(recipe);
-  return renderTradeRecipe(recipe);
+  const body = mode === 'crafting'
+    ? renderCraftingRecipe(recipe)
+    : mode === 'furnace'
+      ? renderFurnaceRecipe(recipe)
+      : mode === 'smithing'
+        ? renderSmithingRecipe(recipe)
+        : renderTradeRecipe(recipe);
+  return `
+    <div class="weapon-recipe-method">
+      ${recipe.title ? `<h4 class="weapon-recipe-method-title">${escapeHtml(recipe.title)}</h4>` : ''}
+      ${body}
+    </div>`;
 }
 
 function renderRecipeSlot(item = {}, { result = false, empty = false } = {}) {
@@ -280,6 +315,19 @@ function renderFurnaceRecipe(recipe) {
         ${renderRecipeSlot(inputs[0] || {}, { empty: true })}
         <span class="weapon-furnace-flame" aria-hidden="true">🔥</span>
         ${renderRecipeSlot(inputs[1] || {}, { empty: true })}
+      </div>
+      <span class="weapon-recipe-arrow">→</span>
+      ${renderRecipeResult(result)}
+    </div>`;
+}
+
+function renderSmithingRecipe(recipe) {
+  const inputs = asArray(recipe.inputs);
+  const result = recipe.result || {};
+  return `
+    <div class="weapon-recipe-smithing">
+      <div class="weapon-smithing-machine" aria-label="Mesa de herrería">
+        ${Array.from({ length: 3 }, (_, idx) => renderRecipeSlot(inputs[idx] || {}, { empty: true })).join('')}
       </div>
       <span class="weapon-recipe-arrow">→</span>
       ${renderRecipeResult(result)}

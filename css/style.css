@@ -2273,3 +2273,28 @@ body.is-admin-mode .toast.toast-success {
   justify-content: flex-end;
   margin-bottom: 4px;
 }
+
+.guide-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  margin: 8px 0;
+  padding: 7px 11px;
+  border: 1px solid rgba(124,58,237,0.55);
+  border-radius: 6px;
+  background: rgba(124,58,237,0.12);
+  color: var(--ink-100);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.guide-link-btn:hover {
+  border-color: var(--purple);
+  background: rgba(124,58,237,0.22);
+}
+
+.block-chip-row .block-detail-panel {
+  flex-basis: 100%;
+  width: 100%;
+}

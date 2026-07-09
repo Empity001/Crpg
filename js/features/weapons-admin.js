@@ -12,11 +12,15 @@ import { state, suppressNextWeaponsReload } from '../core/state.js';
 import { initImageUploader, updateAssetPreview, uploadImageToStorage } from '../core/storage.js';
 import { asArray, confirmAction, debounce, escapeHtml, showToast } from '../core/utils.js';
 import { attachMediaPickerButton, openMediaPicker } from './media-library.js';
+import { hydrateGuideLinkSelect, parseGuideLinkValue } from './guide-links.js';
 import { renderWeaponsGrid } from './weapons-catalog.js';
 import { openWeaponCategoryModal, openWeaponTypeModal, renderWeaponCategorySelectOptions, renderWeaponTypeSelectOptions, submitWeaponCategory, submitWeaponType } from './weapons-catalog-admin.js';
 import { reloadWeaponData } from './weapons-data.js';
 import { closeWeaponDetail, openWeaponDetail, renderWeaponDetail, saveRankPatch } from './weapons-detail.js';
+import { getInfoVisuals, setInfoVisualsInSections } from './weapons-rank-extras.js';
 import { getWeaponRanks } from './weapons-state.js';
+
+let weaponRankInfoVisualsDraft = [];
 
 export function openWeaponModal(weaponId = null) {
   state.editingWeaponId = weaponId;
@@ -120,6 +124,63 @@ export async function deleteWeaponAction(weaponId) {
 // ADMIN — rangos (info básica)
 // ---------------------------------------------------------
 
+function syncRankInfoVisualsDraftFromDom() {
+  document.querySelectorAll('.weapon-info-visual-row').forEach((row) => {
+    const index = Number(row.dataset.index);
+    if (!weaponRankInfoVisualsDraft[index]) return;
+    weaponRankInfoVisualsDraft[index].name = row.querySelector('[data-visual-field="name"]')?.value.trim() || '';
+    weaponRankInfoVisualsDraft[index].image_url = row.querySelector('[data-visual-field="image_url"]')?.value.trim() || '';
+    weaponRankInfoVisualsDraft[index].guide_link = parseGuideLinkValue(row.querySelector('[data-visual-field="guide_link"]')?.value || '');
+  });
+}
+
+function renderRankInfoVisualsEditor() {
+  const container = document.getElementById('weapon-rank-info-visuals-list');
+  if (!container) return;
+  if (!weaponRankInfoVisualsDraft.length) {
+    container.innerHTML = '<p class="equip-empty-hint">Sin recursos visuales. Usa "+ Recurso visual" para agregar.</p>';
+    return;
+  }
+  container.innerHTML = weaponRankInfoVisualsDraft.map((item, index) => `
+    <div class="weapon-info-visual-row" data-index="${index}">
+      <input type="text" class="modal-input" data-visual-field="name" value="${escapeHtml(item.name || '')}" maxlength="80" placeholder="Nombre visible" />
+      <div class="weapon-info-visual-media-row">
+        <input type="text" class="modal-input" id="weapon-info-visual-${index}-image" data-visual-field="image_url" value="${escapeHtml(item.image_url || '')}" placeholder="URL de imagen" />
+        <button type="button" class="btn-media-picker" data-action="pick-info-visual" data-index="${index}">Biblioteca</button>
+        <button type="button" class="btn-secondary-admin danger" data-action="remove-info-visual" data-index="${index}">✕</button>
+      </div>
+      <select class="modal-select" id="weapon-info-visual-${index}-guide" data-visual-field="guide_link"></select>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('[data-action="pick-info-visual"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      syncRankInfoVisualsDraftFromDom();
+      const index = Number(btn.dataset.index);
+      openMediaPicker({
+        title: 'Seleccionar recurso visual',
+        allowedKinds: ['image'],
+        currentUrl: weaponRankInfoVisualsDraft[index]?.image_url || '',
+        mode: 'picker',
+        onSelect: ({ url }) => {
+          weaponRankInfoVisualsDraft[index].image_url = url;
+          renderRankInfoVisualsEditor();
+        },
+      });
+    });
+  });
+  container.querySelectorAll('[data-action="remove-info-visual"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      syncRankInfoVisualsDraftFromDom();
+      weaponRankInfoVisualsDraft.splice(Number(btn.dataset.index), 1);
+      renderRankInfoVisualsEditor();
+    });
+  });
+  weaponRankInfoVisualsDraft.forEach((item, index) => {
+    hydrateGuideLinkSelect(`weapon-info-visual-${index}-guide`, item.guide_link || null);
+  });
+}
+
 export function openWeaponRankModal(rankId) {
   state.editingWeaponRankId = rankId;
   const titleEl = document.getElementById('weapon-rank-modal-title');
@@ -131,13 +192,16 @@ export function openWeaponRankModal(rankId) {
     document.getElementById('weapon-rank-desc-input').value = rank.description || '';
     document.getElementById('weapon-rank-image-input').value = rank.image_url || '';
     updateAssetPreview('weapon-rank', rank.image_url || '');
+    weaponRankInfoVisualsDraft = getInfoVisuals(rank.extra_sections);
   } else {
     titleEl.textContent = '📈 NUEVO RANGO';
     document.getElementById('weapon-rank-name-input').value = '';
     document.getElementById('weapon-rank-desc-input').value = '';
     document.getElementById('weapon-rank-image-input').value = '';
     updateAssetPreview('weapon-rank', '');
+    weaponRankInfoVisualsDraft = [];
   }
+  renderRankInfoVisualsEditor();
   document.getElementById('weapon-rank-modal-error').classList.add('hidden');
   document.getElementById('weapon-rank-modal').classList.remove('hidden');
 }
@@ -151,11 +215,17 @@ async function submitWeaponRank() {
   if (!name) { errorBox.textContent = 'Ponle un nombre al rango.'; errorBox.classList.remove('hidden'); return; }
   if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
 
+  syncRankInfoVisualsDraftFromDom();
+
   const result = state.editingWeaponRankId
     ? await saveRankPatch(state.editingWeaponRankId, {
         input_name: name,
         input_description: description,
         input_image_url: imageUrl,
+        input_extra_sections: setInfoVisualsInSections(
+          getWeaponRanks(state.currentWeaponId).find(r => r.id === state.editingWeaponRankId)?.extra_sections || [],
+          weaponRankInfoVisualsDraft
+        ),
       })
     : await supabaseClient.rpc('upsert_weapon_rank', {
         input_code: state.adminCode,
@@ -166,7 +236,7 @@ async function submitWeaponRank() {
         input_image_url: imageUrl,
         input_stats: [],
         input_abilities: [],
-        input_extra_sections: [],
+        input_extra_sections: setInfoVisualsInSections([], weaponRankInfoVisualsDraft),
         input_upgrade_recipe: null,
       });
   const { error } = result;
@@ -325,15 +395,59 @@ function normalizeRecipeDraftForMode(mode, recipe = {}) {
     const source = asArray(recipe.grid);
     return emptyRecipeSlots(9).map((slot, index) => normalizeRecipeSlot(source[index] || slot));
   }
-  if (mode === 'furnace') {
+  if (mode === 'furnace' || mode === 'smithing') {
     const source = asArray(recipe.inputs);
-    return emptyRecipeSlots(2).map((slot, index) => normalizeRecipeSlot(source[index] || slot));
+    return emptyRecipeSlots(mode === 'smithing' ? 3 : 2).map((slot, index) => normalizeRecipeSlot(source[index] || slot));
   }
   return asArray(recipe.materials).map(normalizeRecipeSlot);
 }
 
+function defaultRecipeTitle(mode) {
+  return {
+    trade: 'Se intercambia',
+    crafting: 'Se craftea',
+    furnace: 'Se funde',
+    smithing: 'Mejorar equipamiento',
+  }[mode] || 'Método de fabricación';
+}
+
+function normalizeRecipeMethod(method = {}) {
+  const mode = method.mode || 'trade';
+  const normalized = {
+    title: String(method.title || defaultRecipeTitle(mode)).trim(),
+    mode,
+    result: {
+      name: String(method.result?.name || '').trim(),
+      image_url: String(method.result?.image_url || '').trim(),
+    },
+  };
+  if (mode === 'crafting') {
+    normalized.grid = normalizeRecipeDraftForMode(mode, method);
+  } else if (mode === 'furnace') {
+    normalized.furnace_type = method.furnace_type || 'furnace';
+    normalized.inputs = normalizeRecipeDraftForMode(mode, method);
+  } else if (mode === 'smithing') {
+    normalized.inputs = normalizeRecipeDraftForMode(mode, method);
+  } else {
+    normalized.materials = normalizeRecipeDraftForMode(mode, method).filter(slot => slot.name || slot.image_url);
+  }
+  return normalized;
+}
+
+function recipeMethodsFromRecipe(recipe = null) {
+  if (Array.isArray(recipe?.methods) && recipe.methods.length) {
+    return recipe.methods.map(normalizeRecipeMethod);
+  }
+  if (!recipe) return [normalizeRecipeMethod({ mode: 'trade' })];
+  return [normalizeRecipeMethod(recipe)];
+}
+
 function getCurrentRecipeMode() {
   return document.getElementById('weapon-recipe-mode-input')?.value || 'trade';
+}
+
+function currentRecipeMethod() {
+  return state.weaponRecipeMethodsDraft[state.editingWeaponRecipeMethodIndex] || null;
 }
 
 function syncRecipeMaterialsDraftFromDom() {
@@ -358,8 +472,61 @@ function setRecipeModeUI(mode) {
       ? 'Mesa de crafteo'
       : mode === 'furnace'
         ? 'Entrada y combustible'
-        : 'Materiales';
+        : mode === 'smithing'
+          ? 'Mesa de herreria'
+          : 'Materiales';
   }
+}
+
+function syncCurrentRecipeMethodFromForm() {
+  const method = currentRecipeMethod();
+  if (!method) return;
+  const mode = getCurrentRecipeMode();
+  syncRecipeMaterialsDraftFromDom();
+  method.title = document.getElementById('weapon-recipe-title-input')?.value.trim() || defaultRecipeTitle(mode);
+  method.mode = mode;
+  method.result = {
+    name: document.getElementById('weapon-recipe-result-name-input')?.value.trim() || '',
+    image_url: document.getElementById('weapon-recipe-result-image-input')?.value.trim() || '',
+  };
+  const normalized = state.weaponRecipeMaterialsDraft.map(normalizeRecipeSlot);
+  delete method.materials;
+  delete method.grid;
+  delete method.inputs;
+  delete method.furnace_type;
+  if (mode === 'crafting') {
+    method.grid = emptyRecipeSlots(9).map((slot, index) => normalizeRecipeSlot(normalized[index] || slot));
+  } else if (mode === 'furnace') {
+    method.furnace_type = document.getElementById('weapon-recipe-furnace-type-input')?.value || 'furnace';
+    method.inputs = emptyRecipeSlots(2).map((slot, index) => normalizeRecipeSlot(normalized[index] || slot));
+  } else if (mode === 'smithing') {
+    method.inputs = emptyRecipeSlots(3).map((slot, index) => normalizeRecipeSlot(normalized[index] || slot));
+  } else {
+    method.materials = normalized.filter(slot => slot.name || slot.image_url);
+  }
+}
+
+function renderRecipeMethodSelector() {
+  const select = document.getElementById('weapon-recipe-method-input');
+  if (!select) return;
+  select.innerHTML = state.weaponRecipeMethodsDraft.map((method, index) => `
+    <option value="${index}">${escapeHtml(method.title || `Método ${index + 1}`)}</option>
+  `).join('');
+  select.value = String(state.editingWeaponRecipeMethodIndex);
+  document.getElementById('weapon-recipe-remove-method-btn')?.classList.toggle('hidden', state.weaponRecipeMethodsDraft.length <= 1);
+}
+
+function loadRecipeMethodIntoForm(index = 0) {
+  state.editingWeaponRecipeMethodIndex = Math.max(0, Math.min(index, state.weaponRecipeMethodsDraft.length - 1));
+  const method = currentRecipeMethod() || normalizeRecipeMethod({ mode: 'trade' });
+  document.getElementById('weapon-recipe-title-input').value = method.title || defaultRecipeTitle(method.mode);
+  document.getElementById('weapon-recipe-mode-input').value = method.mode || 'trade';
+  document.getElementById('weapon-recipe-furnace-type-input').value = method.furnace_type || 'furnace';
+  document.getElementById('weapon-recipe-result-name-input').value = method.result?.name || '';
+  document.getElementById('weapon-recipe-result-image-input').value = method.result?.image_url || '';
+  state.weaponRecipeMaterialsDraft = JSON.parse(JSON.stringify(normalizeRecipeDraftForMode(method.mode || 'trade', method)));
+  renderRecipeMethodSelector();
+  renderRecipeMaterialsEditor();
 }
 
 function renderRecipeMaterialsEditor() {
@@ -374,6 +541,9 @@ function renderRecipeMaterialsEditor() {
   if (mode === 'furnace' && state.weaponRecipeMaterialsDraft.length !== 2) {
     state.weaponRecipeMaterialsDraft = emptyRecipeSlots(2).map((slot, index) => normalizeRecipeSlot(state.weaponRecipeMaterialsDraft[index] || slot));
   }
+  if (mode === 'smithing' && state.weaponRecipeMaterialsDraft.length !== 3) {
+    state.weaponRecipeMaterialsDraft = emptyRecipeSlots(3).map((slot, index) => normalizeRecipeSlot(state.weaponRecipeMaterialsDraft[index] || slot));
+  }
 
   const list = state.weaponRecipeMaterialsDraft;
   if (list.length === 0) {
@@ -382,8 +552,8 @@ function renderRecipeMaterialsEditor() {
   }
   container.innerHTML = list.map((m, idx) => `
     <div class="weapon-material-row" data-idx="${idx}">
-      ${mode !== 'trade' ? `<span class="weapon-material-slot-label">${mode === 'crafting' ? `Slot ${idx + 1}` : (idx === 0 ? 'Ingrediente' : 'Combustible')}</span>` : ''}
-      <input type="text" class="modal-input wm-name" data-idx="${idx}" data-f="name" value="${escapeHtml(m.name || '')}" placeholder="${mode === 'furnace' && idx === 1 ? 'Combustible' : 'Nombre del material'}" maxlength="60" />
+      ${mode !== 'trade' ? `<span class="weapon-material-slot-label">${mode === 'crafting' ? `Slot ${idx + 1}` : mode === 'smithing' ? ['Plantilla', 'Equipo', 'Material'][idx] : (idx === 0 ? 'Ingrediente' : 'Combustible')}</span>` : ''}
+      <input type="text" class="modal-input wm-name" data-idx="${idx}" data-f="name" value="${escapeHtml(m.name || '')}" placeholder="${mode === 'furnace' && idx === 1 ? 'Combustible' : mode === 'smithing' ? ['Plantilla', 'Equipo base', 'Material'][idx] : 'Nombre del material'}" maxlength="60" />
       <button type="button" class="btn-upload-zone btn-upload-zone-sm wm-img-btn" data-idx="${idx}">${m.image_url ? '✅ Imagen' : '📁 Imagen'}</button>
       <button type="button" class="btn-media-picker wm-media-btn" data-idx="${idx}">Biblioteca</button>
       <input type="file" class="hidden wm-img-file" data-idx="${idx}" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
@@ -449,14 +619,9 @@ export function openWeaponRecipeModal(rankId) {
   state.editingWeaponRankId = rankId;
   const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
   if (!rank) return;
-  const recipe = rank.upgrade_recipe || { mode: 'trade', materials: [], result: { name: '', image_url: '' } };
-  const mode = recipe.mode || 'trade';
-  document.getElementById('weapon-recipe-mode-input').value = mode;
-  document.getElementById('weapon-recipe-furnace-type-input').value = recipe.furnace_type || 'furnace';
-  state.weaponRecipeMaterialsDraft = JSON.parse(JSON.stringify(normalizeRecipeDraftForMode(mode, recipe)));
-  document.getElementById('weapon-recipe-result-name-input').value = recipe.result ? (recipe.result.name || '') : '';
-  document.getElementById('weapon-recipe-result-image-input').value = recipe.result ? (recipe.result.image_url || '') : '';
-  renderRecipeMaterialsEditor();
+  state.weaponRecipeMethodsDraft = recipeMethodsFromRecipe(rank.upgrade_recipe);
+  state.editingWeaponRecipeMethodIndex = 0;
+  loadRecipeMethodIntoForm(0);
   document.getElementById('weapon-recipe-modal-error').classList.add('hidden');
   document.getElementById('weapon-recipe-modal').classList.remove('hidden');
 }
@@ -465,25 +630,17 @@ export function openWeaponRecipeModal(rankId) {
 async function submitWeaponRecipe() {
   const errorBox = document.getElementById('weapon-recipe-modal-error');
   if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
-  const resultName = document.getElementById('weapon-recipe-result-name-input').value.trim();
-  const resultImage = document.getElementById('weapon-recipe-result-image-input').value.trim();
-  const mode = getCurrentRecipeMode();
-  syncRecipeMaterialsDraftFromDom();
-  const normalized = state.weaponRecipeMaterialsDraft.map(normalizeRecipeSlot);
-  const filled = normalized.filter(m => m.name || m.image_url);
-  if (filled.length === 0 && !resultName && !resultImage) { errorBox.textContent = 'Agrega al menos un material o un resultado.'; errorBox.classList.remove('hidden'); return; }
-  const recipe = {
-    mode,
-    result: { name: resultName, image_url: resultImage },
-  };
-  if (mode === 'crafting') {
-    recipe.grid = emptyRecipeSlots(9).map((slot, index) => normalizeRecipeSlot(normalized[index] || slot));
-  } else if (mode === 'furnace') {
-    recipe.furnace_type = document.getElementById('weapon-recipe-furnace-type-input').value || 'furnace';
-    recipe.inputs = emptyRecipeSlots(2).map((slot, index) => normalizeRecipeSlot(normalized[index] || slot));
-  } else {
-    recipe.materials = filled;
-  }
+  syncCurrentRecipeMethodFromForm();
+  const methods = state.weaponRecipeMethodsDraft.map(normalizeRecipeMethod);
+  const hasContent = methods.some(method => {
+    const slots = method.mode === 'crafting' ? asArray(method.grid)
+      : ['furnace', 'smithing'].includes(method.mode) ? asArray(method.inputs)
+        : asArray(method.materials);
+    return slots.some(slot => slot.name || slot.image_url) || method.result?.name || method.result?.image_url;
+  });
+  if (!hasContent) { errorBox.textContent = 'Agrega al menos un material o un resultado.'; errorBox.classList.remove('hidden'); return; }
+  const primary = methods[0] || normalizeRecipeMethod({ mode: 'trade' });
+  const recipe = { ...primary, methods };
   const { error } = await saveRankPatch(state.editingWeaponRankId, { input_upgrade_recipe: recipe });
   if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
   document.getElementById('weapon-recipe-modal').classList.add('hidden');
@@ -641,6 +798,11 @@ export function initWeaponModals() {
     document.getElementById('weapon-rank-image-input').value = '';
     updateAssetPreview('weapon-rank', '');
   });
+  document.getElementById('weapon-rank-info-visual-add-btn')?.addEventListener('click', () => {
+    syncRankInfoVisualsDraftFromDom();
+    weaponRankInfoVisualsDraft.push({ name: '', image_url: '', guide_link: null });
+    renderRankInfoVisualsEditor();
+  });
 
   document.getElementById('close-weapon-stats-modal').addEventListener('click', () => document.getElementById('weapon-stats-modal').classList.add('hidden'));
   document.getElementById('weapon-stats-add-btn').addEventListener('click', () => {
@@ -657,8 +819,25 @@ export function initWeaponModals() {
   document.getElementById('submit-weapon-ability-btn').addEventListener('click', submitWeaponAbility);
 
   document.getElementById('close-weapon-recipe-modal').addEventListener('click', () => document.getElementById('weapon-recipe-modal').classList.add('hidden'));
+  document.getElementById('weapon-recipe-method-input').addEventListener('change', (event) => {
+    syncCurrentRecipeMethodFromForm();
+    loadRecipeMethodIntoForm(Number(event.target.value) || 0);
+  });
+  document.getElementById('weapon-recipe-add-method-btn').addEventListener('click', () => {
+    syncCurrentRecipeMethodFromForm();
+    const method = normalizeRecipeMethod({ mode: 'crafting', title: `Método ${state.weaponRecipeMethodsDraft.length + 1}` });
+    state.weaponRecipeMethodsDraft.push(method);
+    loadRecipeMethodIntoForm(state.weaponRecipeMethodsDraft.length - 1);
+  });
+  document.getElementById('weapon-recipe-remove-method-btn').addEventListener('click', () => {
+    if (state.weaponRecipeMethodsDraft.length <= 1) return;
+    state.weaponRecipeMethodsDraft.splice(state.editingWeaponRecipeMethodIndex, 1);
+    loadRecipeMethodIntoForm(Math.max(0, state.editingWeaponRecipeMethodIndex - 1));
+  });
   document.getElementById('weapon-recipe-mode-input').addEventListener('change', () => {
     syncRecipeMaterialsDraftFromDom();
+    const method = currentRecipeMethod();
+    if (method) method.mode = getCurrentRecipeMode();
     if (getCurrentRecipeMode() === 'trade') {
       state.weaponRecipeMaterialsDraft = state.weaponRecipeMaterialsDraft
         .map(normalizeRecipeSlot)

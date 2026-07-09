@@ -2,6 +2,7 @@ import { supabaseClient } from '../config.js';
 import { KIT_COLUMNS, isAdmin, state, suppressNextKitsReload } from '../core/state.js';
 import { confirmAction, escapeHtml, safeUrl, showToast } from '../core/utils.js';
 import { attachMediaPickerButton } from './media-library.js';
+import { guideLinkUrl, hydrateGuideLinkSelect, parseGuideLinkValue } from './guide-links.js';
 
 function emptyKitItems() {
   return { weapon: [], accessory: [], subweapon: [] };
@@ -15,6 +16,7 @@ function normalizeKitItems(items, { keepEmpty = false } = {}) {
       ? source[column.key].map((item) => ({
         name: String(item?.name || '').trim(),
         image_url: String(item?.image_url || '').trim(),
+        guide_link: item?.guide_link || null,
       }))
       : [];
     normalized[column.key] = keepEmpty ? list : list.filter(item => item.name || item.image_url);
@@ -29,16 +31,18 @@ function initialsOf(name) {
 
 function renderKitItem(item) {
   const url = safeUrl(item.image_url);
+  const guideUrl = guideLinkUrl(item.guide_link);
   const thumb = url
-    ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(item.name || 'Item de kit')}" class="js-open-asset pixel-art" loading="lazy" data-asset-src="${escapeHtml(url)}" data-asset-title="${escapeHtml(item.name || 'Item de kit')}" />`
+    ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(item.name || 'Item de kit')}" class="${guideUrl ? '' : 'js-open-asset'} pixel-art" loading="lazy" ${guideUrl ? '' : `data-asset-src="${escapeHtml(url)}" data-asset-title="${escapeHtml(item.name || 'Item de kit')}"`} />`
     : `<span class="tier-chip-initials">${escapeHtml(initialsOf(item.name))}</span>`;
 
-  return `
+  const body = `
     <div class="kit-item">
       <div class="kit-item-thumb">${thumb}</div>
       <span class="kit-item-name">${escapeHtml(item.name || 'Item sin nombre')}</span>
-    </div>
-  `;
+    </div>`;
+
+  return guideUrl ? `<a class="kit-item-link" href="${escapeHtml(guideUrl)}">${body}</a>` : body;
 }
 
 function renderKitColumn(column, items, maxRows) {
@@ -142,6 +146,7 @@ function renderKitEditor() {
               <button type="button" class="kit-row-btn" data-action="pick-kit-media" data-input-id="kit-${column.key}-${index}-image">Biblioteca</button>
               <button type="button" class="kit-row-btn" data-action="clear-kit-image" title="Limpiar">Limpiar</button>
             </div>
+            <select class="modal-select kit-guide-select" id="kit-${column.key}-${index}-guide" data-kit-field="guide_link"></select>
           </div>
         `).join('')}
       </div>
@@ -159,6 +164,7 @@ function syncKitDraftFromEditor() {
     next[columnKey].push({
       name: row.querySelector('[data-kit-field="name"]')?.value.trim() || '',
       image_url: row.querySelector('[data-kit-field="image_url"]')?.value.trim() || '',
+      guide_link: parseGuideLinkValue(row.querySelector('[data-kit-field="guide_link"]')?.value || ''),
     });
   });
   state.kitDraftItems = normalizeKitItems(next, { keepEmpty: true });
@@ -202,6 +208,13 @@ function bindKitEditorEvents() {
     btn.addEventListener('click', () => {
       document.querySelector(`[data-media-picker-for="${inputId}"]`)?.click();
     });
+  });
+
+  document.querySelectorAll('.kit-editor-row').forEach((row) => {
+    const columnKey = row.dataset.columnKey;
+    const index = Number(row.dataset.index);
+    const item = state.kitDraftItems[columnKey]?.[index];
+    hydrateGuideLinkSelect(`kit-${columnKey}-${index}-guide`, item?.guide_link || null);
   });
 }
 

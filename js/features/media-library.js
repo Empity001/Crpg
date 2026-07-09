@@ -216,11 +216,20 @@ async function buildMediaUsageIndex() {
   ranks.forEach(rank => {
     const weapon = weaponById.get(rank.weapon_id);
     const weaponName = weapon?.name || 'Arma';
+    const recipeMethods = asArray(rank.upgrade_recipe?.methods).length ? asArray(rank.upgrade_recipe?.methods) : (rank.upgrade_recipe ? [rank.upgrade_recipe] : []);
     addUsage(usage, rank.image_url, `Arma: ${weaponName} > Rango: ${rank.name}`);
-    asArray(rank.upgrade_recipe?.materials).forEach(mat => addUsage(usage, mat.image_url, `Receta: ${weaponName} > ${mat.name}`));
-    asArray(rank.upgrade_recipe?.grid).forEach((mat, idx) => addUsage(usage, mat.image_url, `Crafteo: ${weaponName} > Slot ${idx + 1}${mat.name ? ` (${mat.name})` : ''}`));
-    asArray(rank.upgrade_recipe?.inputs).forEach((mat, idx) => addUsage(usage, mat.image_url, `Horno: ${weaponName} > ${idx === 0 ? 'Ingrediente' : 'Combustible'}${mat.name ? ` (${mat.name})` : ''}`));
-    addUsage(usage, rank.upgrade_recipe?.result?.image_url, `Receta: ${weaponName} > Resultado`);
+    recipeMethods.forEach((method, methodIdx) => {
+      const inputLabels = method.mode === 'smithing'
+        ? ['Plantilla', 'Equipo', 'Material']
+        : method.mode === 'furnace'
+          ? ['Ingrediente', 'Combustible']
+          : [];
+      const methodLabel = method.title || `Método ${methodIdx + 1}`;
+      asArray(method.materials).forEach(mat => addUsage(usage, mat.image_url, `Receta: ${weaponName} > ${methodLabel} > ${mat.name}`));
+      asArray(method.grid).forEach((mat, idx) => addUsage(usage, mat.image_url, `Crafteo: ${weaponName} > ${methodLabel} > Slot ${idx + 1}${mat.name ? ` (${mat.name})` : ''}`));
+      asArray(method.inputs).forEach((mat, idx) => addUsage(usage, mat.image_url, `Fabricacion: ${weaponName} > ${methodLabel} > ${inputLabels[idx] || `Slot ${idx + 1}`}${mat.name ? ` (${mat.name})` : ''}`));
+      addUsage(usage, method.result?.image_url, `Receta: ${weaponName} > ${methodLabel} > Resultado`);
+    });
   });
 
   addUsage(usage, state.backgroundConfig?.image_url, 'Fondo de página');

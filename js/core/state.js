@@ -146,6 +146,8 @@ export const state = {
   weaponStatsDraft: [],
   weaponAbilityStatsDraft: [],
   weaponRecipeMaterialsDraft: [],
+  weaponRecipeMethodsDraft: [],
+  editingWeaponRecipeMethodIndex: 0,
   weaponSectionFieldsDraft: [],
 };
 

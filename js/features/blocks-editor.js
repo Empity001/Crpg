@@ -11,6 +11,7 @@ import { parseEquipment } from './blocks-display.js';
 import { state } from '../core/state.js';
 import { updateAssetPreview } from '../core/storage.js';
 import { asArray, escapeHtml, safeUrl, tempId } from '../core/utils.js';
+import { getGuideLinkFromFields, hydrateGuideLinkSelect, readGuideLinkSelect, setGuideLinkInFields, visibleExtraFields } from './guide-links.js';
 
 export function renderDraftBlocksList() {
   const container = document.getElementById('draft-blocks-list');
@@ -110,8 +111,9 @@ export function openMobModal(editIndex = null) {
   }
   renderMobEquipmentEditor();
   // Cargar "algo más" draft
-  state.mobExtraDraft = mob ? JSON.parse(JSON.stringify(asArray(mob.extra_fields))) : [];
+  state.mobExtraDraft = mob ? JSON.parse(JSON.stringify(visibleExtraFields(mob.extra_fields))) : [];
   renderExtraFieldsEditor('mob-extra-fields-list', () => state.mobExtraDraft);
+  hydrateGuideLinkSelect('mob-guide-link-input', getGuideLinkFromFields(mob?.extra_fields));
   document.getElementById('mob-modal').classList.remove('hidden');
 }
 
@@ -217,7 +219,7 @@ export function submitMobBlock() {
     equipment: cleanEquip.length > 0 ? JSON.stringify(cleanEquip) : null,
     location: location || null,
     description: description || null,
-    extra_fields: cleanExtra,
+    extra_fields: setGuideLinkInFields(cleanExtra, readGuideLinkSelect('mob-guide-link-input')),
     image_url: imageUrl || null,
   };
 
@@ -276,8 +278,9 @@ export function openItemModal(editIndex = null) {
   document.getElementById('item-modal-error').classList.add('hidden');
   state.itemEnchantDraft = item ? JSON.parse(JSON.stringify(asArray(item.enchantments))) : [];
   renderItemEnchantEditor();
-  state.itemExtraDraft = item ? JSON.parse(JSON.stringify(asArray(item.extra_fields))) : [];
+  state.itemExtraDraft = item ? JSON.parse(JSON.stringify(visibleExtraFields(item.extra_fields))) : [];
   renderExtraFieldsEditor('item-extra-fields-list', () => state.itemExtraDraft);
+  hydrateGuideLinkSelect('item-guide-link-input', getGuideLinkFromFields(item?.extra_fields));
   document.getElementById('item-modal').classList.remove('hidden');
 }
 
@@ -304,7 +307,7 @@ export function submitItemBlock() {
     damage: damage === '' ? null : Number(damage),
     enchantments: cleanEnchant,
     description: description || null,
-    extra_fields: cleanExtra,
+    extra_fields: setGuideLinkInFields(cleanExtra, readGuideLinkSelect('item-guide-link-input')),
     image_url: imageUrl || null,
   };
   if (state.editingItemIndex != null) state.draftItems[state.editingItemIndex] = itemData;
@@ -328,10 +331,11 @@ export function openLibreModal(editIndex = null) {
   updateAssetPreview('libre', libreImageUrl);
   document.getElementById('libre-modal-error').classList.add('hidden');
   // Cargar campos
-  const rawFields = lib ? (lib._fields || []) : [];
+  const rawFields = lib ? visibleExtraFields(lib._fields || []) : [];
   // Store in a temp array on the modal
   document.getElementById('libre-modal')._fields = JSON.parse(JSON.stringify(rawFields));
   renderLibreFieldsEditor();
+  hydrateGuideLinkSelect('libre-guide-link-input', getGuideLinkFromFields(lib?._fields));
   document.getElementById('libre-modal').classList.remove('hidden');
 }
 
@@ -416,7 +420,7 @@ export function submitLibreBlock() {
   const name = document.getElementById('libre-name-input').value.trim();
   if (!name) { errorBox.textContent = 'Ponle un nombre al bloque.'; errorBox.classList.remove('hidden'); return; }
 
-  const fields = getLibreFields().filter(f => f.key.trim());
+  const fields = setGuideLinkInFields(getLibreFields().filter(f => f.key.trim()), readGuideLinkSelect('libre-guide-link-input'));
   const description = document.getElementById('libre-desc-input').value.trim();
   const imageUrl = safeUrl(document.getElementById('libre-image-input').value.trim());
 

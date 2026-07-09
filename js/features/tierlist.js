@@ -10,6 +10,7 @@ import { supabaseClient } from '../config.js';
 import { TIER_COLUMNS, isAdmin, state, suppressNextTierlistReload } from '../core/state.js';
 import { initImageUploader, updateAssetPreview, uploadImageToStorage } from '../core/storage.js';
 import { confirmAction, escapeHtml, safeUrl, showToast } from '../core/utils.js';
+import { getGuideLinkFromFields, hydrateGuideLinkSelect, openGuideLink, readGuideLinkSelect, setGuideLinkInFields } from './guide-links.js';
 
 export function syncTierDropzoneState(url) {
   const zone  = document.getElementById('tier-item-dropzone');
@@ -133,14 +134,16 @@ function itemsFor(rowId, columnKey) {
 
 function renderTierItemChip(item) {
   const safe = safeUrl(item.image_url);
+  const guideLink = getGuideLinkFromFields(item.extra_fields);
   const thumb = safe
-    ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(item.name)}" class="js-open-asset pixel-art" loading="lazy" data-asset-src="${escapeHtml(safe)}" data-asset-title="${escapeHtml(item.name)}" />`
+    ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(item.name)}" class="${guideLink ? '' : 'js-open-asset'} pixel-art" loading="lazy" ${guideLink ? '' : `data-asset-src="${escapeHtml(safe)}" data-asset-title="${escapeHtml(item.name)}"`} />`
     : `<span class="tier-chip-initials">${escapeHtml(initialsOf(item.name))}</span>`;
 
   return `
     <div class="tier-item-chip"
          draggable="${isAdmin() ? 'true' : 'false'}"
          data-item-id="${item.id}"
+         data-has-guide-link="${guideLink ? 'true' : 'false'}"
          title="${escapeHtml(item.name)}">
       <div class="tier-chip-thumb">
         ${thumb}
@@ -253,6 +256,16 @@ function bindTierlistCellEvents() {
       btn.addEventListener('click', (e) => { e.stopPropagation(); openTierItemModal(btn.dataset.itemId); }));
     container.querySelectorAll('[data-action="delete-tier-item"]').forEach(btn =>
       btn.addEventListener('click', (e) => { e.stopPropagation(); deleteTierItem(btn.dataset.itemId); }));
+    container.querySelectorAll('.tier-item-chip[data-has-guide-link="true"]').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        if (e.target.closest('[data-action]')) return;
+        const item = state.tierItems.find(it => it.id === chip.dataset.itemId);
+        const guideLink = getGuideLinkFromFields(item?.extra_fields);
+        if (!guideLink) return;
+        e.preventDefault();
+        openGuideLink(guideLink);
+      });
+    });
   });
 
   board.querySelectorAll('[data-action="edit-row"]').forEach(btn =>
@@ -358,6 +371,7 @@ export function openTierItemModal(itemId = null) {
     document.getElementById('tier-item-image-input').value = item.image_url || '';
     updateAssetPreview('tier-item', item.image_url || '');
     syncTierDropzoneState(item.image_url || '');
+    hydrateGuideLinkSelect('tier-item-guide-link-input', getGuideLinkFromFields(item.extra_fields));
   } else {
     titleEl.textContent = '🎴 NUEVO ELEMENTO';
     document.getElementById('tier-item-name-input').value = '';
@@ -365,6 +379,7 @@ export function openTierItemModal(itemId = null) {
     document.getElementById('tier-item-image-input').value = '';
     updateAssetPreview('tier-item', '');
     syncTierDropzoneState('');
+    hydrateGuideLinkSelect('tier-item-guide-link-input', null);
   }
   document.getElementById('tier-item-modal-error').classList.add('hidden');
   document.getElementById('tier-item-modal').classList.remove('hidden');
@@ -381,6 +396,7 @@ export async function submitTierItem() {
   if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
 
   const existing = state.editingTierItemId ? state.tierItems.find(it => it.id === state.editingTierItemId) : null;
+  const extraFields = setGuideLinkInFields(existing ? existing.extra_fields : [], readGuideLinkSelect('tier-item-guide-link-input'));
 
   const { error } = await supabaseClient.rpc('upsert_tierlist_item', {
     input_code: state.adminCode,
@@ -389,7 +405,7 @@ export async function submitTierItem() {
     input_image_url: imageUrl,
     input_column_key: state.editingTierItemId ? existing.column_key : columnKey,
     input_row_id: state.editingTierItemId ? existing.row_id : null,
-    input_extra_fields: existing ? existing.extra_fields : [],
+    input_extra_fields: extraFields,
   });
 
   if (error) { console.error(error); errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }

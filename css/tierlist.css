@@ -129,6 +129,12 @@
 
 .tier-item-chip[draggable="true"] { cursor: grab; }
 .tier-item-chip[draggable="true"]:active { cursor: grabbing; }
+.tier-item-chip[data-has-guide-link="true"] {
+  cursor: pointer;
+}
+.tier-item-chip[data-has-guide-link="true"]:hover {
+  border-color: var(--purple);
+}
 
 .tier-chip-thumb {
   position: relative;

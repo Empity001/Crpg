@@ -10,6 +10,7 @@
 import { DEFAULT_ITEM_FIELDS, DEFAULT_MOB_FIELDS, state } from '../core/state.js';
 import { renderBlockAssetHtml } from '../core/storage.js';
 import { asArray, escapeHtml } from '../core/utils.js';
+import { getGuideLinkFromFields, renderGuideLinkButton, visibleExtraFields } from './guide-links.js';
 
 export function parseEquipment(raw) {
   if (!raw) return [];
@@ -34,6 +35,7 @@ export function parseLibreFields(item) {
 // texto JSON crudo.
 
 export function renderKeyValueRows(fields) {
+  fields = visibleExtraFields(fields);
   if (!fields || fields.length === 0) return '';
   function renderFieldValue(field) {
     if (field.subfields && field.subfields.length > 0) {
@@ -122,6 +124,7 @@ function renderMobDetailPanel(mob, contextKey) {
   const otherRows = rows.filter(r => !r.includes('stat-row')).join('');
 
   const descHtml = mob.description ? `<p class="block-detail-desc">${escapeHtml(mob.description)}</p>` : '';
+  const guideLinkHtml = renderGuideLinkButton(getGuideLinkFromFields(mob.extra_fields));
   const extraRows = renderKeyValueRows(asArray(mob.extra_fields));
   const extraHtml = extraRows ? `<div class="block-detail-extra"><p class="block-detail-extra-label">Algo más</p><div class="item-detail-grid">${extraRows}</div></div>` : '';
   const assetHtml = renderBlockAssetHtml(mob.image_url, mob.name);
@@ -132,6 +135,7 @@ function renderMobDetailPanel(mob, contextKey) {
       <p class="block-detail-name">👾 ${escapeHtml(mob.name)}</p>
       ${descHtml}
       ${assetHtml}
+      ${guideLinkHtml}
       ${statRows}
       ${otherRows ? `<div class="item-detail-grid" style="margin-top:8px;">${otherRows}</div>` : ''}
       ${extraHtml}
@@ -179,6 +183,7 @@ function renderItemDetailPanel(item, contextKey) {
   const otherRows = rows.filter(r => !r.includes('stat-row')).join('');
 
   const descHtml = item.description ? `<p class="block-detail-desc">${escapeHtml(item.description)}</p>` : '';
+  const guideLinkHtml = renderGuideLinkButton(getGuideLinkFromFields(item.extra_fields));
   const extraRows = renderKeyValueRows(asArray(item.extra_fields));
   const extraHtml = extraRows ? `<div class="block-detail-extra"><p class="block-detail-extra-label">Algo más</p><div class="item-detail-grid">${extraRows}</div></div>` : '';
   const assetHtml = renderBlockAssetHtml(item.image_url, item.name);
@@ -190,6 +195,7 @@ function renderItemDetailPanel(item, contextKey) {
       <p class="block-detail-name">🗡 ${escapeHtml(item.name)}</p>
       ${descHtml}
       ${assetHtml}
+      ${guideLinkHtml}
       ${statRows}
       ${otherRows ? `<div class="item-detail-grid"${statRows ? ' style="margin-top:8px;"' : ''}>${otherRows}</div>` : ''}
       ${extraHtml}
@@ -205,13 +211,15 @@ function renderLibreDetailPanel(item, contextKey) {
 
   const descHtml = item.description ? `<p class="block-detail-desc">${escapeHtml(item.description)}</p>` : '';
   const assetHtml = renderBlockAssetHtml(item.image_url, item.name);
+  const guideLinkHtml = renderGuideLinkButton(getGuideLinkFromFields(fields));
 
   return `
     <div class="block-detail-panel hidden" id="${panelId}">
       <p class="block-detail-name">📋 ${escapeHtml(item.name)}</p>
       ${descHtml}
       ${assetHtml}
-      ${rows ? `<div class="item-detail-grid">${rows}</div>` : (descHtml || assetHtml ? '' : '<p class="comments-empty">Sin campos.</p>')}
+      ${guideLinkHtml}
+      ${rows ? `<div class="item-detail-grid">${rows}</div>` : (descHtml || assetHtml || guideLinkHtml ? '' : '<p class="comments-empty">Sin campos.</p>')}
     </div>`;
 }
 
@@ -244,6 +252,11 @@ export function renderBlocksSection(logId, contextKey) {
 // FIX: busca el panel por ID dentro del contenedor, no document.getElementById
 
 export function bindBlockChipEvents(container) {
+  container.querySelectorAll('.block-detail-panel').forEach(panel => {
+    if (panel.dataset.panelStopBound === 'true') return;
+    panel.dataset.panelStopBound = 'true';
+    panel.addEventListener('click', (e) => e.stopPropagation());
+  });
   container.querySelectorAll('.block-chip').forEach(chip => {
     chip.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -259,6 +272,7 @@ export function bindBlockChipEvents(container) {
       container.querySelectorAll('.block-chip').forEach(c => c.classList.remove('is-expanded'));
       if (wasHidden) {
         panel.classList.remove('hidden');
+        chip.insertAdjacentElement('afterend', panel);
         chip.classList.add('is-expanded');
       }
     });

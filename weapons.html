@@ -170,6 +170,11 @@
       <button type="button" class="link-btn" id="weapon-rank-image-clear-btn">✕ Quitar imagen</button>
     </div>
 
+    <label class="field-label" style="margin-top:10px;">Recursos visuales de Info <span class="optional-tag">(opcional)</span></label>
+    <p class="modal-hint">Imágenes de apoyo para la casilla Info. No reemplazan la imagen principal del rango.</p>
+    <div id="weapon-rank-info-visuals-list" class="equip-editor-list"></div>
+    <button type="button" class="link-btn" id="weapon-rank-info-visual-add-btn">+ Recurso visual</button>
+
     <div class="modal-error hidden" id="weapon-rank-modal-error"></div>
     <button class="btn-primary" id="submit-weapon-rank-btn">Guardar rango</button>
   </div>
@@ -231,11 +236,26 @@
 
     <div class="field-row">
       <div class="field-col">
+        <label class="field-label">Método</label>
+        <select id="weapon-recipe-method-input" class="modal-select"></select>
+      </div>
+      <div class="field-col recipe-method-actions">
+        <button type="button" class="btn-secondary-admin" id="weapon-recipe-add-method-btn">+ Método</button>
+        <button type="button" class="btn-secondary-admin danger" id="weapon-recipe-remove-method-btn">Quitar</button>
+      </div>
+    </div>
+
+    <label class="field-label">Título visible</label>
+    <input type="text" id="weapon-recipe-title-input" class="modal-input" maxlength="80" placeholder="Ej: Se craftea, Mejorar equipamiento, Se funde..." />
+
+    <div class="field-row">
+      <div class="field-col">
         <label class="field-label">Tipo de receta</label>
         <select id="weapon-recipe-mode-input" class="modal-select">
           <option value="trade">Intercambio</option>
           <option value="crafting">Mesa de crafteo</option>
           <option value="furnace">Horno</option>
+          <option value="smithing">Mesa de herrería</option>
         </select>
       </div>
       <div class="field-col hidden" id="weapon-recipe-furnace-type-wrap">

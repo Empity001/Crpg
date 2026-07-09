@@ -246,11 +246,30 @@
   flex-wrap: wrap;
 }
 .weapon-recipe-crafting,
-.weapon-recipe-furnace {
+.weapon-recipe-furnace,
+.weapon-recipe-smithing {
   display: flex;
   align-items: center;
   gap: 18px;
   flex-wrap: wrap;
+}
+.weapon-recipe-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.weapon-recipe-method {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.025);
+  padding: 14px;
+}
+.weapon-recipe-method-title {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--ink-100);
+  letter-spacing: 0;
 }
 .weapon-recipe-materials { display: flex; gap: 10px; flex-wrap: wrap; }
 .weapon-recipe-material { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 64px; }
@@ -270,6 +289,15 @@
   justify-items: center;
   gap: 7px;
   padding: 12px 14px;
+  border: 2px solid rgba(255,255,255,0.12);
+  background: #b9b9b9;
+  box-shadow: inset 2px 2px 0 rgba(255,255,255,0.35), inset -2px -2px 0 rgba(0,0,0,0.25);
+}
+.weapon-smithing-machine {
+  display: grid;
+  grid-template-columns: repeat(3, 48px);
+  gap: 4px;
+  padding: 12px;
   border: 2px solid rgba(255,255,255,0.12);
   background: #b9b9b9;
   box-shadow: inset 2px 2px 0 rgba(255,255,255,0.35), inset -2px -2px 0 rgba(0,0,0,0.25);
@@ -387,6 +415,11 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
+#weapon-recipe-materials-list[data-recipe-mode="smithing"] {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
 #weapon-recipe-materials-list[data-recipe-mode="crafting"] .weapon-material-row {
   align-content: flex-start;
   border: 1px solid var(--border-soft);
@@ -394,8 +427,22 @@
   background: rgba(255,255,255,0.03);
   padding: 8px;
 }
-#weapon-recipe-materials-list[data-recipe-mode="crafting"] .weapon-material-slot-label {
+#weapon-recipe-materials-list[data-recipe-mode="smithing"] .weapon-material-row {
+  align-content: flex-start;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.03);
+  padding: 8px;
+}
+#weapon-recipe-materials-list[data-recipe-mode="crafting"] .weapon-material-slot-label,
+#weapon-recipe-materials-list[data-recipe-mode="smithing"] .weapon-material-slot-label {
   flex-basis: 100%;
+}
+.recipe-method-actions {
+  align-self: end;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
 }
 
 /* ---------- Secciones extra (texto libre o clave/valor) ---------- */
@@ -406,7 +453,8 @@
   .weapon-detail-header { flex-direction: column; align-items: center; text-align: center; }
   .weapon-recipe-trade,
   .weapon-recipe-crafting,
-  .weapon-recipe-furnace { justify-content: center; }
+  .weapon-recipe-furnace,
+  .weapon-recipe-smithing { justify-content: center; }
   .weapon-crafting-grid {
     grid-template-columns: repeat(3, 42px);
     grid-template-rows: repeat(3, 42px);
@@ -421,6 +469,9 @@
     height: 54px;
   }
   #weapon-recipe-materials-list[data-recipe-mode="crafting"] {
+    grid-template-columns: 1fr;
+  }
+  #weapon-recipe-materials-list[data-recipe-mode="smithing"] {
     grid-template-columns: 1fr;
   }
 }
@@ -456,4 +507,58 @@
 .btn-load-more:hover {
   background: var(--cyan);
   color: var(--bg-deep);
+}
+
+.weapon-info-visuals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.weapon-info-visual-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.035);
+  color: var(--ink-200);
+  text-decoration: none;
+}
+.weapon-info-visual-card:hover {
+  border-color: var(--purple);
+  color: var(--ink-100);
+}
+.weapon-info-visual-thumb {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.weapon-info-visual-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.weapon-info-visual-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+.weapon-info-visual-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.025);
+}
+.weapon-info-visual-media-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
 }

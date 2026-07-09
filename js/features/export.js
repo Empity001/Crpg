@@ -440,16 +440,32 @@ async function exportAllXlsx() {
   // --- Hoja de ranks / versiones de armas ---
   const rankHeaders = ['ID', 'ID Arma', 'Nombre Arma', 'Nombre del Rank', 'Estadísticas', 'Habilidades (resumen)', 'Receta (resumen)', 'Orden'];
   const rankRows = [];
-  const summarizeRecipe = (recipe) => {
+  const summarizeRecipeMethod = (recipe) => {
     if (!recipe) return '';
     if (recipe.mode === 'crafting') {
       return asArray(recipe.grid).map((m, idx) => m?.name ? `Slot ${idx + 1}: ${m.name}×${m.qty || 1}` : '').filter(Boolean).join(', ');
+    }
+    if (recipe.mode === 'smithing') {
+      const labels = ['Plantilla', 'Equipo', 'Material'];
+      return asArray(recipe.inputs).map((m, idx) => m?.name ? `${labels[idx] || `Slot ${idx + 1}`}: ${m.name}x${m.qty || 1}` : '').filter(Boolean).join(', ');
     }
     if (recipe.mode === 'furnace') {
       const labels = ['Ingrediente', 'Combustible'];
       return asArray(recipe.inputs).map((m, idx) => m?.name ? `${labels[idx] || `Slot ${idx + 1}`}: ${m.name}×${m.qty || 1}` : '').filter(Boolean).join(', ');
     }
     return asArray(recipe.materials).map(m => `${m.name}×${m.qty}`).join(', ');
+  };
+  const summarizeRecipe = (recipe) => {
+    if (!recipe) return '';
+    const methods = asArray(recipe.methods);
+    if (methods.length) {
+      return methods.map((method, index) => {
+        const text = summarizeRecipeMethod(method);
+        if (!text) return '';
+        return `${method.title || `Metodo ${index + 1}`}: ${text}`;
+      }).filter(Boolean).join(' | ');
+    }
+    return summarizeRecipeMethod(recipe);
   };
   weaponData.weapons.forEach(w => {
     (weaponData.ranksByWeapon[w.id] || []).forEach(rank => {
