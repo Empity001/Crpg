@@ -12,7 +12,7 @@ import { state, suppressNextWeaponsReload } from '../core/state.js';
 import { initImageUploader, updateAssetPreview, uploadImageToStorage } from '../core/storage.js';
 import { asArray, confirmAction, debounce, escapeHtml, showToast } from '../core/utils.js';
 import { attachMediaPickerButton, openMediaPicker } from './media-library.js';
-import { hydrateGuideLinkSelect, parseGuideLinkValue } from './guide-links.js';
+import { hydrateGuideLinkSelect, normalizeGuideLink, parseGuideLinkValue } from './guide-links.js';
 import { renderWeaponsGrid } from './weapons-catalog.js';
 import { openWeaponCategoryModal, openWeaponTypeModal, renderWeaponCategorySelectOptions, renderWeaponTypeSelectOptions, submitWeaponCategory, submitWeaponType } from './weapons-catalog-admin.js';
 import { reloadWeaponData } from './weapons-data.js';
@@ -376,7 +376,7 @@ export async function deleteAbility(rankId, idx) {
 // ADMIN — receta de mejora (estilo "trade")
 // ---------------------------------------------------------
 
-const EMPTY_RECIPE_SLOT = { name: '', image_url: '', qty: 1 };
+const EMPTY_RECIPE_SLOT = { name: '', image_url: '', qty: 1, guide_link: null };
 
 function emptyRecipeSlots(count) {
   return Array.from({ length: count }, () => ({ ...EMPTY_RECIPE_SLOT }));
@@ -387,6 +387,7 @@ function normalizeRecipeSlot(slot = {}) {
     name: String(slot.name || '').trim(),
     image_url: String(slot.image_url || '').trim(),
     qty: Math.max(1, Number(slot.qty) || 1),
+    guide_link: normalizeGuideLink(slot.guide_link),
   };
 }
 
@@ -419,6 +420,7 @@ function normalizeRecipeMethod(method = {}) {
     result: {
       name: String(method.result?.name || '').trim(),
       image_url: String(method.result?.image_url || '').trim(),
+      guide_link: normalizeGuideLink(method.result?.guide_link),
     },
   };
   if (mode === 'crafting') {
@@ -429,7 +431,7 @@ function normalizeRecipeMethod(method = {}) {
   } else if (mode === 'smithing') {
     normalized.inputs = normalizeRecipeDraftForMode(mode, method);
   } else {
-    normalized.materials = normalizeRecipeDraftForMode(mode, method).filter(slot => slot.name || slot.image_url);
+    normalized.materials = normalizeRecipeDraftForMode(mode, method).filter(slot => slot.name || slot.image_url || slot.guide_link);
   }
   return normalized;
 }
@@ -458,6 +460,7 @@ function syncRecipeMaterialsDraftFromDom() {
     if (!state.weaponRecipeMaterialsDraft[idx]) return;
     state.weaponRecipeMaterialsDraft[idx].name = row.querySelector('[data-f="name"]')?.value || '';
     state.weaponRecipeMaterialsDraft[idx].qty = Number(row.querySelector('[data-f="qty"]')?.value) || 1;
+    state.weaponRecipeMaterialsDraft[idx].guide_link = parseGuideLinkValue(row.querySelector('[data-f="guide_link"]')?.value || '');
   });
 }
 
@@ -488,6 +491,7 @@ function syncCurrentRecipeMethodFromForm() {
   method.result = {
     name: document.getElementById('weapon-recipe-result-name-input')?.value.trim() || '',
     image_url: document.getElementById('weapon-recipe-result-image-input')?.value.trim() || '',
+    guide_link: parseGuideLinkValue(document.getElementById('weapon-recipe-result-guide-input')?.value || ''),
   };
   const normalized = state.weaponRecipeMaterialsDraft.map(normalizeRecipeSlot);
   delete method.materials;
@@ -502,7 +506,7 @@ function syncCurrentRecipeMethodFromForm() {
   } else if (mode === 'smithing') {
     method.inputs = emptyRecipeSlots(3).map((slot, index) => normalizeRecipeSlot(normalized[index] || slot));
   } else {
-    method.materials = normalized.filter(slot => slot.name || slot.image_url);
+    method.materials = normalized.filter(slot => slot.name || slot.image_url || slot.guide_link);
   }
 }
 
@@ -524,6 +528,7 @@ function loadRecipeMethodIntoForm(index = 0) {
   document.getElementById('weapon-recipe-furnace-type-input').value = method.furnace_type || 'furnace';
   document.getElementById('weapon-recipe-result-name-input').value = method.result?.name || '';
   document.getElementById('weapon-recipe-result-image-input').value = method.result?.image_url || '';
+  hydrateGuideLinkSelect('weapon-recipe-result-guide-input', method.result?.guide_link || null);
   state.weaponRecipeMaterialsDraft = JSON.parse(JSON.stringify(normalizeRecipeDraftForMode(method.mode || 'trade', method)));
   renderRecipeMethodSelector();
   renderRecipeMaterialsEditor();
@@ -557,14 +562,23 @@ function renderRecipeMaterialsEditor() {
       <button type="button" class="btn-upload-zone btn-upload-zone-sm wm-img-btn" data-idx="${idx}">${m.image_url ? '✅ Imagen' : '📁 Imagen'}</button>
       <button type="button" class="btn-media-picker wm-media-btn" data-idx="${idx}">Biblioteca</button>
       <input type="file" class="hidden wm-img-file" data-idx="${idx}" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
+      <select class="modal-select wm-guide-link" id="weapon-recipe-material-${idx}-guide" data-idx="${idx}" data-f="guide_link"></select>
       <input type="number" class="modal-input wm-qty" data-idx="${idx}" data-f="qty" value="${m.qty ?? 1}" min="1" />
       ${mode === 'trade' ? `<button type="button" class="enchant-remove" data-idx="${idx}">🗑</button>` : `<button type="button" class="enchant-remove" data-idx="${idx}" title="Vaciar slot">✕</button>`}
     </div>`).join('');
+  list.forEach((m, idx) => hydrateGuideLinkSelect(`weapon-recipe-material-${idx}-guide`, m.guide_link || null));
   container.querySelectorAll('input[data-f]').forEach(el => {
     el.addEventListener('input', () => {
       const idx = Number(el.dataset.idx);
       const field = el.dataset.f;
       list[idx][field] = field === 'qty' ? (Number(el.value) || 1) : el.value;
+    });
+  });
+  container.querySelectorAll('select[data-f="guide_link"]').forEach(el => {
+    el.addEventListener('change', () => {
+      const idx = Number(el.dataset.idx);
+      if (!list[idx]) return;
+      list[idx].guide_link = parseGuideLinkValue(el.value || '');
     });
   });
   // Botones de subir imagen de cada material
@@ -579,6 +593,7 @@ function renderRecipeMaterialsEditor() {
       fileInput.value = '';
       btn.textContent = '…';
       try {
+        syncRecipeMaterialsDraftFromDom();
         const oldUrl = list[idx].image_url || '';
         const publicUrl = await uploadImageToStorage(file, 'recipes', oldUrl);
         list[idx].image_url = publicUrl;
@@ -598,6 +613,7 @@ function renderRecipeMaterialsEditor() {
         allowedKinds: ['image'],
         currentUrl: list[idx]?.image_url || '',
         onSelect: ({ url }) => {
+          syncRecipeMaterialsDraftFromDom();
           list[idx].image_url = url;
           renderRecipeMaterialsEditor();
         },
@@ -846,7 +862,8 @@ export function initWeaponModals() {
     renderRecipeMaterialsEditor();
   });
   document.getElementById('weapon-recipe-add-material-btn').addEventListener('click', () => {
-    state.weaponRecipeMaterialsDraft.push({ name: '', image_url: '', qty: 1 });
+    syncRecipeMaterialsDraftFromDom();
+    state.weaponRecipeMaterialsDraft.push({ ...EMPTY_RECIPE_SLOT });
     renderRecipeMaterialsEditor();
   });
   document.getElementById('submit-weapon-recipe-btn').addEventListener('click', submitWeaponRecipe);

@@ -250,7 +250,8 @@ function renderRecipeSlot(item = {}, { result = false, empty = false } = {}) {
   const safe = safeUrl(item.image_url);
   const name = item.name || (empty ? 'Slot vacío' : 'Recurso sin nombre');
   const qty = Number(item.qty) || 1;
-  return `
+  const link = guideLinkUrl(item.guide_link);
+  const slotHtml = `
     <div class="weapon-recipe-slot ${result ? 'is-result' : ''} ${safe ? 'has-image' : ''}"
          tabindex="0"
          data-minecraft-tooltip="${escapeHtml(name)}"
@@ -259,12 +260,14 @@ function renderRecipeSlot(item = {}, { result = false, empty = false } = {}) {
       ${!safe && !empty ? `<span class="tier-chip-initials">${escapeHtml((name || '?').slice(0, 2).toUpperCase())}</span>` : ''}
       ${qty > 1 ? `<span class="weapon-recipe-material-qty">×${escapeHtml(String(qty))}</span>` : ''}
     </div>`;
+  if (!link) return slotHtml;
+  return `<a class="weapon-recipe-slot-link" href="${escapeHtml(link)}" aria-label="Ver ${escapeHtml(name)} en Guías">${slotHtml}</a>`;
 }
 
 function renderRecipeResult(result = {}) {
   return `
     <div class="weapon-recipe-result">
-      ${renderRecipeSlot(result, { result: true, empty: !result?.name && !result?.image_url })}
+      ${renderRecipeSlot(result, { result: true, empty: !result?.name && !result?.image_url && !result?.guide_link })}
       <span class="weapon-recipe-result-name">${escapeHtml(result.name || '')}</span>
     </div>`;
 }
