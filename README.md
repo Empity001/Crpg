@@ -88,7 +88,7 @@ Para todo lo que no encaja como mob ni item: NPCs, estructuras, eventos especial
 
 - **Descripción** (opcional): notas adicionales en texto libre, con saltos de línea respetados.
 - **Imagen de referencia** (opcional): se puede subir un archivo o reutilizar un recurso desde la Biblioteca Multimedia. Se mantiene como URL en el campo actual para compatibilidad, con vista previa, opción de quitar y botón **"⛶ Ver en pantalla completa"**.
-- **🔗 Enlazar con Guías** (opcional): la ficha puede apuntar a un arma/rango concreto de la Guía de Armas (ver sección dedicada más abajo).
+- **🔗 Enlazar con Guías** (opcional): la ficha puede apuntar a un arma/rango concreto de Guías (ver sección dedicada más abajo).
 - **"Algo más"** (solo mob/item, opcional): campos libres clave/valor adicionales, para cualquier dato que no tenga un campo fijo dedicado. Siempre se muestran al final de la ficha, después de los campos fijos.
 
 ---
@@ -104,7 +104,7 @@ Los campos personalizados ("Algo más") no se ven afectados por esta configuraci
 
 ---
 
-## ⚔️ Guía de Armas
+## ⚔️ Guías
 
 Catálogo de armas independiente del sistema de Logs, con su propia búsqueda y filtros.
 
@@ -164,7 +164,7 @@ Combinaciones recomendadas de equipamiento, pensadas para responder "¿con qué 
 
 ## 🔗 Enlazar con Guías ("Ver en Guías")
 
-Una misma arma o rango de la Guía de Armas puede estar referenciada desde muchos lugares distintos de la web. En vez de repetir su imagen y su nombre por todos lados, cualquiera de estos elementos puede **enlazarse** directamente a esa arma/rango:
+Una misma arma o rango de Guías puede estar referenciada desde muchos lugares distintos de la web. En vez de repetir su imagen y su nombre por todos lados, cualquiera de estos elementos puede **enlazarse** directamente a esa arma/rango:
 
 - Las fichas de Mob, Item y Bloque Libre dentro de un log.
 - Los elementos de la Tierlist.
@@ -255,7 +255,7 @@ Este registro es **solo visible para administradores** y es permanente — no de
 
 ## 🔄 Tiempo real
 
-Los logs, sus mobs/items, los comentarios, el catálogo de la Guía de Armas, la Tierlist y los Kits se sincronizan automáticamente entre navegadores: si un admin publica un log, un arma nueva o un kit, o alguien comenta, cualquier otra persona que tenga la página abierta lo ve aparecer sin necesidad de recargar.
+Los logs, sus mobs/items, los comentarios, el catálogo de Guías, la Tierlist y los Kits se sincronizan automáticamente entre navegadores: si un admin publica un log, un arma nueva o un kit, o alguien comenta, cualquier otra persona que tenga la página abierta lo ve aparecer sin necesidad de recargar.
 
 ---
 
