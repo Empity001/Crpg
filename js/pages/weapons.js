@@ -11,10 +11,10 @@ import { bootShell } from '../app/shell.js';
 import { initWeaponsRealtime } from '../app/realtime.js';
 import { isAdmin, state } from '../core/state.js';
 import { registerAdminUiRefreshHandler } from '../features/auth.js';
-import { initWeaponModals } from '../features/weapons-admin.js';
-import { renderWeaponsGrid } from '../features/weapons-catalog.js';
-import { loadWeaponsCatalog } from '../features/weapons-data.js';
-import { openWeaponDetail, renderWeaponDetail } from '../features/weapons-detail.js';
+import { initWeaponModals } from '../features/weapons-admin.js?v=20260710-2';
+import { renderWeaponsGrid } from '../features/weapons-catalog.js?v=20260710-2';
+import { loadWeaponsCatalog } from '../features/weapons-data.js?v=20260710-2';
+import { openWeaponDetail, renderWeaponDetail } from '../features/weapons-detail.js?v=20260710-2';
 
 function openLinkedGuideFromUrl() {
   const params = new URLSearchParams(window.location.search);

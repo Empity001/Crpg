@@ -35,6 +35,16 @@ function normalizeKitItems(items, { keepEmpty = false } = {}) {
   return normalized;
 }
 
+function kitRenderSignature(kit) {
+  const items = normalizeKitItems(kit?.items);
+  return JSON.stringify({
+    name: String(kit?.name || '').trim().toLowerCase(),
+    description: String(kit?.description || '').trim(),
+    published: !!kit?.published,
+    items,
+  });
+}
+
 function initialsOf(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean).slice(0, 2);
   return parts.map(part => part[0]).join('').toUpperCase() || '?';
@@ -118,10 +128,14 @@ export async function loadKits() {
   }
 
   const seen = new Set();
+  const seenContent = new Set();
   state.kits = (data || []).filter((kit) => {
     if (!kit?.id) return true;
     if (seen.has(kit.id)) return false;
+    const signature = kitRenderSignature(kit);
+    if (seenContent.has(signature)) return false;
     seen.add(kit.id);
+    seenContent.add(signature);
     return true;
   });
   state.kitsLoaded = true;

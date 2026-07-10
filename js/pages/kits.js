@@ -2,7 +2,7 @@ import { initKitsRealtime } from '../app/realtime.js';
 import { bootShell } from '../app/shell.js';
 import { state } from '../core/state.js';
 import { registerAdminUiRefreshHandler } from '../features/auth.js';
-import { loadKits, openKitModal, renderKits, submitKit } from '../features/kits.js';
+import { loadKits, openKitModal, renderKits, submitKit } from '../features/kits.js?v=20260710-2';
 
 function initKitModals() {
   document.getElementById('open-new-kit-btn')?.addEventListener('click', () => openKitModal(null));
