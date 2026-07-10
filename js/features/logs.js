@@ -197,20 +197,30 @@ export async function openDetailModal(logId, highlightItemId = null) {
  * abre el panel expandido y lo lleva a la vista con un resaltado temporal.
  * Los paneles se renderizan con id="block-detail-modal-<logId>-<itemId>"
  * (contextKey = modal-<logId>).
+ *
+ * IMPORTANTE: la búsqueda se acota a #detail-content, no a `document`.
+ * Cada log se renderiza con sus chips/paneles DOS veces — una vez en su
+ * tarjeta de la lista (contextKey = card-<logId>) y otra dentro del modal
+ * (contextKey = modal-<logId>) — y ambas copias conviven en el DOM mientras
+ * el modal está abierto. Una búsqueda con document.querySelector encontraba
+ * siempre la copia de la tarjeta (aparece antes en el DOM que el modal),
+ * así que el click/scroll ocurría sobre un panel oculto detrás del modal
+ * y nunca se veía nada, sin importar qué item trajera el enlace.
  */
 function scrollToItem(itemId) {
   setTimeout(() => {
-    // Buscar el chip correspondiente al item en el modal de detalle
-    const chip = document.querySelector(
-      `[data-panel-id$="-${itemId}"]`
-    );
+    const scope = document.getElementById('detail-content');
+    if (!scope) return;
+
+    // Buscar el chip correspondiente al item dentro del modal
+    const chip = scope.querySelector(`[data-panel-id$="-${itemId}"]`);
     if (chip) {
       // Simular click para abrir el panel (usa la lógica existente de bindBlockChipEvents)
       chip.click();
     }
 
-    // Buscar el panel expandido (con o sin prefix de contexto)
-    const panel = document.querySelector(`[id$="-${itemId}"]`);
+    // Buscar el panel expandido dentro del modal (no en toda la página)
+    const panel = scope.querySelector(`[id$="-${itemId}"]`);
     if (!panel) return;
 
     panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
