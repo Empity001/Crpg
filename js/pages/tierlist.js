@@ -13,8 +13,8 @@ import { initImageUploader, updateAssetPreview } from '../core/storage.js';
 import { registerAdminUiRefreshHandler } from '../features/auth.js';
 import { attachMediaPickerButton } from '../features/media-library.js';
 import {
-  initTierItemDropzone, loadTierlist, openTierItemModal, openTierRowModal, renderTierlist,
-  submitTierItem, submitTierMove, submitTierRow, syncTierDropzoneState,
+  initTierItemClipboardActions, initTierItemDropzone, loadTierlist, openTierItemModal, openTierRowModal,
+  renderTierlist, submitTierItem, submitTierMove, submitTierRow, syncTierDropzoneState,
 } from '../features/tierlist.js';
 
 function initTierlistModals() {
@@ -25,6 +25,7 @@ function initTierlistModals() {
   document.getElementById('open-new-tier-item-btn').addEventListener('click', () => openTierItemModal(null));
   document.getElementById('close-tier-item-modal').addEventListener('click', () => document.getElementById('tier-item-modal').classList.add('hidden'));
   document.getElementById('submit-tier-item-btn').addEventListener('click', submitTierItem);
+  initTierItemClipboardActions();
   document.getElementById('tier-item-image-input').addEventListener('change', (e) => {
     updateAssetPreview('tier-item', e.target.value.trim());
     syncTierDropzoneState(e.target.value.trim());

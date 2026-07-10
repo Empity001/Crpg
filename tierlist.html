@@ -66,7 +66,14 @@
 <div class="modal-overlay hidden" id="tier-item-modal">
   <div class="modal-box">
     <button class="modal-close" id="close-tier-item-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title" id="tier-item-modal-title">🎴 NUEVO ELEMENTO</h3>
+    <div class="modal-title-row">
+      <h3 class="modal-title" id="tier-item-modal-title">🎴 NUEVO ELEMENTO</h3>
+      <span class="editor-row-actions" id="tier-item-copy-actions">
+        <button type="button" class="editor-mini-btn" data-tier-item-copy-action="duplicate" title="Duplicar elemento">⧉</button>
+        <button type="button" class="editor-mini-btn" data-tier-item-copy-action="copy" title="Copiar elemento">⎘</button>
+        <button type="button" class="editor-mini-btn" data-tier-item-copy-action="paste" title="Pegar elemento">↧</button>
+      </span>
+    </div>
 
     <label class="field-label">Nombre</label>
     <input type="text" id="tier-item-name-input" class="modal-input" maxlength="80" placeholder="Ej: Espada de Pyrois" />

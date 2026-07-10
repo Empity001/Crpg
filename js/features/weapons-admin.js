@@ -10,7 +10,7 @@ import { supabaseClient } from '../config.js';
 import { renderExtraFieldsEditor } from './blocks-editor.js';
 import { state, suppressNextWeaponsReload } from '../core/state.js';
 import { initImageUploader, updateAssetPreview, uploadImageToStorage } from '../core/storage.js';
-import { asArray, confirmAction, debounce, escapeHtml, showToast } from '../core/utils.js';
+import { asArray, cloneData, confirmAction, copyEditorPayload, debounce, escapeHtml, getEditorPayload, hasEditorPayload, showToast } from '../core/utils.js';
 import { attachMediaPickerButton, openMediaPicker } from './media-library.js';
 import { hydrateGuideLinkSelect, normalizeGuideLink, parseGuideLinkValue } from './guide-links.js';
 import { renderWeaponsGrid } from './weapons-catalog.js';
@@ -21,6 +21,14 @@ import { getInfoVisuals, setInfoVisualsInSections } from './weapons-rank-extras.
 import { getWeaponRanks } from './weapons-state.js';
 
 let weaponRankInfoVisualsDraft = [];
+
+function editorActionButtons(scope, idx) {
+  return `
+    <button type="button" class="editor-mini-btn" data-editor-action="duplicate" data-scope="${scope}" data-idx="${idx}" title="Duplicar">⧉</button>
+    <button type="button" class="editor-mini-btn" data-editor-action="copy" data-scope="${scope}" data-idx="${idx}" title="Copiar">📋</button>
+    <button type="button" class="editor-mini-btn" data-editor-action="paste" data-scope="${scope}" data-idx="${idx}" title="Pegar" ${hasEditorPayload(scope) ? '' : 'disabled'}>📥</button>
+  `;
+}
 
 export function openWeaponModal(weaponId = null) {
   state.editingWeaponId = weaponId;
@@ -147,6 +155,7 @@ function renderRankInfoVisualsEditor() {
       <div class="weapon-info-visual-media-row">
         <input type="text" class="modal-input" id="weapon-info-visual-${index}-image" data-visual-field="image_url" value="${escapeHtml(item.image_url || '')}" placeholder="URL de imagen" />
         <button type="button" class="btn-media-picker" data-action="pick-info-visual" data-index="${index}">Biblioteca</button>
+        <div class="editor-row-actions">${editorActionButtons('weapon-info-visual', index)}</div>
         <button type="button" class="btn-secondary-admin danger" data-action="remove-info-visual" data-index="${index}">✕</button>
       </div>
       <select class="modal-select" id="weapon-info-visual-${index}-guide" data-visual-field="guide_link"></select>
@@ -173,6 +182,26 @@ function renderRankInfoVisualsEditor() {
     btn.addEventListener('click', () => {
       syncRankInfoVisualsDraftFromDom();
       weaponRankInfoVisualsDraft.splice(Number(btn.dataset.index), 1);
+      renderRankInfoVisualsEditor();
+    });
+  });
+  container.querySelectorAll('[data-editor-action][data-scope="weapon-info-visual"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      syncRankInfoVisualsDraftFromDom();
+      const index = Number(btn.dataset.idx);
+      if (btn.dataset.editorAction === 'duplicate') {
+        weaponRankInfoVisualsDraft.splice(index + 1, 0, cloneData(weaponRankInfoVisualsDraft[index]));
+      } else if (btn.dataset.editorAction === 'copy') {
+        copyEditorPayload('weapon-info-visual', weaponRankInfoVisualsDraft[index]);
+      } else if (btn.dataset.editorAction === 'paste') {
+        const payload = getEditorPayload('weapon-info-visual');
+        if (!payload) return;
+        weaponRankInfoVisualsDraft[index] = {
+          name: String(payload?.name || ''),
+          image_url: String(payload?.image_url || ''),
+          guide_link: normalizeGuideLink(payload?.guide_link),
+        };
+      }
       renderRankInfoVisualsEditor();
     });
   });
@@ -518,6 +547,8 @@ function renderRecipeMethodSelector() {
   `).join('');
   select.value = String(state.editingWeaponRecipeMethodIndex);
   document.getElementById('weapon-recipe-remove-method-btn')?.classList.toggle('hidden', state.weaponRecipeMethodsDraft.length <= 1);
+  const actions = document.getElementById('weapon-recipe-method-copy-actions');
+  if (actions) actions.innerHTML = editorActionButtons('weapon-recipe-method', state.editingWeaponRecipeMethodIndex);
 }
 
 function loadRecipeMethodIntoForm(index = 0) {
@@ -564,6 +595,7 @@ function renderRecipeMaterialsEditor() {
       <input type="file" class="hidden wm-img-file" data-idx="${idx}" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
       <select class="modal-select wm-guide-link" id="weapon-recipe-material-${idx}-guide" data-idx="${idx}" data-f="guide_link"></select>
       <input type="number" class="modal-input wm-qty" data-idx="${idx}" data-f="qty" value="${m.qty ?? 1}" min="1" />
+      <div class="editor-row-actions">${editorActionButtons('weapon-recipe-material', idx)}</div>
       ${mode === 'trade' ? `<button type="button" class="enchant-remove" data-idx="${idx}">🗑</button>` : `<button type="button" class="enchant-remove" data-idx="${idx}" title="Vaciar slot">✕</button>`}
     </div>`).join('');
   list.forEach((m, idx) => hydrateGuideLinkSelect(`weapon-recipe-material-${idx}-guide`, m.guide_link || null));
@@ -625,6 +657,24 @@ function renderRecipeMaterialsEditor() {
       const idx = Number(btn.dataset.idx);
       if (mode === 'trade') list.splice(idx, 1);
       else list[idx] = { ...EMPTY_RECIPE_SLOT };
+      renderRecipeMaterialsEditor();
+    });
+  });
+  container.querySelectorAll('[data-editor-action][data-scope="weapon-recipe-material"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      syncRecipeMaterialsDraftFromDom();
+      const idx = Number(btn.dataset.idx);
+      if (!list[idx]) return;
+      if (btn.dataset.editorAction === 'duplicate') {
+        if (mode === 'trade') list.splice(idx + 1, 0, cloneData(list[idx]));
+        else list[idx] = cloneData(list[idx]);
+      } else if (btn.dataset.editorAction === 'copy') {
+        copyEditorPayload('weapon-recipe-material', list[idx]);
+      } else if (btn.dataset.editorAction === 'paste') {
+        const payload = getEditorPayload('weapon-recipe-material');
+        if (!payload) return;
+        list[idx] = normalizeRecipeSlot(payload);
+      }
       renderRecipeMaterialsEditor();
     });
   });
@@ -849,6 +899,24 @@ export function initWeaponModals() {
     if (state.weaponRecipeMethodsDraft.length <= 1) return;
     state.weaponRecipeMethodsDraft.splice(state.editingWeaponRecipeMethodIndex, 1);
     loadRecipeMethodIntoForm(Math.max(0, state.editingWeaponRecipeMethodIndex - 1));
+  });
+  document.getElementById('weapon-recipe-method-copy-actions')?.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-editor-action][data-scope="weapon-recipe-method"]');
+    if (!btn) return;
+    syncCurrentRecipeMethodFromForm();
+    const idx = state.editingWeaponRecipeMethodIndex;
+    if (btn.dataset.editorAction === 'duplicate') {
+      state.weaponRecipeMethodsDraft.splice(idx + 1, 0, normalizeRecipeMethod(cloneData(state.weaponRecipeMethodsDraft[idx])));
+      loadRecipeMethodIntoForm(idx + 1);
+    } else if (btn.dataset.editorAction === 'copy') {
+      copyEditorPayload('weapon-recipe-method', normalizeRecipeMethod(state.weaponRecipeMethodsDraft[idx]));
+      renderRecipeMethodSelector();
+    } else if (btn.dataset.editorAction === 'paste') {
+      const payload = getEditorPayload('weapon-recipe-method');
+      if (!payload) return;
+      state.weaponRecipeMethodsDraft[idx] = normalizeRecipeMethod(payload);
+      loadRecipeMethodIntoForm(idx);
+    }
   });
   document.getElementById('weapon-recipe-mode-input').addEventListener('change', () => {
     syncRecipeMaterialsDraftFromDom();

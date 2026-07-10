@@ -17,7 +17,7 @@ import { cancelReply, deleteCommentAction, startReplyTo, submitComment, toggleCo
 import { initBeforeUnload, restoreDraft, saveDraft, stopDraftAutosave } from '../features/drafts.js';
 import { loadDraftByKey } from '../features/drafts-store.js';
 import { openFieldConfigModal, saveFieldConfig, setFieldConfigSavedHandler } from '../features/field-config.js';
-import { initSortControl, loadLogs, openEditLogModal, openNewLogModal, openDetailModal, renderLogs, submitLog } from '../features/logs.js';
+import { initSortControl, loadLogs, openEditLogModal, openNewLogModal, renderLogs, submitLog } from '../features/logs.js';
 import { attachMediaPickerButton } from '../features/media-library.js';
 import { state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
@@ -145,27 +145,6 @@ async function checkIncomingDraftLink() {
   setTimeout(() => restoreDraft(draft), 60);
 }
 
-// Si venimos de un deep link de Discord con ?log=<id> y opcionalmente
-// ?item=<id>, abrimos directamente el modal de ese log (y resaltamos
-// el item si se especifica). La URL se limpia para no interferir con
-// la navegación posterior ni con los borradores.
-async function checkIncomingDeepLink() {
-  const params = new URLSearchParams(window.location.search);
-  const logId  = params.get('log');
-  const itemId = params.get('item');
-  if (!logId) return false;
-  window.history.replaceState({}, '', 'index.html');
-  // El log puede no estar en state.logs si aún no cargó — esperamos a que
-  // loadLogs() termine (se llama antes en init) y buscamos entonces.
-  const log = state.logs.find(l => l.id === logId);
-  if (!log) {
-    console.warn(`[DeepLink] Log ${logId} no encontrado en state.logs.`);
-    return false;
-  }
-  await openDetailModal(logId, itemId || null);
-  return true;
-}
-
 async function init() {
   await bootShell('logs');
   initLogsModals();
@@ -177,9 +156,7 @@ async function init() {
   await loadCategories();
   await loadLogs();
   initLogsRealtime();
-  // Deep links de Discord (?log=<id>&item=<id>) tienen prioridad sobre borradores
-  const handledDeepLink = await checkIncomingDeepLink();
-  if (!handledDeepLink) await checkIncomingDraftLink();
+  await checkIncomingDraftLink();
 }
 
 document.addEventListener('DOMContentLoaded', init);

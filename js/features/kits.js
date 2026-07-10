@@ -1,8 +1,19 @@
 import { supabaseClient } from '../config.js';
 import { KIT_COLUMNS, isAdmin, state, suppressNextKitsReload } from '../core/state.js';
-import { confirmAction, escapeHtml, safeUrl, showToast } from '../core/utils.js';
+import { cloneData, confirmAction, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast } from '../core/utils.js';
 import { attachMediaPickerButton } from './media-library.js';
 import { guideLinkUrl, hydrateGuideLinkSelect, parseGuideLinkValue } from './guide-links.js';
+
+let kitsLoadRequestId = 0;
+let kitSubmitInProgress = false;
+
+function editorActionButtons(scope, idx) {
+  return `
+    <button type="button" class="kit-row-btn" data-action="duplicate-kit-item" data-scope="${scope}" data-index="${idx}" title="Duplicar">⧉</button>
+    <button type="button" class="kit-row-btn" data-action="copy-kit-item" data-scope="${scope}" data-index="${idx}" title="Copiar">📋</button>
+    <button type="button" class="kit-row-btn" data-action="paste-kit-item" data-scope="${scope}" data-index="${idx}" title="Pegar" ${hasEditorPayload(scope) ? '' : 'disabled'}>📥</button>
+  `;
+}
 
 function emptyKitItems() {
   return { weapon: [], accessory: [], subweapon: [] };
@@ -19,7 +30,7 @@ function normalizeKitItems(items, { keepEmpty = false } = {}) {
         guide_link: item?.guide_link || null,
       }))
       : [];
-    normalized[column.key] = keepEmpty ? list : list.filter(item => item.name || item.image_url);
+    normalized[column.key] = keepEmpty ? list : list.filter(item => item.name || item.image_url || item.guide_link);
   });
   return normalized;
 }
@@ -91,9 +102,12 @@ function renderKitCard(kit) {
 
 export async function loadKits() {
   const grid = document.getElementById('kits-grid');
+  const requestId = ++kitsLoadRequestId;
   const { data, error } = await supabaseClient.rpc('list_kits', {
     input_code: state.adminCode,
   });
+
+  if (requestId !== kitsLoadRequestId) return;
 
   if (error) {
     console.error(error);
@@ -103,7 +117,13 @@ export async function loadKits() {
     return;
   }
 
-  state.kits = data || [];
+  const seen = new Set();
+  state.kits = (data || []).filter((kit) => {
+    if (!kit?.id) return true;
+    if (seen.has(kit.id)) return false;
+    seen.add(kit.id);
+    return true;
+  });
   state.kitsLoaded = true;
   renderKits();
 }
@@ -140,13 +160,12 @@ function renderKitEditor() {
         ${(state.kitDraftItems[column.key] || []).map((item, index) => `
           <div class="kit-editor-row" data-column-key="${column.key}" data-index="${index}">
             <input type="text" class="modal-input" data-kit-field="name" value="${escapeHtml(item.name)}" maxlength="80" placeholder="Nombre" />
+            <div class="editor-row-actions">${editorActionButtons(`kit-${column.key}`, index)}</div>
             <button type="button" class="kit-row-btn danger" data-action="remove-kit-item" title="Quitar">✕</button>
             <div class="kit-url-row">
               <input type="text" class="modal-input" id="kit-${column.key}-${index}-image" data-kit-field="image_url" value="${escapeHtml(item.image_url)}" placeholder="URL de imagen" />
-              <div class="kit-url-btns">
-                <button type="button" class="kit-row-btn" data-action="pick-kit-media" data-input-id="kit-${column.key}-${index}-image">📁 Biblioteca</button>
-                <button type="button" class="kit-row-btn danger" data-action="clear-kit-image" title="Limpiar imagen">✕ Limpiar</button>
-              </div>
+              <button type="button" class="kit-row-btn" data-action="pick-kit-media" data-input-id="kit-${column.key}-${index}-image">Biblioteca</button>
+              <button type="button" class="kit-row-btn" data-action="clear-kit-image" title="Limpiar">Limpiar</button>
             </div>
             <select class="modal-select kit-guide-select" id="kit-${column.key}-${index}-guide" data-kit-field="guide_link"></select>
           </div>
@@ -186,6 +205,32 @@ function bindKitEditorEvents() {
       syncKitDraftFromEditor();
       const row = btn.closest('.kit-editor-row');
       state.kitDraftItems[row.dataset.columnKey].splice(Number(row.dataset.index), 1);
+      renderKitEditor();
+    });
+  });
+
+  document.querySelectorAll('[data-action="duplicate-kit-item"], [data-action="copy-kit-item"], [data-action="paste-kit-item"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      syncKitDraftFromEditor();
+      const row = btn.closest('.kit-editor-row');
+      const columnKey = row?.dataset.columnKey;
+      const index = Number(row?.dataset.index);
+      const scope = `kit-${columnKey}`;
+      const list = state.kitDraftItems[columnKey];
+      if (!list?.[index]) return;
+      if (btn.dataset.action === 'duplicate-kit-item') {
+        list.splice(index + 1, 0, cloneData(list[index]));
+      } else if (btn.dataset.action === 'copy-kit-item') {
+        copyEditorPayload(scope, list[index]);
+      } else if (btn.dataset.action === 'paste-kit-item') {
+        const payload = getEditorPayload(scope);
+        if (!payload) return;
+        list[index] = {
+          name: String(payload?.name || ''),
+          image_url: String(payload?.image_url || ''),
+          guide_link: payload?.guide_link || null,
+        };
+      }
       renderKitEditor();
     });
   });
@@ -241,7 +286,9 @@ export function openKitModal(kitId = null) {
 }
 
 export async function submitKit() {
+  if (kitSubmitInProgress) return;
   const errorBox = document.getElementById('kit-modal-error');
+  const submitBtn = document.getElementById('submit-kit-btn');
   const name = document.getElementById('kit-name-input').value.trim();
   const description = document.getElementById('kit-description-input').value.trim();
   const published = document.getElementById('kit-published-input').checked;
@@ -259,26 +306,40 @@ export async function submitKit() {
 
   syncKitDraftFromEditor();
   const kitItems = normalizeKitItems(state.kitDraftItems);
-  const { error } = await supabaseClient.rpc('upsert_kit', {
-    input_code: state.adminCode,
-    input_id: state.editingKitId,
-    input_name: name,
-    input_description: description,
-    input_published: published,
-    input_items: kitItems,
-  });
+  kitSubmitInProgress = true;
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.dataset.originalText = submitBtn.dataset.originalText || submitBtn.textContent;
+    submitBtn.textContent = 'Guardando...';
+  }
 
-  if (error) {
+  try {
+    const { error } = await supabaseClient.rpc('upsert_kit', {
+      input_code: state.adminCode,
+      input_id: state.editingKitId,
+      input_name: name,
+      input_description: description,
+      input_published: published,
+      input_items: kitItems,
+    });
+
+    if (error) throw error;
+
+    document.getElementById('kit-modal').classList.add('hidden');
+    showToast(state.editingKitId ? 'Kit actualizado' : 'Kit creado', 'success');
+    suppressNextKitsReload();
+    await loadKits();
+  } catch (error) {
     console.error(error);
     errorBox.textContent = `Error: ${error.message}`;
     errorBox.classList.remove('hidden');
-    return;
+  } finally {
+    kitSubmitInProgress = false;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = submitBtn.dataset.originalText || 'Guardar kit';
+    }
   }
-
-  document.getElementById('kit-modal').classList.add('hidden');
-  showToast(state.editingKitId ? 'Kit actualizado' : 'Kit creado', 'success');
-  suppressNextKitsReload();
-  await loadKits();
 }
 
 async function deleteKit(kitId) {

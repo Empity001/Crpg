@@ -36,6 +36,27 @@ export function showToast(message, type = 'default') {
   setTimeout(() => toast.remove(), 4000);
 }
 
+const editorClipboards = new Map();
+
+export function cloneData(value) {
+  return JSON.parse(JSON.stringify(value ?? null));
+}
+
+export function copyEditorPayload(scope, payload) {
+  if (!scope) return;
+  editorClipboards.set(scope, cloneData(payload));
+  showToast('Copiado', 'success');
+}
+
+export function getEditorPayload(scope) {
+  if (!editorClipboards.has(scope)) return null;
+  return cloneData(editorClipboards.get(scope));
+}
+
+export function hasEditorPayload(scope) {
+  return editorClipboards.has(scope);
+}
+
 const modalLifecycleCleanups = new Map();
 let modalLifecycleObserver = null;
 

@@ -13,6 +13,7 @@ import { showToast } from '../core/utils.js';
 const adminUiRefreshHandlers = new Set();
 let adminLoginSequenceTimers = [];
 let adminSubmitting = false;
+let adminLoginSequenceActive = false;
 const ADMIN_MOBILE_TERMINAL_LINES = new Set([
   '0', '1', '2', '3', '4', '5',
   '9', '10', '11',
@@ -26,6 +27,7 @@ const ADMIN_MOBILE_TERMINAL_LINES = new Set([
 function clearAdminLoginSequence() {
   adminLoginSequenceTimers.forEach(timer => clearTimeout(timer));
   adminLoginSequenceTimers = [];
+  adminLoginSequenceActive = false;
 }
 
 function waitAdminTerminal(ms) {
@@ -56,6 +58,13 @@ async function typeAdminTerminalLine(line) {
     await waitAdminTerminal(delay);
   }
   await waitAdminTerminal(pause);
+}
+
+function revealAdminLoginPrompt() {
+  const form = document.getElementById('admin-login-form');
+  const input = document.getElementById('admin-code-input');
+  form?.classList.remove('hidden');
+  input?.focus();
 }
 
 function setAdminSubmitLoading(loading) {
@@ -165,15 +174,31 @@ export function openAdminLoginModal() {
   });
   const visibleTerminalLines = terminalLines.filter(line => !line.classList.contains('is-mobile-skipped'));
   modal.classList.remove('hidden');
+  adminLoginSequenceActive = true;
 
   (async () => {
     await waitAdminTerminal(80);
     for (const line of visibleTerminalLines) {
       await typeAdminTerminalLine(line);
     }
-    form?.classList.remove('hidden');
-    input?.focus();
+    adminLoginSequenceActive = false;
+    revealAdminLoginPrompt();
   })();
+}
+
+export function skipAdminLoginIntro() {
+  const modal = document.getElementById('admin-modal');
+  const form = document.getElementById('admin-login-form');
+  if (!modal || modal.classList.contains('hidden') || !adminLoginSequenceActive || !form?.classList.contains('hidden')) return false;
+  clearAdminLoginSequence();
+  document.querySelectorAll('[data-admin-terminal-line]').forEach(line => {
+    if (line.classList.contains('is-mobile-skipped')) return;
+    if (!line.dataset.terminalText) line.dataset.terminalText = line.textContent;
+    line.textContent = line.dataset.terminalText || '';
+    line.classList.add('is-visible');
+  });
+  revealAdminLoginPrompt();
+  return true;
 }
 
 export function closeAdminLoginModal() {

@@ -161,7 +161,7 @@ async function toggleLike(logId) {
 // DETALLE DE LOG + COMENTARIOS
 // ---------------------------------------------------------
 
-export async function openDetailModal(logId, highlightItemId = null) {
+async function openDetailModal(logId) {
   const log = state.logs.find(l => l.id === logId);
   if (!log) return;
   state.currentDetailLogId = logId;
@@ -185,48 +185,6 @@ export async function openDetailModal(logId, highlightItemId = null) {
 
   document.getElementById('detail-modal').classList.remove('hidden');
   await loadComments(logId);
-
-  // Si viene de un deep link con ?item=<id>, hacer scroll y resaltar el bloque
-  if (highlightItemId) {
-    scrollToItem(highlightItemId);
-  }
-}
-
-/**
- * Busca un bloque (mob/item/libre) por su ID dentro del modal de detalle,
- * abre el panel expandido y lo lleva a la vista con un resaltado temporal.
- * Los paneles se renderizan con id="block-detail-modal-<logId>-<itemId>"
- * (contextKey = modal-<logId>).
- *
- * IMPORTANTE: la búsqueda se acota a #detail-content, no a `document`.
- * Cada log se renderiza con sus chips/paneles DOS veces — una vez en su
- * tarjeta de la lista (contextKey = card-<logId>) y otra dentro del modal
- * (contextKey = modal-<logId>) — y ambas copias conviven en el DOM mientras
- * el modal está abierto. Una búsqueda con document.querySelector encontraba
- * siempre la copia de la tarjeta (aparece antes en el DOM que el modal),
- * así que el click/scroll ocurría sobre un panel oculto detrás del modal
- * y nunca se veía nada, sin importar qué item trajera el enlace.
- */
-function scrollToItem(itemId) {
-  setTimeout(() => {
-    const scope = document.getElementById('detail-content');
-    if (!scope) return;
-
-    // Buscar el chip correspondiente al item dentro del modal
-    const chip = scope.querySelector(`[data-panel-id$="-${itemId}"]`);
-    if (chip) {
-      // Simular click para abrir el panel (usa la lógica existente de bindBlockChipEvents)
-      chip.click();
-    }
-
-    // Buscar el panel expandido dentro del modal (no en toda la página)
-    const panel = scope.querySelector(`[id$="-${itemId}"]`);
-    if (!panel) return;
-
-    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    panel.classList.add('deep-link-highlight');
-    setTimeout(() => panel.classList.remove('deep-link-highlight'), 2500);
-  }, 150);
 }
 
 // ---------------------------------------------------------

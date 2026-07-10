@@ -22,7 +22,7 @@
 // =========================================================
 
 import { loadSharedShell } from './include.js';
-import { closeAdminLoginModal, logoutAdmin, openAdminLoginModal, submitAdminCode, updateAdminUI } from '../features/auth.js';
+import { closeAdminLoginModal, logoutAdmin, openAdminLoginModal, skipAdminLoginIntro, submitAdminCode, updateAdminUI } from '../features/auth.js';
 import { loadAppSettings } from '../features/field-config.js';
 import { isAdmin, state } from '../core/state.js';
 import { openAssetFullscreen } from '../core/storage.js';
@@ -97,14 +97,18 @@ function wireAdminModal() {
       submitAdminCode();
     }
   });
-  // Cerrar cualquier modal-overlay al hacer click fuera de la caja.
-  // Se delega en document porque los modales propios de cada página
-  // todavía no existen en el DOM en este punto del arranque.
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' || e.repeat) return;
+    const target = e.target instanceof Element ? e.target : null;
+    if (target?.matches('input, textarea, select, button, [contenteditable="true"]')) return;
+    if (skipAdminLoginIntro()) e.preventDefault();
+  });
+  // El fondo oscuro no cierra modales: así no se pierde progreso por
+  // clicks accidentales. Cada modal debe cerrarse con su X o acción propia.
   document.addEventListener('click', (e) => {
     const overlay = e.target.closest('.modal-overlay');
     if (!overlay || e.target !== overlay) return;
-    if (overlay.id === 'admin-modal') closeAdminLoginModal();
-    else overlay.classList.add('hidden');
+    e.preventDefault();
   });
 }
 

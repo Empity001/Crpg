@@ -9,7 +9,7 @@
 import { supabaseClient } from '../config.js';
 import { TIER_COLUMNS, isAdmin, state, suppressNextTierlistReload } from '../core/state.js';
 import { initImageUploader, updateAssetPreview, uploadImageToStorage } from '../core/storage.js';
-import { confirmAction, escapeHtml, safeUrl, showToast } from '../core/utils.js';
+import { confirmAction, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast } from '../core/utils.js';
 import { getGuideLinkFromFields, hydrateGuideLinkSelect, openGuideLink, readGuideLinkSelect, setGuideLinkInFields } from './guide-links.js';
 
 export function syncTierDropzoneState(url) {
@@ -26,6 +26,60 @@ export function syncTierDropzoneState(url) {
     if (icon)  icon.textContent  = '🖼';
     if (label) label.textContent = 'Arrastrá una imagen aquí o hacé click para elegir';
   }
+}
+
+function readTierItemEditorPayload() {
+  return {
+    name: document.getElementById('tier-item-name-input')?.value.trim() || '',
+    column_key: document.getElementById('tier-item-column-input')?.value || 'weapon',
+    image_url: document.getElementById('tier-item-image-input')?.value.trim() || '',
+    guide_link: readGuideLinkSelect('tier-item-guide-link-input'),
+  };
+}
+
+function applyTierItemEditorPayload(payload) {
+  if (!payload) return;
+  const nameInput = document.getElementById('tier-item-name-input');
+  const columnInput = document.getElementById('tier-item-column-input');
+  const imageInput = document.getElementById('tier-item-image-input');
+  if (nameInput) nameInput.value = payload.name || '';
+  if (columnInput) columnInput.value = payload.column_key || 'weapon';
+  if (imageInput) imageInput.value = payload.image_url || '';
+  updateAssetPreview('tier-item', payload.image_url || '');
+  syncTierDropzoneState(payload.image_url || '');
+  hydrateGuideLinkSelect('tier-item-guide-link-input', payload.guide_link || null);
+}
+
+export function initTierItemClipboardActions() {
+  const actions = document.getElementById('tier-item-copy-actions');
+  if (!actions || actions.dataset.bound === 'true') return;
+  actions.dataset.bound = 'true';
+  actions.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-tier-item-copy-action]');
+    if (!btn) return;
+    const action = btn.dataset.tierItemCopyAction;
+
+    if (action === 'copy') {
+      copyEditorPayload('tier-item-editor', readTierItemEditorPayload());
+      return;
+    }
+
+    if (action === 'paste') {
+      if (!hasEditorPayload('tier-item-editor')) return;
+      applyTierItemEditorPayload(getEditorPayload('tier-item-editor'));
+      showToast('Pegado', 'success');
+      return;
+    }
+
+    if (action === 'duplicate') {
+      const payload = readTierItemEditorPayload();
+      state.editingTierItemId = null;
+      const titleEl = document.getElementById('tier-item-modal-title');
+      if (titleEl) titleEl.textContent = 'NUEVO ELEMENTO';
+      applyTierItemEditorPayload(payload);
+      showToast('Duplicado como nuevo elemento', 'success');
+    }
+  });
 }
 
 
