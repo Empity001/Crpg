@@ -268,6 +268,8 @@ Cada embed que publica el bot en Discord lleva **URLs que abren directamente el 
 
 Los enlaces usan siempre las IDs reales de la base de datos (UUIDs), no nombres ni posiciones, por lo que son estables aunque el log se edite, se reordenen sus bloques o cambie su título.
 
+Y en la otra dirección: cuando un admin **borra un log** desde la web, el mensaje/hilo que el bot publicó en Discord para ese log se borra automáticamente también — no queda un embed huérfano apuntando a un log que ya no existe. Esto pasa por una cola interna (`discord_deletion_queue`) que el bot procesa en tiempo real, para que la limpieza sea confiable incluso si el borrado y la publicación en Discord ocurren con la web y el bot en momentos distintos.
+
 La web mantiene **compatibilidad total** con el funcionamiento existente: si se accede sin parámetros `?log=` ni `?item=`, se comporta exactamente igual que antes.
 
 ---
