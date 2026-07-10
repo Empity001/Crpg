@@ -1142,7 +1142,35 @@ Objetivo: mejoras de capa superior una vez cerradas auditoría, multimedia y adm
 - Ampliar Sistema Multimedia con vídeo, audio u otros tipos.
 - PWA / caché offline como mejora opcional.
 
-## Sesion 2026-07-09 - Kits y bot de logs extensos
+## Sesión 2026-07-09 (cont.) — Deep Links Discord → Web
+
+**Objetivo:** que los embeds del bot de Discord enlacen directamente al log y al bloque concreto dentro de la web, en vez de ir solo a la portada.
+
+**Archivos modificados en este proyecto (web):**
+
+| Archivo | Cambio |
+|---|---|
+| `js/features/logs.js` | `openDetailModal()` ahora es `export` y acepta un segundo parámetro `highlightItemId`. Se añade `scrollToItem(itemId)` que hace click en el chip, scroll y resaltado temporal con animación CSS. |
+| `js/pages/logs.js` | Se importa `openDetailModal`. Se añade `checkIncomingDeepLink()` que lee `?log=<id>&item=<id>` de la URL, borra los parámetros con `history.replaceState` y abre el modal directamente tras `loadLogs()`. Tiene prioridad sobre `checkIncomingDraftLink()`. |
+| `css/style.css` | Se añade `@keyframes deep-link-pulse` y la clase `.deep-link-highlight` con animación de pulso en cyan durante ~2,5 s. |
+| `README.md` | Nueva sección **🔗 Enlaces directos (Deep Links) desde Discord**. |
+
+**Formato del enlace:**
+```
+https://<SITE_URL>/index.html?log=<uuid-del-log>
+https://<SITE_URL>/index.html?log=<uuid-del-log>&item=<uuid-del-bloque>
+```
+
+**Cómo funciona:**
+1. La web carga normalmente (bootShell → loadCategories → loadLogs).
+2. `checkIncomingDeepLink()` lee los parámetros de la URL.
+3. Limpia la URL con `history.replaceState` (el back-button no vuelve a intentar abrir el modal).
+4. Llama a `openDetailModal(logId, itemId)`.
+5. Si hay `itemId`, tras 150 ms busca el chip con `[data-panel-id$="-<itemId>"]`, lo clica (usa la lógica existente de `bindBlockChipEvents`), hace scroll al panel y añade `.deep-link-highlight`.
+
+**Compatibilidad:** sin parámetros `?log=` ni `?item=`, la web se comporta exactamente igual que antes.
+
+**Archivos modificados en el bot:** ver `PROJECT_MEMORY.md` del bot (`culones-bot`).
 
 - Se inicio la pestaña `Kits` como modulo propio reutilizando el patron visual de Tierlist: columnas fijas Arma / Accesorio / Sub-arma, cards publicas y editor admin.
 - Nueva migracion pendiente de aplicar: `sql/migration_016_kits.sql`.

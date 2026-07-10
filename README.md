@@ -259,6 +259,19 @@ Los logs, sus mobs/items, los comentarios, el catálogo de la Guía de Armas, la
 
 ---
 
+## 🔗 Enlaces directos (Deep Links) desde Discord
+
+Cada embed que publica el bot en Discord lleva **URLs que abren directamente el contenido relevante** en la web:
+
+- **Título del log en el embed resumen** → enlaza a `index.html?log=<id>`, que abre automáticamente el modal de detalle de ese log exacto.
+- **Cada mob, item y bloque libre en los embeds del hilo** → incluye un campo `🔗 Ver en la web` que lleva a `index.html?log=<id>&item=<id_del_bloque>`. La web abre el log, expande el bloque correspondiente, hace scroll hasta él y lo resalta con una animación de pulso durante ~2 segundos.
+
+Los enlaces usan siempre las IDs reales de la base de datos (UUIDs), no nombres ni posiciones, por lo que son estables aunque el log se edite, se reordenen sus bloques o cambie su título.
+
+La web mantiene **compatibilidad total** con el funcionamiento existente: si se accede sin parámetros `?log=` ni `?item=`, se comporta exactamente igual que antes.
+
+---
+
 ## 🖼 Visor de imágenes a pantalla completa
 
 Cuando una ficha tiene imagen de referencia (y no tiene un enlace a Guías configurado), "Ver en pantalla completa" la abre en una página dedicada (`asset-view.html`) en una pestaña nueva, mostrando la imagen a tamaño grande sobre fondo oscuro, con su propio título y un botón de "← Volver".

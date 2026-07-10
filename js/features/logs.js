@@ -161,7 +161,7 @@ async function toggleLike(logId) {
 // DETALLE DE LOG + COMENTARIOS
 // ---------------------------------------------------------
 
-async function openDetailModal(logId) {
+export async function openDetailModal(logId, highlightItemId = null) {
   const log = state.logs.find(l => l.id === logId);
   if (!log) return;
   state.currentDetailLogId = logId;
@@ -185,6 +185,38 @@ async function openDetailModal(logId) {
 
   document.getElementById('detail-modal').classList.remove('hidden');
   await loadComments(logId);
+
+  // Si viene de un deep link con ?item=<id>, hacer scroll y resaltar el bloque
+  if (highlightItemId) {
+    scrollToItem(highlightItemId);
+  }
+}
+
+/**
+ * Busca un bloque (mob/item/libre) por su ID dentro del modal de detalle,
+ * abre el panel expandido y lo lleva a la vista con un resaltado temporal.
+ * Los paneles se renderizan con id="block-detail-modal-<logId>-<itemId>"
+ * (contextKey = modal-<logId>).
+ */
+function scrollToItem(itemId) {
+  setTimeout(() => {
+    // Buscar el chip correspondiente al item en el modal de detalle
+    const chip = document.querySelector(
+      `[data-panel-id$="-${itemId}"]`
+    );
+    if (chip) {
+      // Simular click para abrir el panel (usa la lógica existente de bindBlockChipEvents)
+      chip.click();
+    }
+
+    // Buscar el panel expandido (con o sin prefix de contexto)
+    const panel = document.querySelector(`[id$="-${itemId}"]`);
+    if (!panel) return;
+
+    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    panel.classList.add('deep-link-highlight');
+    setTimeout(() => panel.classList.remove('deep-link-highlight'), 2500);
+  }, 150);
 }
 
 // ---------------------------------------------------------

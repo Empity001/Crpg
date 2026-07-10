@@ -2298,3 +2298,15 @@ body.is-admin-mode .toast.toast-success {
   flex-basis: 100%;
   width: 100%;
 }
+
+/* ─── Deep link: resaltado temporal al llegar desde Discord ─── */
+@keyframes deep-link-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(77, 212, 232, 0.7); }
+  50%  { box-shadow: 0 0 0 8px rgba(77, 212, 232, 0.15); }
+  100% { box-shadow: 0 0 0 0 rgba(77, 212, 232, 0); }
+}
+.deep-link-highlight {
+  animation: deep-link-pulse 0.7s ease-out 3;
+  border-radius: 6px;
+  outline: 1px solid var(--cyan);
+}
