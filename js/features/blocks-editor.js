@@ -101,7 +101,7 @@ export function renderDraftBlocksList() {
   const definitions = [
     { kind: 'mob', icon: '👾', list: state.draftMobs, label: 'Mob' },
     { kind: 'item', icon: '🗡', list: state.draftItems, label: 'Item' },
-    { kind: 'libre', icon: '📋', list: state.draftLibres, label: 'Bloque libre' },
+    { kind: 'libre', icon: '📋', list: state.draftLibres, label: 'Extra' },
   ];
   container.innerHTML = definitions.flatMap(def => def.list.map((entry, idx) => `
     <button type="button" class="draft-block-chip draft-block-context-trigger" data-kind="${def.kind}" data-idx="${idx}">

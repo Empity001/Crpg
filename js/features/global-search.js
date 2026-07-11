@@ -185,7 +185,7 @@ function buildAboutEntries(entries, seen) {
 }
 
 async function createSearchIndex() {
-  const adminCode = isAdmin() ? state.adminCode : null;
+  const adminCode = isAdmin() ? state.adminMode : null;
 
   const [logs, mobs, logItems, weapons, ranks, tierRows, tierItems, kits] = await Promise.all([
     safeFetch('logs', supabaseClient.from('logs').select('id,title,description,category')),
@@ -205,7 +205,7 @@ async function createSearchIndex() {
   // "guías", "kits", etc. aunque todavía no haya registros.
   [
     ['logs', 'Logs', 'Consulta los cambios y eventos del servidor.', 'index.html'],
-    ['guides', 'Guías', 'Consulta objetos, armas, rangos y sus formas de obtención.', 'weapons.html'],
+    ['guides', 'Guías', 'Consulta objetos, armas, rangos y sus formas de obtención.', 'guides.html'],
     ['tierlist', 'Tierlist', 'Clasificación de armas, accesorios y subarmas.', 'tierlist.html'],
     ['kits', 'Kits', 'Combinaciones recomendadas del servidor.', 'kits.html'],
     ['about', 'Acerca del servidor', 'Información general de la comunidad y el proyecto.', 'about.html'],
@@ -258,7 +258,7 @@ async function createSearchIndex() {
       key: `log-item:${item.id}`,
       title: item.name,
       sectionKey: 'logs',
-      kind: libre ? 'Bloque libre' : 'Item',
+      kind: libre ? 'Extra' : 'Item',
       description: `${log.title}${item.description ? ` · ${item.description}` : ''}`,
       keywords: [item.tier, item.item_type, item.obtained_from, log.description],
       imageUrl: item.image_url,
@@ -280,14 +280,14 @@ async function createSearchIndex() {
       kind: 'Guía',
       description: 'Objeto del catálogo de Guías',
       imageUrl: weapon.image_url,
-      url: `weapons.html?weapon=${encodeURIComponent(weapon.id)}`,
+      url: `guides.html?weapon=${encodeURIComponent(weapon.id)}`,
     });
   });
 
   ranks.forEach(rank => {
     const weapon = weaponsById.get(String(rank.weapon_id));
     if (!weapon) return;
-    const rankUrl = `weapons.html?weapon=${encodeURIComponent(weapon.id)}&rank=${encodeURIComponent(rank.id)}`;
+    const rankUrl = `guides.html?weapon=${encodeURIComponent(weapon.id)}&rank=${encodeURIComponent(rank.id)}`;
     addEntry(entries, seen, {
       key: `weapon-rank:${rank.id}`,
       title: rank.name,
@@ -433,14 +433,63 @@ function findResults(index, rawQuery) {
   const query = normalizeSearchText(rawQuery);
   if (!query) return [];
   const tokens = query.split(' ').filter(Boolean);
-  return index
+  const scored = index
     .map(entry => ({ entry, score: scoreEntry(entry, query, tokens) }))
     .filter(item => Number.isFinite(item.score))
     .sort((a, b) => a.score - b.score
       || a.entry.sectionOrder - b.entry.sectionOrder
       || a.entry.title.localeCompare(b.entry.title, 'es', { sensitivity: 'base' }))
-    .slice(0, 36)
-    .map(item => item.entry);
+    .slice(0, 120);
+
+  // Un mismo nombre puede aparecer varias veces dentro de la misma sección
+  // (por ejemplo como rango, material y resultado). Se presenta una sola vez
+  // con xN, pero se mantiene separado si también existe en otra sección.
+  const aggregated = new Map();
+  scored.forEach(({ entry, score }) => {
+    const key = `${entry.sectionKey}:${entry.titleNorm}`;
+    const current = aggregated.get(key);
+    if (!current) {
+      aggregated.set(key, {
+        ...entry,
+        bestScore: score,
+        mentionCount: 1,
+        kinds: new Set(entry.kind ? [entry.kind] : []),
+      });
+      return;
+    }
+    current.mentionCount += 1;
+    if (entry.kind) current.kinds.add(entry.kind);
+    if (score < current.bestScore) {
+      current.bestScore = score;
+      current.url = entry.url;
+      current.imageUrl = entry.imageUrl || current.imageUrl;
+      current.description = entry.description || current.description;
+      current.kind = entry.kind || current.kind;
+    }
+  });
+
+  const grouped = new Map();
+  [...aggregated.values()]
+    .sort((a, b) => a.sectionOrder - b.sectionOrder
+      || a.bestScore - b.bestScore
+      || a.title.localeCompare(b.title, 'es', { sensitivity: 'base' }))
+    .forEach(entry => {
+      entry.kindSummary = [...entry.kinds].slice(0, 3).join(' · ');
+      if (!grouped.has(entry.sectionKey)) grouped.set(entry.sectionKey, {
+        sectionKey: entry.sectionKey,
+        sectionLabel: entry.sectionLabel,
+        sectionIcon: entry.sectionIcon,
+        sectionOrder: entry.sectionOrder,
+        entries: [],
+      });
+      const group = grouped.get(entry.sectionKey);
+      if (group.entries.length < 10) group.entries.push(entry);
+    });
+
+  return [...grouped.values()]
+    .sort((a, b) => a.sectionOrder - b.sectionOrder)
+    .filter(group => group.entries.length)
+    .slice(0, 6);
 }
 
 function highlightMatch(text, rawQuery) {
@@ -459,15 +508,31 @@ function resultMarkup(entry, query, index) {
   const media = entry.imageUrl
     ? `<span class="global-search-result-media"><img src="${escapeHtml(entry.imageUrl)}" alt="" loading="lazy" decoding="async" /><span>${entry.sectionIcon}</span></span>`
     : `<span class="global-search-result-media is-fallback">${entry.sectionIcon}</span>`;
+  const count = Number(entry.mentionCount || 1);
   return `
     <a class="global-search-result" role="option" aria-selected="false" data-search-result-index="${index}" href="${escapeHtml(entry.url)}">
       ${media}
       <span class="global-search-result-copy">
-        <span class="global-search-result-title">${highlightMatch(entry.title, query)} <em>— ${escapeHtml(entry.sectionLabel)}</em></span>
-        <span class="global-search-result-meta">${entry.kind ? `<b>${escapeHtml(entry.kind)}</b>` : ''}${entry.description ? `<span>${escapeHtml(entry.description)}</span>` : ''}</span>
+        <span class="global-search-result-title">${highlightMatch(entry.title, query)}${count > 1 ? `<b class="global-search-result-count">x${count}</b>` : ''}</span>
+        <span class="global-search-result-meta">${entry.kindSummary || entry.kind ? `<b>${escapeHtml(entry.kindSummary || entry.kind)}</b>` : ''}${entry.description ? `<span>${escapeHtml(entry.description)}</span>` : ''}</span>
       </span>
       <span class="global-search-result-arrow" aria-hidden="true">↗</span>
     </a>`;
+}
+
+function groupedResultsMarkup(groups, query) {
+  let resultIndex = 0;
+  return groups.map(group => `
+    <section class="global-search-result-group" aria-labelledby="search-group-${escapeHtml(group.sectionKey)}">
+      <header class="global-search-result-group-head" id="search-group-${escapeHtml(group.sectionKey)}">
+        <span aria-hidden="true">${group.sectionIcon}</span>
+        <strong>${escapeHtml(group.sectionLabel)}</strong>
+        <small>${group.entries.length}</small>
+      </header>
+      <div class="global-search-result-group-list">
+        ${group.entries.map(entry => resultMarkup(entry, query, resultIndex++)).join('')}
+      </div>
+    </section>`).join('');
 }
 
 function setRootOpen(root, open) {
@@ -531,17 +596,17 @@ async function executeSearch(root) {
 
   const requestToken = String(Number(root.dataset.requestToken || 0) + 1);
   root.dataset.requestToken = requestToken;
-  setStatus(root, 'Buscando en toda la página…', { loading: true });
+  setStatus(root, 'Buscando en toda la web…', { loading: true });
   const index = await getSearchIndex();
   if (root.dataset.requestToken !== requestToken) return;
-  const matches = findResults(index, rawQuery);
+  const groups = findResults(index, rawQuery);
 
-  if (!matches.length) {
+  if (!groups.length) {
     setStatus(root, `No encontramos resultados para “${rawQuery}”.`);
     return;
   }
 
-  results.innerHTML = matches.map((entry, idx) => resultMarkup(entry, rawQuery, idx)).join('');
+  results.innerHTML = groupedResultsMarkup(groups, rawQuery);
   results.querySelectorAll('img').forEach(image => {
     image.addEventListener('error', () => image.closest('.global-search-result-media')?.classList.add('is-broken'), { once: true });
   });
@@ -562,6 +627,10 @@ function wireSearchRoot(root) {
 
   const open = () => {
     closeOtherRoots(root);
+    const notificationPanel = document.getElementById('site-notification-panel');
+    notificationPanel?.classList.remove('is-open');
+    notificationPanel?.setAttribute('aria-hidden', 'true');
+    document.querySelectorAll('[data-notification-toggle]').forEach(button => button.setAttribute('aria-expanded', 'false'));
     setRootOpen(root, true);
     window.requestAnimationFrame(() => {
       if (document.activeElement !== input) input?.focus({ preventScroll: true });
@@ -629,6 +698,10 @@ export function openGlobalSearch(root = null) {
   if (!target) return;
   if (!initialized) initGlobalSearch();
   closeOtherRoots(target);
+  const notificationPanel = document.getElementById('site-notification-panel');
+  notificationPanel?.classList.remove('is-open');
+  notificationPanel?.setAttribute('aria-hidden', 'true');
+  document.querySelectorAll('[data-notification-toggle]').forEach(button => button.setAttribute('aria-expanded', 'false'));
   setRootOpen(target, true);
   window.requestAnimationFrame(() => {
     const input = target.querySelector('[data-global-search-input]');
@@ -667,11 +740,7 @@ export function initGlobalSearch() {
   }, { signal });
 
   document.addEventListener('keydown', event => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-      event.preventDefault();
-      openGlobalSearch();
-      return;
-    }
+    if (event.defaultPrevented) return;
     if (event.key === 'Escape') {
       document.querySelectorAll('[data-global-search-root].is-open').forEach(root => closeSearchRoot(root));
     }

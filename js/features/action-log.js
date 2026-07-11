@@ -42,6 +42,11 @@ const ACTION_LOG_ICONS = {
   media_deleted: '🗑',
   export_created: '📤',
   import_completed: '📥',
+  guide_forum_publish: '📣',
+  guide_forum_update: '🔄',
+  guide_forum_unpublish: '📴',
+  guide_forum_reconcile: '🧭',
+  forum_reactions_updated: '💬',
 };
 
 
@@ -94,12 +99,12 @@ export async function loadActionLog() {
   const list = document.getElementById('action-log-list');
   list.innerHTML = `<p class="action-log-empty">Cargando...</p>`;
 
-  if (!state.adminCode) {
+  if (!state.adminMode) {
     list.innerHTML = `<p class="action-log-empty">Tu sesión de administrador expiró.</p>`;
     return;
   }
 
-  const { data, error } = await supabaseClient.rpc('list_action_log', { input_code: state.adminCode, input_limit: 300 });
+  const { data, error } = await supabaseClient.rpc('list_action_log', { input_code: state.adminMode, input_limit: 300 });
 
   if (error) {
     list.innerHTML = `<p class="action-log-empty">No se pudo cargar la bitácora.</p>`;
@@ -126,10 +131,15 @@ function renderActionLogList(rows) {
       <div class="action-log-row ${cls}">
         <span class="action-log-icon">${icon}</span>
         <div class="action-log-body">
+          <div class="action-log-actor">
+            ${row.actor_avatar_url ? `<img src="${escapeHtml(row.actor_avatar_url)}" alt="" loading="lazy" />` : ''}
+            <strong>${escapeHtml(row.actor || 'Sistema')}</strong>
+          </div>
           <p class="action-log-desc">${escapeHtml(description)}</p>
           <div class="action-log-meta">
             <span>${formatDate(row.created_at)}</span>
             <span>Hora local: ${escapeHtml(localTime)}</span>
+            ${row.success === false ? '<span>Falló</span>' : ''}
           </div>
         </div>
       </div>`;

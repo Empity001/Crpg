@@ -86,7 +86,7 @@ export function isMediaInfrastructureMissing(error) {
 }
 
 function withAdminCode(payload = {}) {
-  return { input_code: state.adminCode, ...payload };
+  return { input_code: state.adminMode, ...payload };
 }
 
 function normalizeRpcAsset(data) {
@@ -95,7 +95,7 @@ function normalizeRpcAsset(data) {
 }
 
 export async function listMediaAssets({ includeArchived = false } = {}) {
-  if (!state.adminCode) return { data: [], error: new Error('Admin requerido') };
+  if (!state.adminMode) return { data: [], error: new Error('Admin requerido') };
   const { data, error } = await supabaseClient.rpc('list_media_assets', withAdminCode({
     input_include_archived: includeArchived,
   }));
@@ -110,7 +110,7 @@ export async function listMediaPickerAssets({
   limit = 32,
   offset = 0,
 } = {}) {
-  if (!state.adminCode) return { data: [], error: new Error('Admin requerido') };
+  if (!state.adminMode) return { data: [], error: new Error('Admin requerido') };
   const { data, error } = await supabaseClient.rpc('list_media_picker_assets', withAdminCode({
     input_search: search,
     input_media_kind: kind,
@@ -123,7 +123,7 @@ export async function listMediaPickerAssets({
 }
 
 export async function findDuplicateMediaAsset({ hash = '', url = '' } = {}) {
-  if (!state.adminCode || (!hash && !url)) return { data: null, error: null };
+  if (!state.adminMode || (!hash && !url)) return { data: null, error: null };
   const { data, error } = await supabaseClient.rpc('find_media_duplicate', withAdminCode({
     input_file_hash: hash || null,
     input_url: url || null,
@@ -132,7 +132,7 @@ export async function findDuplicateMediaAsset({ hash = '', url = '' } = {}) {
 }
 
 export async function upsertMediaAsset(asset) {
-  if (!state.adminCode) return { data: null, error: new Error('Admin requerido') };
+  if (!state.adminMode) return { data: null, error: new Error('Admin requerido') };
   const presentation = { ...DEFAULT_MEDIA_PRESENTATION, ...(asset.presentation || {}) };
   const { data, error } = await supabaseClient.rpc('upsert_media_asset', withAdminCode({
     input_source_type: asset.source_type || asset.sourceType || 'storage',
@@ -154,7 +154,7 @@ export async function upsertMediaAsset(asset) {
 }
 
 export async function updateMediaAsset(asset) {
-  if (!state.adminCode) return { data: null, error: new Error('Admin requerido') };
+  if (!state.adminMode) return { data: null, error: new Error('Admin requerido') };
   const { data, error } = await supabaseClient.rpc('update_media_asset', withAdminCode({
     input_id: asset.id,
     input_display_name: asset.display_name || '',
@@ -180,7 +180,7 @@ export async function replaceMediaAssetFileRecord({
   presentation = DEFAULT_MEDIA_PRESENTATION,
   metadata = {},
 } = {}) {
-  if (!state.adminCode) return { data: null, error: new Error('Admin requerido') };
+  if (!state.adminMode) return { data: null, error: new Error('Admin requerido') };
   const { data, error } = await supabaseClient.rpc('replace_media_asset_file', withAdminCode({
     input_asset_id: id,
     input_new_url: url,
@@ -199,7 +199,7 @@ export async function replaceMediaAssetFileRecord({
 }
 
 export async function archiveMediaAsset(id, archived = true) {
-  if (!state.adminCode) return { error: new Error('Admin requerido') };
+  if (!state.adminMode) return { error: new Error('Admin requerido') };
   const { error } = await supabaseClient.rpc('archive_media_asset', withAdminCode({
     input_id: id,
     input_archived: archived,
@@ -208,7 +208,7 @@ export async function archiveMediaAsset(id, archived = true) {
 }
 
 export async function deleteMediaAsset(id) {
-  if (!state.adminCode) return { error: new Error('Admin requerido') };
+  if (!state.adminMode) return { error: new Error('Admin requerido') };
   const { error } = await supabaseClient.rpc('delete_media_asset', withAdminCode({
     input_id: id,
   }));
@@ -226,7 +226,7 @@ export async function detectExternalMime(url) {
 }
 
 export async function registerUploadedMediaAsset({ url, file, folder, path, hash }) {
-  if (!state.adminCode || !url || !file) return { data: null, error: null };
+  if (!state.adminMode || !url || !file) return { data: null, error: null };
   return upsertMediaAsset({
     source_type: 'storage',
     bucket: MEDIA_BUCKET,

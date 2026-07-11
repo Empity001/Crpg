@@ -7,6 +7,7 @@
 // viven todos en la misma tabla app_settings y se cargan juntos.
 // =========================================================
 
+import { startPage } from '../app/page-bootstrap.js';
 import { bootShell } from '../app/shell.js';
 import { initAboutEditor } from '../features/about.js';
 
@@ -29,20 +30,4 @@ async function init() {
   focusLinkedAboutBlock();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  init().catch(error => {
-    console.error('[Boot] Error al iniciar la página:', error);
-    const main = document.querySelector('.app-main') || document.body;
-    const existing = document.getElementById('boot-error-panel');
-    if (existing) return;
-    const panel = document.createElement('section');
-    panel.id = 'boot-error-panel';
-    panel.className = 'boot-error-panel';
-    panel.innerHTML = `
-      <strong>No se pudo iniciar esta página</strong>
-      <p>Recarga con Ctrl + F5. Si continúa, revisa la consola del navegador o la conexión con Supabase.</p>
-      <button type="button">Recargar</button>`;
-    panel.querySelector('button')?.addEventListener('click', () => window.location.reload());
-    main.prepend(panel);
-  });
-});
+startPage(init);

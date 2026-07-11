@@ -156,7 +156,7 @@ function showImportConflictModal(conflicts) {
 
 export async function confirmImport() {
   const errorBox = document.getElementById('import-conflict-error');
-  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminMode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
 
   const toImport = _importConflicts.filter(c => c.resolution !== 'skip');
   if (toImport.length === 0) { showToast('Nada que importar'); document.getElementById('import-conflict-modal').classList.add('hidden'); return; }
@@ -183,7 +183,7 @@ export async function confirmImport() {
         if (conflict.isConflict) {
           // Sobrescribir: update_log
           await supabaseClient.rpc('update_log', {
-            input_code: state.adminCode, input_id: log.id,
+            input_code: state.adminMode, input_id: log.id,
             input_title: log.title, input_description: log.description,
             input_category: log.category, input_relevance: log.relevance,
             input_created_at: log.created_at, input_mobs: mobsPayload, input_items: itemsPayload,
@@ -192,7 +192,7 @@ export async function confirmImport() {
         } else {
           // Nuevo: create_log
           await supabaseClient.rpc('create_log', {
-            input_code: state.adminCode,
+            input_code: state.adminMode,
             input_title: log.title, input_description: log.description,
             input_category: log.category, input_relevance: log.relevance,
             input_created_at: log.created_at, input_mobs: mobsPayload, input_items: itemsPayload,
@@ -204,16 +204,16 @@ export async function confirmImport() {
       } else if (conflict.kind === 'tier_row') {
         const row = conflict.item;
         if (conflict.isConflict) {
-          await supabaseClient.rpc('update_tierlist_row', { input_code: state.adminCode, input_id: row.id, input_name: row.name, input_color: row.color });
+          await supabaseClient.rpc('update_tierlist_row', { input_code: state.adminMode, input_id: row.id, input_name: row.name, input_color: row.color });
         } else {
-          await supabaseClient.rpc('create_tierlist_row', { input_code: state.adminCode, input_name: row.name, input_color: row.color });
+          await supabaseClient.rpc('create_tierlist_row', { input_code: state.adminMode, input_name: row.name, input_color: row.color });
         }
         imported++;
         importedCounts.tier_row++;
       } else if (conflict.kind === 'tier_item') {
         const item = conflict.item;
         await supabaseClient.rpc('upsert_tierlist_item', {
-          input_code: state.adminCode, input_id: conflict.isConflict ? item.id : null,
+          input_code: state.adminMode, input_id: conflict.isConflict ? item.id : null,
           input_name: item.name, input_image_url: item.image_url || null,
           input_column_key: item.column_key, input_row_id: item.row_id || null,
           input_extra_fields: asArray(item.extra_fields),

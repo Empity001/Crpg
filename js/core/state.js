@@ -81,7 +81,12 @@ export const state = {
   itemsByLog: {},
   activeFilter: 'all',
   sortMode: 'date_desc',
-  adminCode: localStorage.getItem('culones_admin_code') || null,
+  adminMode: sessionStorage.getItem('culones_admin_mode') === '1',
+  authSession: null,
+  discordProfile: null,
+  discordAdminEligible: false,
+  discordMembership: 'unknown',
+  discordAuthCheckedAt: 0,
   clientId: getOrCreateClientId(),
   likedLogIds: new Set(JSON.parse(localStorage.getItem('culones_liked_logs') || '[]')),
   editingLogId: null,
@@ -131,7 +136,7 @@ export const state = {
   editingKitId: null,
   kitDraftItems: { weapon: [], accessory: [], subweapon: [] },
 
-  // ---------- Guía de Armas ----------
+  // ---------- Guías ----------
   weaponsLoaded: false,
   weaponCategories: [],   // [{id, label, color, sort_order}, ...]
   weaponTypes: [],        // [{id, label, sort_order}, ...]
@@ -197,7 +202,7 @@ export const DEFAULT_ITEM_FIELDS = [
 // UTILIDADES
 // ---------------------------------------------------------
 
-export function isAdmin() { return !!state.adminCode; }
+export function isAdmin() { return !!(state.adminMode && state.discordAdminEligible && state.authSession); }
 
 
 export function getCategory(slug) {

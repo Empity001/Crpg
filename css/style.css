@@ -2047,7 +2047,6 @@ body.is-admin-mode .toast.toast-success {
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Variante compacta para el favicon (espacio junto al preview cuadrado) */
 .favicon-dropzone {

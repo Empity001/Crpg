@@ -9,6 +9,7 @@
 // =========================================================
 
 import { supabaseClient } from '../config.js';
+import { createSignedStorageUpload, deleteStorageObjects } from './admin-api.js';
 import {
   MEDIA_BUCKET,
   MEDIA_IMAGE_MIME_TYPES,
@@ -100,7 +101,7 @@ function removeOldStorageObject(oldUrl, nextUrl = '') {
   if (!oldUrl || oldUrl === nextUrl || !oldUrl.includes(`/storage/v1/object/public/${MEDIA_BUCKET}/`)) return;
   const oldPath = oldUrl.split(`/storage/v1/object/public/${MEDIA_BUCKET}/`)[1];
   if (oldPath) {
-    supabaseClient.storage.from(MEDIA_BUCKET).remove([oldPath]).catch(() => {});
+    deleteStorageObjects(MEDIA_BUCKET, [oldPath]).catch(() => {});
   }
 }
 
@@ -132,13 +133,12 @@ export async function stageMediaReplacement(file, asset = {}) {
   const ext = extensionForFile(file);
   const path = `${folder}/${Date.now()}-replacement-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
+  const targetBucket = asset.bucket || MEDIA_BUCKET;
+  const { data: signed, error: signedError } = await createSignedStorageUpload({ bucket: targetBucket, path, contentType: file.type });
+  if (signedError || !signed?.token) throw new Error('No se pudo autorizar la subida: ' + (signedError?.message || 'token no recibido'));
   const { error: uploadError } = await supabaseClient.storage
-    .from(asset.bucket || MEDIA_BUCKET)
-    .upload(path, file, {
-      upsert: false,
-      contentType: file.type,
-      cacheControl: '0',
-    });
+    .from(targetBucket)
+    .uploadToSignedUrl(path, signed.token, file, { contentType: file.type, cacheControl: '0' });
   if (uploadError) throw new Error('Error al subir el reemplazo: ' + uploadError.message);
 
   const { data } = supabaseClient.storage.from(asset.bucket || MEDIA_BUCKET).getPublicUrl(path);
@@ -156,7 +156,7 @@ export async function stageMediaReplacement(file, asset = {}) {
 
 export async function removeStorageObject(path, bucket = MEDIA_BUCKET) {
   if (!path) return { error: null };
-  return supabaseClient.storage.from(bucket).remove([path]);
+  return deleteStorageObjects(bucket, [path]);
 }
 
 export async function uploadMediaToStorage(file, folder = 'media', oldUrl = '', options = {}) {
@@ -186,9 +186,11 @@ export async function uploadMediaToStorage(file, folder = 'media', oldUrl = '', 
   const ext = extensionForFile(file);
   const path = `${targetFolder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
+  const { data: signed, error: signedError } = await createSignedStorageUpload({ bucket: MEDIA_BUCKET, path, contentType: file.type });
+  if (signedError || !signed?.token) throw new Error('No se pudo autorizar la subida: ' + (signedError?.message || 'token no recibido'));
   const { error: upErr } = await supabaseClient.storage
     .from(MEDIA_BUCKET)
-    .upload(path, file, { upsert: false, contentType: file.type });
+    .uploadToSignedUrl(path, signed.token, file, { contentType: file.type });
 
   if (upErr) throw new Error('Error al subir: ' + upErr.message);
 

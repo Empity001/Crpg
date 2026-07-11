@@ -420,12 +420,12 @@ export async function submitTierRow() {
   const color = document.getElementById('tier-row-color-input').value || '#9a92b8';
 
   if (!name) { errorBox.textContent = 'Ponle un nombre a la fila.'; errorBox.classList.remove('hidden'); return; }
-  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminMode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
 
   const rpcName = state.editingTierRowId ? 'update_tierlist_row' : 'create_tierlist_row';
   const params = state.editingTierRowId
-    ? { input_code: state.adminCode, input_id: state.editingTierRowId, input_name: name, input_color: color }
-    : { input_code: state.adminCode, input_name: name, input_color: color };
+    ? { input_code: state.adminMode, input_id: state.editingTierRowId, input_name: name, input_color: color }
+    : { input_code: state.adminMode, input_name: name, input_color: color };
 
   const { error } = await supabaseClient.rpc(rpcName, params);
   if (error) { console.error(error); errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
@@ -444,7 +444,7 @@ async function deleteTierRow(rowId) {
     confirmLabel: 'Eliminar fila',
     danger: true,
   }))) return;
-  const { error } = await supabaseClient.rpc('delete_tierlist_row', { input_code: state.adminCode, input_id: rowId });
+  const { error } = await supabaseClient.rpc('delete_tierlist_row', { input_code: state.adminMode, input_id: rowId });
   if (error) { console.error(error); showToast('No se pudo borrar la fila', 'error'); return; }
   showToast('Fila eliminada', 'success');
   suppressNextTierlistReload();
@@ -461,7 +461,7 @@ async function reorderTierRow(rowId, direction) {
   [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
   const orderedIds = reordered.map(r => r.id);
 
-  const { error } = await supabaseClient.rpc('reorder_tierlist_rows', { input_code: state.adminCode, input_ordered_ids: orderedIds });
+  const { error } = await supabaseClient.rpc('reorder_tierlist_rows', { input_code: state.adminMode, input_ordered_ids: orderedIds });
   if (error) { console.error(error); showToast('No se pudo reordenar', 'error'); return; }
   suppressNextTierlistReload();
   await loadTierlist();
@@ -506,13 +506,13 @@ export async function submitTierItem() {
   const imageUrl = document.getElementById('tier-item-image-input').value.trim();
 
   if (!name) { errorBox.textContent = 'Ponle un nombre al elemento.'; errorBox.classList.remove('hidden'); return; }
-  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminMode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
 
   const existing = state.editingTierItemId ? state.tierItems.find(it => it.id === state.editingTierItemId) : null;
   const extraFields = setGuideLinkInFields(existing ? existing.extra_fields : [], readGuideLinkSelect('tier-item-guide-link-input'));
 
   const { error } = await supabaseClient.rpc('upsert_tierlist_item', {
-    input_code: state.adminCode,
+    input_code: state.adminMode,
     input_id: state.editingTierItemId,
     input_name: name,
     input_image_url: imageUrl,
@@ -537,7 +537,7 @@ async function deleteTierItem(itemId) {
     confirmLabel: 'Eliminar elemento',
     danger: true,
   }))) return;
-  const { error } = await supabaseClient.rpc('delete_tierlist_item', { input_code: state.adminCode, input_id: itemId });
+  const { error } = await supabaseClient.rpc('delete_tierlist_item', { input_code: state.adminMode, input_id: itemId });
   if (error) { console.error(error); showToast('No se pudo eliminar', 'error'); return; }
   showToast('Elemento eliminado', 'success');
   suppressNextTierlistReload();
@@ -547,7 +547,7 @@ async function deleteTierItem(itemId) {
 
 async function moveTierItem(itemId, rowId, columnKey) {
   const { error } = await supabaseClient.rpc('move_tierlist_item', {
-    input_code: state.adminCode,
+    input_code: state.adminMode,
     input_item_id: itemId,
     input_row_id: rowId || null,
     input_column_key: columnKey,

@@ -1,6 +1,6 @@
 -- =========================================================
 -- CULONES-RPG · Migración 008
--- Guía de Armas: categorías y tipos dinámicos, catálogo de
+-- Guías: categorías y tipos dinámicos, catálogo de
 -- armas (ocultas hasta publicarse), rangos/niveles ilimitados
 -- por arma (MK1, MK2... con stats, habilidades y receta de
 -- mejora tipo "trade"), y secciones extra libres para que la

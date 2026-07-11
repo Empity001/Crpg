@@ -46,7 +46,7 @@ export function guideLinkUrl(link = null) {
   if (!normalized) return '';
   const params = new URLSearchParams({ weapon: normalized.weapon_id });
   if (normalized.rank_id) params.set('rank', normalized.rank_id);
-  return `weapons.html?${params.toString()}`;
+  return `guides.html?${params.toString()}`;
 }
 
 export function openGuideLink(link = null) {

@@ -1,15 +1,37 @@
+# Sesión actual — Discord OAuth, autorización segura y publicación de Guías
+
+- La web inicia sesión con Discord mediante Supabase Auth, muestra identidad y solo permite activar modo administrador al rol configurado.
+- Toda escritura administrativa se enruta por `discord-admin-api`, que valida sesión, servidor y rol antes de usar service_role.
+- La migración 021 crea configuración Discord, cola y estado del foro, message maps de Logs y auditoría con identidad real.
+- Guías incorpora Publicar/Actualizar/Despublicar, estados persistentes, errores detallados y despublicación automática al ocultarse.
+- Herramientas configura hasta 20 reacciones colocadas por el bot y puede aplicarlas a publicaciones existentes.
+- La auditoría legacy se enriquece dentro de la misma petición mediante request_id y cabeceras internas verificadas.
+- La guía de despliegue documenta OAuth, Edge Function, SQL, Railway, permisos e intents.
+
+# Sesión 9 — Integración Discord OAuth, Logs granulares y foro de Guías
+
+- Se eliminó el sistema `/getcode` y la rotación de códigos.
+- La web ahora inicia sesión con Discord mediante Supabase Auth y valida un único rol configurable.
+- Se añadió `/adminrole set/view/clear`, `/guidesforum set/view/clear` y se reforzó `/setlogchannel`.
+- Todas las escrituras administrativas pasan por `discord-admin-api`; Storage usa subidas firmadas.
+- Los Logs de Discord se sincronizan con un mensaje por mob, item y Extra, además de resumen, hilo de solo lectura y deep links.
+- Las Guías pueden publicarse, actualizarse y despublicarse manualmente en un foro, con todos sus rangos dentro de un solo post.
+- Se añadieron tags por categoría/tipo, reacciones configurables, cola idempotente, recuperación tras reinicios, pixel art nearest-neighbor y Mesas de trabajo visuales.
+- Los screenshots publican resultados públicos con el rebranding y dejan los errores en privado.
+- Migración nueva: `migration_021_discord_auth_and_forum.sql`.
+- Guía de despliegue: `GUIA_DESPLIEGUE_DISCORD_AUTH.md`.
 # PROJECT_MEMORY — culones-rpg
 
 Registro de sesiones de desarrollo. Cada entrada resume qué se hizo, qué quedó pendiente y qué problemas se conocen. Pensado para que cualquier sesión futura pueda retomar el proyecto sin releer todo el código.
 
 ---
 
-# Estado actual del proyecto (tras P2/P3 y primera pasada de Optimización General)
+# Estado actual del proyecto (auditoría general del 11 de julio de 2026)
 
 ## Arquitectura general
 
 - **Web**: sitio estático multipágina (MPA) HTML/CSS/JS. Sin backend propio, sin bundler, sin build step. Desplegado en GitHub Pages.
-- **Deploy temporal**: GitHub Pages está atascado en `deployment_queued` al 2026-07-02. No tocar configuración de deploy por ahora; la QA de P2/P3 se hace localmente con Live Server.
+- **Deploy**: GitHub Pages volvió a servir el proyecto. Los cambios de desarrollo se validan primero con Live Server y solo aparecen en producción después del push/deploy correspondiente.
 - **JS**: ES Modules nativos (`<script type="module">`). Ver **"Arquitectura de páginas (sesión 20)"** para la navegación real entre `.html`, y **"Arquitectura del código JS (sesión 19)"** para el detalle de los módulos de `js/features/` y `js/core/` (siguen intactos, solo cambió *quién* los importa).
 - **Base de datos**: Supabase (Postgres). Toda la lógica sensible protegida por RLS + funciones RPC con `security definer` que validan el código de admin antes de actuar.
 - **Multimedia**: Supabase Storage, bucket `culones` (público de lectura) + tabla `media_assets` para recursos propios. Los campos actuales siguen guardando URLs (`image_url` o equivalentes), pero ahora pueden subir o reutilizar recursos desde la Biblioteca Multimedia. Las URLs externas volvieron como valores por uso desde el selector, sin entrar en la biblioteca interna.
@@ -27,8 +49,9 @@ Registro de sesiones de desarrollo. Cada entrada resume qué se hizo, qué qued�
 | Archivo | Sección | Acceso |
 |---|---|---|
 | `index.html` | 📜 Logs (portada) | Todos |
-| `weapons.html` | ⚔️ Guía de Armas | Todos |
+| `guides.html` | ⚔️ Guías | Todos |
 | `tierlist.html` | 🏆 Tierlist | Todos |
+| `kits.html` | 🎒 Kits | Todos |
 | `about.html` | 🎮 Acerca del Server | Todos |
 | `admin.html` | 🛠 Herramientas | Solo admin — link oculto en el nav para visitantes, y la propia página redirige a `index.html` si se accede sin sesión de admin activa (por URL directa, por ejemplo) |
 
@@ -44,7 +67,8 @@ partials/
 └── footer.html   # modal de login de admin + contenedor de toasts
 ```
 
-- `js/app/include.js` expone `loadPartial(url, targetId)` y `loadSharedShell()`, que hacen `fetch()` de esos dos archivos y los inyectan en `<div id="shell-header"></div>` / `<div id="shell-footer"></div>` — presentes al principio/final del `<body>` de **las 5 páginas**, sin excepción.
+- `js/app/include.js` expone `loadPartial(url, targetId)` y `loadSharedShell()`, que hacen `fetch()` de esos dos archivos y los inyectan en `<div id="shell-header"></div>` / `<div id="shell-footer"></div>` — presentes al principio/final del `<body>` de las páginas principales.
+- `js/app/page-bootstrap.js` centraliza el arranque de los seis entry points y el panel de error de carga.
 - `js/app/shell.js` expone `bootShell(pageKey)`, la función que **todas** las páginas llaman primero en su `init()`:
   1. Inyecta header/footer (`loadSharedShell()`).
   2. Marca la pestaña activa del nav (`.is-active` sobre el `<a data-page="...">` que coincide con `pageKey`) y actualiza el texto `culones-rpg.gg/<pageKey>` de la barra falsa de URL.
@@ -62,14 +86,15 @@ Se creó `js/pages/` con un entry point por página (distinto de `js/features/`,
 js/pages/
 ├── logs.js      # index.html     — modal de log, mob, item, libre, categorías, config de fichas, detalle+comentarios
 ├── tierlist.js  # tierlist.html  — modal de fila, elemento y "mover" (móvil)
-├── weapons.js   # weapons.html   — initWeaponModals() (ya estaba 100% autocontenido en weapons-admin.js)
+├── guides.js    # guides.html   — catálogo, detalle y modales de Guías
+├── kits.js      # kits.html      — cards y editor de kits recomendados
 ├── about.js     # about.html     — editor de bloques de "Acerca del Server"
 └── admin.js     # admin.html     — borradores, export, import, fondo, favicon, bitácora de acciones
 ```
 
-Cada uno importa únicamente los módulos de `js/features/` que le corresponden y cablea únicamente los modales presentes en **su propio** HTML. Por ejemplo, `weapons.js` nunca importa `js/features/tierlist.js`, y `js/pages/logs.js` nunca importa nada de `weapons-*`.
+Cada uno importa únicamente los módulos de `js/features/` que le corresponden y cablea únicamente los modales presentes en **su propio** HTML. Por ejemplo, `guides.js` nunca importa `js/features/tierlist.js`, y `js/pages/logs.js` nunca importa nada de `weapons-*`.
 
-`js/app/realtime.js` se partió en tres funciones (`initLogsRealtime`, `initTierlistRealtime`, `initWeaponsRealtime`) en vez de una única `initRealtime()` que suscribía los 3 canales de una — cada página ahora solo se suscribe al canal que le sirve. `admin.html` y `about.html` no necesitan Realtime y no lo cargan.
+`js/app/realtime.js` expone cuatro inicializadores (`initLogsRealtime`, `initTierlistRealtime`, `initWeaponsRealtime`, `initKitsRealtime`). Cada página solo se suscribe al canal que necesita. `admin.html` y `about.html` no usan Realtime.
 
 ### Reubicaciones de piezas que estaban "mal clasificadas"
 
@@ -106,7 +131,7 @@ Algunas funciones asumían que su HTML siempre estaba presente en el documento (
 - Ningún archivo SQL, ninguna tabla, ninguna función RPC.
 - El bot de Discord.
 - El contenido y la lógica interna de `js/features/*` y `js/core/*` — se movieron *quién los llama*, no *qué hacen*. Las únicas ediciones de código dentro de `features/` fueron los guards de DOM listados arriba y la reubicación de las dos piezas mal clasificadas.
-- El diseño visual, la tipografía, las animaciones (incluido el fade-in al entrar a una sección) y el comportamiento de cada funcionalidad: autenticación de admin, Logs, Tierlist, Guía de Armas, borradores, exportación/importación, Storage, Realtime, comentarios, likes — todo se comporta exactamente igual que antes, solo que cada pieza vive en su propio archivo `.html`.
+- El diseño visual, la tipografía, las animaciones (incluido el fade-in al entrar a una sección) y el comportamiento de cada funcionalidad: autenticación de admin, Logs, Tierlist, Guías, borradores, exportación/importación, Storage, Realtime, comentarios, likes — todo se comporta exactamente igual que antes, solo que cada pieza vive en su propio archivo `.html`.
 
 ### Cómo se verificó
 
@@ -160,13 +185,16 @@ js/
 │   ├── weapons-catalog.js       # Catálogo público: filtros + grid
 │   ├── weapons-catalog-admin.js # CRUD de categorías/tipos de arma
 │   ├── weapons-detail.js        # Vista de detalle de un arma (rangos, habilidades, receta)
-│   ├── weapons-admin.js         # CRUD de armas/rangos + cableado de todos sus modales
+│   ├── weapons-admin.js         # CRUD, rangos, estadísticas, habilidades y secciones
+│   ├── weapons-recipes-admin.js # Mesas de trabajo y sus modales
 │   ├── about.js                 # "Acerca del Server": render público + editor admin
 │   ├── background.js            # Fondo de página configurable
 │   ├── favicon.js               # Favicon configurable
 │   ├── export.js                # Exportación a Excel (SheetJS) y JSON
 │   ├── import.js                # Importación de JSON + detección de conflictos
-│   ├── media-library.js         # Biblioteca Multimedia + selector reutilizable
+│   ├── media-library.js         # Orquestación de Biblioteca + selector reutilizable
+│   ├── media-library-helpers.js # Normalización, filtros y previews puros
+│   ├── media-usage.js           # Consultas e índice de usos multimedia
 │   ├── media-library-helpers.js # Helpers puros de Multimedia: presentación, filtros, previews y assets livianos
 │   └── admin-panel.js           # Cableado de la página 🛠 Herramientas (export/import/drafts/fondo/favicon/multimedia)
 ├── app/                         # Orquestación / bootstrap compartido por TODAS las páginas
@@ -176,7 +204,7 @@ js/
 └── pages/                        # Un entry point por página .html (sesión 20)
     ├── logs.js                   # index.html
     ├── tierlist.js                # tierlist.html
-    ├── weapons.js                 # weapons.html
+    ├── guides.js                  # guides.html
     ├── about.js                   # about.html
     └── admin.js                   # admin.html
 ```
@@ -196,7 +224,7 @@ La auditoría post-refactor confirmó que no hay imports rotos ni módulos huér
 Actualización de la Fase de Optimización General (2026-07-03):
 
 - El grafo de imports estáticos queda con **0 ciclos**.
-- Los 5 ciclos internos conocidos de la Guía de Armas fueron eliminados.
+- Los 5 ciclos internos conocidos de la Guías fueron eliminados.
 - `weapons-detail.js` ya no importa estáticamente `weapons-admin.js`; carga acciones admin bajo demanda con `import('./weapons-admin.js')` cuando el usuario pulsa botones administrativos del detalle.
 - `weapons-data.js` ya no importa estáticamente `weapons-catalog-admin.js`; renderiza selects/listas admin bajo demanda con import dinámico.
 - `weapons-catalog.js` y `weapons-detail.js` usan delegación de eventos para reducir listeners recreados en cada render.
@@ -229,7 +257,7 @@ Si en el futuro se agrega un módulo nuevo, conviene repetir el paso 3 (import d
 | Página | Archivo | `data-page` | Visible para |
 |---|---|---|---|
 | 📜 Logs | `index.html` | `logs` | Todos |
-| ⚔️ Guía de Armas | `weapons.html` | `weapons` | Todos |
+| ⚔️ Guías | `guides.html` | `weapons` | Todos |
 | 🏆 Tierlist | `tierlist.html` | `tierlist` | Todos |
 | 🎮 Acerca del Server | `about.html` | `about` | Todos |
 | 🛠 Herramientas | `admin.html` | `admin` | Solo admin (link oculto en el nav; la página redirige a `index.html` si se accede sin sesión) |
@@ -271,7 +299,7 @@ Si en el futuro se agrega un módulo nuevo, conviene repetir el paso 3 (import d
 - `sql/migration_012_media_library_archive_cleanup.sql`: agrega RPC admin-gated para borrado definitivo de registros multimedia archivados.
 - `sql/migration_013_media_picker_light_list.sql`: agrega RPC liviana para modo selector; devuelve solo recursos activos y columnas básicas paginadas, sin archivados ni metadatos administrativos completos.
 - Biblioteca en **Herramientas**: búsqueda, filtros por tipo/origen, orden, vista previa, nombre visible, MIME, tamaño, hash, tags, descripción, archivado/restauración, borrado definitivo, listado de usos detectados, render progresivo y modo minimizado.
-- Selector multimedia reutilizable: disponible en Logs (mob/item/libre), Tierlist, Guía de Armas (arma/rango/receta/materiales), About, fondo de página y favicon. El picker usa modo liviano separado: RPC paginada mínima, cache temporal, búsqueda con debounce y carga incremental; no carga usos, archivados ni acciones administrativas al abrir.
+- Selector multimedia reutilizable: disponible en Logs (mob/item/libre), Tierlist, Guías (arma/rango/receta/materiales), About, fondo de página y favicon. El picker usa modo liviano separado: RPC paginada mínima, cache temporal, búsqueda con debounce y carga incremental; no carga usos, archivados ni acciones administrativas al abrir.
 - Recursos externos: vuelven como URLs temporales por uso desde el selector; no se guardan en `media_assets` ni aparecen en la biblioteca interna. El modal intenta detectar MIME/tipo y generar vista previa antes de aceptar, con fallback manual si CORS/HEAD no permite detección.
 - Duplicados: los uploads calculan hash y reutilizan el recurso existente si ya fue registrado.
 - Usos detectados: la biblioteca indexa URLs actuales en Logs, Tierlist, Armas, recetas, fondo, favicon y bloques de About.
@@ -302,7 +330,7 @@ Si en el futuro se agrega un módulo nuevo, conviene repetir el paso 3 (import d
 
 ---
 
-## Guía de Armas
+## Guías
 
 - Catálogo de armas con categorías y tipos dinámicos.
 - Cada arma tiene múltiples rangos (`weapon_ranks`), y cada rango contiene en JSONB: `stats` (pares clave/valor), `abilities` (habilidades con nivel, stats propios), `upgrade_recipe` (materiales → resultado), `extra_sections` (secciones libres de contenido futuro).
@@ -322,6 +350,16 @@ Si en el futuro se agrega un módulo nuevo, conviene repetir el paso 3 (import d
 
 ---
 
+## Kits
+
+- Página propia en `kits.html`, con entry point `js/pages/kits.js`, lógica en `js/features/kits.js` y estilos en `css/kits.css`.
+- Tres columnas fijas: Arma, Accesorio y Sub-arma; cada columna admite varias entradas apiladas.
+- Cada entrada puede guardar nombre, `image_url` y un `guide_link` hacia un elemento existente de Guías.
+- El editor evita envíos simultáneos, serializa los items por columna y deduplica respuestas repetidas durante la carga.
+- Requiere `migration_016_kits.sql`; Realtime usa el canal singleton `kits-changes`.
+
+---
+
 ## Pestaña 🛠 Herramientas (solo admin)
 
 Contiene:
@@ -335,10 +373,11 @@ Contiene:
 
 ## Realtime (Supabase)
 
-Se escuchan cambios en tiempo real en 3 canales:
+Se escuchan cambios en tiempo real en 4 canales:
 - `logs-changes`: tablas `logs`, `log_mobs`, `log_items`, `comments`
 - `tierlist-changes`: tablas `tierlist_rows`, `tierlist_items`
 - `weapons-changes`: tablas `weapons`, `weapon_ranks`, `weapon_categories`, `weapon_types`
+- `kits-changes`: tabla `kits`
 
 Cada canal tiene un flag de supresión (`_suppressRealtimeReload`, etc.) para evitar que el propio admin que está editando vea un reload innecesario inmediatamente después de guardar.
 
@@ -369,7 +408,7 @@ Procesos automáticos:
 5. `migration_005_action_log.sql` — bitácora de acciones
 6. `migration_006_tierlist.sql` — tierlist_rows + tierlist_items
 7. `migration_007_drafts.sql` — tabla drafts + RPCs de borradores sincronizables
-8. `migration_008_weapons.sql` — guía de armas completa
+8. `migration_008_weapons.sql` — sistema de Guías completo
 9. `migration_009_fix_create_category_slug.sql` — fix de normalización de slugs de categoría
 10. `migration_010_storage.sql` — bucket `culones` + políticas RLS de Storage
 11. `migration_011_media_library.sql` — Biblioteca Multimedia (`media_assets`) + MIME ampliados + RPCs admin-gated
@@ -377,12 +416,18 @@ Procesos automáticos:
 13. `migration_013_media_picker_light_list.sql` — listado liviano para selector multimedia rápido
 14. `migration_014_admin_action_audit_details.sql` — action logs más descriptivos
 15. `migration_015_patch_weapon_rank.sql` — PATCH parcial de `weapon_ranks`
+16. `migration_016_kits.sql` — kits recomendados + RPC de administración
+17. `migration_017_discord_deletion_queue.sql` — cola de borrados para sincronizar mensajes del bot
+18. `migration_018_log_cover_image.sql` — portada independiente de Logs + RPC compatibles
+19. `migration_019_replace_media_asset.sql` — reemplazo global y seguro de recursos multimedia
+20. `migration_020_update_log_category.sql` — edición de categorías de Logs
 
 ---
 
 ## Problemas conocidos
 
-- Pendiente QA manual completa con Live Server tras aplicar `migration_015_patch_weapon_rank.sql` en Supabase.
+- Las migraciones 015–020 y la QA visual general fueron confirmadas por el usuario el 11 de julio de 2026.
+- Pendiente comprobación visual corta de la nueva apariencia de botones secundarios/destructivos tras esta sesión.
 
 ---
 
@@ -403,7 +448,7 @@ Pasada 1 — Multimedia:
 - Biblioteca/Selector Multimedia ahora usa delegación de eventos en el grid para escoger, copiar, editar, archivar, restaurar y eliminar, evitando recrear listeners por tarjeta.
 - Validación: `node --check` en 40 JS, `git diff --check` sin errores.
 
-Pasada 2 — Guía de Armas:
+Pasada 2 — Guías:
 
 - Se eliminaron los 5 ciclos estáticos de imports detectados en Armas.
 - `weapons-detail.js` carga acciones admin bajo demanda con import dinámico.
@@ -417,13 +462,13 @@ Pasada 3 — CSS global:
 - Se inició la limpieza segura de `css/style.css` sin rediseñar ni mover bloques grandes.
 - Se añadieron tokens semánticos para superficies, texto, bordes y blancos del entorno admin/multimedia.
 - Se reemplazaron hardcodes repetidos de la sección Multimedia por variables existentes o nuevas (`--admin-purple`, `--admin-ink`, `--admin-surface-*`, `--admin-border-*`, etc.).
-- Se separó el bloque `SISTEMA MULTIMEDIA` a `css/media.css`, cargado después de `css/style.css` en `index.html`, `admin.html`, `about.html`, `tierlist.html` y `weapons.html` para conservar la cascada.
+- Se separó el bloque `SISTEMA MULTIMEDIA` a `css/media.css`, cargado después de `css/style.css` en `index.html`, `admin.html`, `about.html`, `tierlist.html` y `guides.html` para conservar la cascada.
 - No se eliminaron reglas ni selectores; los hardcodes de un solo uso quedan para revisión posterior si realmente aportan simplificación.
 - Validación: balance de llaves correcto en `css/style.css` y `css/media.css`; `git diff --check` sin errores en CSS/HTML/PROJECT_MEMORY.
 
 Pasada 4 — CSS legacy por capas:
 
-- Se separaron bloques legacy consecutivos de `css/style.css` en capas dedicadas: `css/tierlist.css`, `css/admin-tools.css`, `css/weapons.css` y `css/about.css`.
+- Se separaron bloques legacy consecutivos de `css/style.css` en capas dedicadas: `css/tierlist.css`, `css/admin-tools.css`, `css/guides.css` y `css/about.css`.
 - Las páginas HTML cargan las capas en orden estable: `style.css`, capas legacy y `media.css`.
 - No se cambiaron reglas internas, selectores ni comportamiento visual esperado.
 - Validación: balance de llaves correcto en todas las hojas CSS separadas.
@@ -443,7 +488,7 @@ Pasada 6 — Migración 014:
 - Se conservaron firmas, grants y descripciones esperadas.
 - Validación: bloques `$$` balanceados; 14 funciones `create or replace function`; 14 `grant execute`.
 
-Pasada 7 — Guía de Armas / PATCH de rangos:
+Pasada 7 — Guías / PATCH de rangos:
 
 - Se agregó `sql/migration_015_patch_weapon_rank.sql` con RPC `patch_weapon_rank`.
 - `saveRankPatch()` ahora envía solo los campos modificados y actualiza el rango en memoria con la respuesta de Supabase.
@@ -476,10 +521,28 @@ Pasada 10 — CSS global / tokens seguros:
 - No se movieron bloques grandes ni se eliminaron selectores.
 - Validación: balance de llaves CSS y `git diff --check`.
 
-Pendiente recomendado para la siguiente sesión:
+Pasada 11 — Auditoría general tras actualización masiva (11 Jul 2026):
 
-- Aplicar `migration_015_patch_weapon_rank.sql` en Supabase.
-- Hacer QA manual con Live Server: armas, habilidades, borradores Supabase y P3 móvil.
+- Se revisaron 102 archivos del proyecto y los 54 módulos JavaScript.
+- `js/app/page-bootstrap.js` centraliza el arranque y el panel de error de Logs, Guías, Tierlist, Kits, Acerca y Herramientas.
+- Se eliminaron los exports muertos `supabaseAvailable` y `resolveEffectiveThemeConfig`.
+- Cada HTML principal carga únicamente su CSS de sección, además de las capas compartidas `style.css`, `media.css` y `rebrand.css`.
+- Se eliminó la segunda definición idéntica de `@keyframes spin` y se corrigió el whitespace señalado por `git diff --check`.
+- Se verificaron imports locales, nombres importados/exportados, IDs HTML, referencias locales, balance CSS y estructura SQL.
+- Los seis grafos de módulos pudieron importarse sin errores de ejecución en un DOM mínimo.
+- `README.md` se reescribió según el estado actual y las notas temporales de actualización se consolidaron aquí.
+- Esta auditoría dejó identificados `rebrand.css`, `media-library.js` y `weapons-admin.js` para la siguiente pasada modular.
+
+Pasada 12 — Capas visuales, Multimedia y Guías (11 Jul 2026):
+
+- `rebrand.css` se dividió conservando byte por byte el orden de la cascada en: base, runtime, editores, Logs/paleta, extras globales y controles.
+- `rebrand-controls.css` convierte los antiguos `link-btn` celestes/subrayados en botones compactos y distingue las acciones destructivas.
+- Los botones dinámicos de Biblioteca muestran icono y etiqueta consistente.
+- `media-usage.js` separa las consultas y el render del índice de usos de `media-library.js`; los helpers puros continúan en `media-library-helpers.js`.
+- `weapons-recipes-admin.js` contiene todo el editor de Mesas de trabajo; `weapons-admin.js` conserva CRUD, rangos, estadísticas, habilidades y secciones.
+- La página se migró completamente de `weapons` a `guides`: `guides.html`, `js/pages/guides.js`, `css/guides.css`, navegación y claves de fondo/banner. `weapons.html` y `js/pages/weapons.js` fueron eliminados.
+- Los ajustes antiguos guardados con clave `weapons` se normalizan a `guides` al cargar para no perder fondos ni banners existentes.
+- Validación: 58 JS con sintaxis válida, cero ciclos estáticos, seis grafos importables, recursos HTTP 200 y `weapons.html` 404.
 
 ---
 
@@ -494,7 +557,7 @@ Objetivo: cerrar la etapa de modularización/multipágina dejando el repo limpio
 - Revisar HTML y README para que describan el estado real multipágina.
 - Buscar y eliminar código muerto dejado por el refactor.
 - Revisar arquitectura, dependencias entre módulos, duplicación, rendimiento y consultas.
-- Probar todas las páginas: Logs, Tierlist, Guía de Armas, Acerca del Server y Admin.
+- Probar todas las páginas: Logs, Tierlist, Guías, Acerca del Server y Admin.
 - Probar flujos críticos: exportaciones, importaciones, Storage, Realtime, login admin, comentarios, likes, borradores y cambios desde admin.
 - Verificar integración con el bot de Discord: comandos, screenshots, publicación/edición de logs y rotación del código admin.
 - Actualizar completamente `PROJECT_MEMORY.md` al terminar la auditoría.
@@ -512,7 +575,7 @@ Completado en repo:
 
 - [x] Referencias antiguas a `app.js`, `js/app/main.js`, `js/app/tabs.js`, tabs falsas y URLs obsoletas revisadas/limpiadas en README, HTML, CSS, SQL y memoria.
 - [x] Comentarios obsoletos principales limpiados o reescritos para describir el estado multipágina real.
-- [x] HTML y README revisados contra la arquitectura actual de páginas reales (`index.html`, `weapons.html`, `tierlist.html`, `about.html`, `admin.html`).
+- [x] HTML y README revisados contra la arquitectura actual de páginas reales (`index.html`, `guides.html`, `tierlist.html`, `about.html`, `admin.html`).
 - [x] Imports rotos: 0.
 - [x] Módulos huérfanos: 0.
 - [x] Exports públicos sin uso: 0 tras ocultar helpers internos que no se importan desde otros módulos.
@@ -562,7 +625,7 @@ Implementado en repo:
 - [x] `js/core/storage.js` mantiene `uploadImageToStorage()` compatible y agrega `uploadMediaToStorage()`.
 - [x] `js/features/media-library-helpers.js` separa helpers puros de Multimedia: normalización de presentación, filtros, orden, previews y normalización de assets livianos.
 - [x] Biblioteca Multimedia en `admin.html` con buscador, filtros, vista previa, metadatos, usos detectados, archivado y subida de recursos propios.
-- [x] Selector multimedia reutilizable en Logs, Tierlist, Guía de Armas, About, fondo y favicon.
+- [x] Selector multimedia reutilizable en Logs, Tierlist, Guías, About, fondo y favicon.
 - [x] Soporte de imagen ampliado: PNG, JPG/JPEG, WEBP, GIF, SVG y APNG.
 - [x] Modelo y bucket preparados para MP4/WEBM desde la biblioteca.
 - [x] Duplicados por hash al subir archivos registrados.
@@ -592,7 +655,7 @@ Checklist manual para comprobar:
 - [x] Editar nombre, descripción, tags y opciones de presentación de un recurso.
 - [x] Elegir un fondo desde la biblioteca y comprobar fit, posición, repetición y opacidad.
 - [x] Minimizar la Biblioteca Multimedia, confirmar que desaparece el grid, expandir y comprobar búsqueda/filtros/orden.
-- [ ] Con Live Server, abrir el selector multimedia desde Logs, Tierlist, Guía de Armas, About, fondo y favicon; comprobar que abre fluido, muestra tarjetas compactas, filtra/busca sin lag perceptible y "Mostrar mas" agrega recursos sin parpadeo completo.
+- [ ] Con Live Server, abrir el selector multimedia desde Logs, Tierlist, Guías, About, fondo y favicon; comprobar que abre fluido, muestra tarjetas compactas, filtra/busca sin lag perceptible y "Mostrar mas" agrega recursos sin parpadeo completo.
 - [x] Archivar un recurso, verlo en Archivados, restaurarlo y comprobar que vuelve a la biblioteca principal.
 - [x] Intentar eliminar definitivamente un recurso archivado con usos y confirmar que el modal advierte dónde se usa.
 - [x] Exportar backup JSON/XLSX completo y confirmar `media_assets` / hoja `Multimedia`.
@@ -604,7 +667,7 @@ El Sistema Multimedia debe ser una de las bases de Culones RPG.
 
 No quiero volver a crear un sistema de subida de imágenes para cada módulo. Quiero una única infraestructura reutilizable que gestione todos los recursos multimedia del proyecto.
 
-A partir de esta implementación, ningún módulo debería preocuparse por cómo se obtiene un recurso. Logs, Guía de Armas, Tierlist, Fondo, Favicon, Acerca del Server y cualquier sección futura deberán utilizar la misma capa multimedia.
+A partir de esta implementación, ningún módulo debería preocuparse por cómo se obtiene un recurso. Logs, Guías, Tierlist, Fondo, Favicon, Acerca del Server y cualquier sección futura deberán utilizar la misma capa multimedia.
 
 El sistema debe ser cómodo para el administrador, claro para el usuario, fácil de mantener para el desarrollador y preparado para crecer sin rediseñar la arquitectura.
 
@@ -1156,8 +1219,8 @@ Objetivo: mejoras de capa superior una vez cerradas auditoría, multimedia y adm
 
 - Se cerro el ultimo hueco del sistema de enlaces (`js/features/guide-links.js`, ya existente para Tierlist/Kits/Logs): ahora cada slot de material y el resultado dentro del editor de Mejora/Fabricacion de un rango de arma tienen su propio selector "Enlazar con Guias" (`guide_link: {weapon_id, rank_id}`), igual que el resto del sistema.
 - Cubre los 4 modos de receta: intercambio (`trade`), mesa de crafteo (`crafting`, grid 3x3), horno (`furnace`, 2 slots) y herreria (`smithing`, 3 slots) — tanto en materiales/inputs como en el resultado.
-- El vinculo se guarda dentro del JSON `upgrade_recipe` que ya existia (sin migracion nueva). En la vista de detalle (`weapons-detail.js` → `renderRecipeSlot`), si el slot tiene `guide_link`, el slot completo queda envuelto en un `<a>` que lleva a `weapons.html?weapon=...&rank=...`; si no tiene enlace, se ve exactamente igual pero sin ser clickeable.
-- Estilo (`css/weapons.css`, `.weapon-recipe-slot-link`): el link no se ve azul/subrayado, mantiene la estetica del slot Minecraft/morado y solo se nota clickeable con un hover sutil (glow), igual que el resto de la UI admin.
+- El vinculo se guarda dentro del JSON `upgrade_recipe` que ya existia (sin migracion nueva). En la vista de detalle (`weapons-detail.js` → `renderRecipeSlot`), si el slot tiene `guide_link`, el slot completo queda envuelto en un `<a>` que lleva a `guides.html?weapon=...&rank=...`; si no tiene enlace, se ve exactamente igual pero sin ser clickeable.
+- Estilo (`css/guides.css`, `.weapon-recipe-slot-link`): el link no se ve azul/subrayado, mantiene la estetica del slot Minecraft/morado y solo se nota clickeable con un hover sutil (glow), igual que el resto de la UI admin.
 - Al retomar este trabajo (quedo a medias en una sesion anterior) se encontraron y corrigieron 2 casos borde que se habian quedado sin el chequeo de `guide_link`, ambos en `js/features/weapons-admin.js`:
   1. `submitWeaponRecipe()`: la validacion de "hay contenido para guardar" solo miraba `name`/`image_url` de los slots y del resultado — un material o resultado que **solo** tuviera enlace (sin nombre ni imagen) hacia fallar el guardado con "Agrega al menos un material o un resultado" aunque si tuviera contenido real (el enlace). Ahora tambien cuenta `guide_link`.
   2. El listener de cambio de modo de receta (`weapon-recipe-mode-input`) filtraba los materiales al pasar a modo `trade` usando solo `name`/`image_url`, así que un slot que solo tuviera enlace se borraba silenciosamente al cambiar de modo. Ahora tambien respeta `guide_link`.
@@ -1176,5 +1239,28 @@ Objetivo: mejoras de capa superior una vez cerradas auditoría, multimedia y adm
 ### Buscador global (julio 2026)
 - `js/features/global-search.js` construye bajo demanda un índice de todas las secciones públicas.
 - El shell lo inicializa después de cargar `app_settings` para poder indexar también Acerca del servidor.
-- Los enlaces profundos usan: `index.html?log=&tab=&entry=`, `weapons.html?weapon=&rank=`, `tierlist.html?item=`, `kits.html?kit=&item=` y `about.html?block=`.
+- Los enlaces profundos usan: `index.html?log=&tab=&entry=`, `guides.html?weapon=&rank=`, `tierlist.html?item=`, `kits.html?kit=&item=` y `about.html?block=`.
 - No requiere migración SQL nueva.
+
+
+### 2026-07-11 — Sistema global de atajos y paleta de comandos
+
+- Se añadió `js/features/command-center.js` como capa global iniciada desde `bootShell()`.
+- Se implementaron navegación `Alt + 1…6`, creación/edición contextual, guardado, confirmación, cierre de la capa superior, Biblioteca Multimedia, copiar/pegar/duplicar y navegación anterior/siguiente.
+- `Ctrl + Shift + K` abre una paleta con búsqueda, navegación por teclado, estados deshabilitados y acceso a todas las secciones disponibles.
+- `?` abre una guía visual de atajos. El antiguo atajo de Espacio para el login por código fue retirado junto con ese sistema.
+- La selección contextual se recuerda al pulsar o enfocar Logs, rangos, elementos de Tierlist, Kits y bloques de Acerca.
+- Se añadió `css/command-center.css` a las seis páginas principales.
+- Los atajos evitan interceptar escritura normal dentro de inputs, textareas, selects y contenido editable.
+- Validación estática: sintaxis de todos los módulos y resolución de imports locales.
+
+### 2026-07-11 — Fluidez y aislamiento de atajos
+
+- Se centralizó completamente el teclado en `js/features/command-center.js`; `shell.js` y `global-search.js` ya no procesan `Ctrl + K` de forma paralela.
+- Los atajos esperan a que se suelte la combinación completa antes de ejecutarse. Esto evita que `Ctrl + Shift + K` abra simultáneamente la paleta y el buscador global.
+- Las combinaciones ahora exigen modificadores exactos, ignoran repeticiones de teclado y evitan conflictos con `AltGr`.
+- Se añadió un pequeño bloqueo entre ejecuciones para impedir acciones duplicadas por rebote o pulsaciones superpuestas.
+- La paleta cachea la disponibilidad contextual al abrirse, agrupa sus renders con `requestAnimationFrame` y cambia la selección con clases en vez de reconstruir toda la lista.
+- La selección contextual dejó de recorrer todo el DOM en cada clic; solo limpia el elemento anteriormente seleccionado.
+- Se eliminó el `backdrop-filter` de la paleta y se añadió contención de layout/pintura para reducir coste gráfico en equipos modestos.
+- Validado con `node --check` en `command-center.js`, `shell.js` y `global-search.js`.

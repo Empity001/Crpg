@@ -1,0 +1,1390 @@
+/* ======================================================================
+   CORRECCIÓN DE RUNTIME · MODALES AISLADOS Y CARGA PEREZOSA
+   ----------------------------------------------------------------------
+   Los overlays viven en #modal-portal, fuera del flujo de la página. Así
+   la biblioteca, el login y los editores no aumentan el alto del documento
+   ni aparecen "debajo" del contenido. También se elimina el blur de fondo,
+   que era costoso al mostrar muchas miniaturas.
+   ====================================================================== */
+html {
+  scrollbar-gutter: stable;
+}
+
+#modal-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  pointer-events: none;
+  isolation: isolate;
+}
+
+#modal-portal > .modal-overlay {
+  pointer-events: auto;
+}
+
+html.modal-open,
+body.modal-open {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+.modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0 !important;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: rgba(3, 5, 13, .9);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  contain: layout paint style;
+}
+
+.modal-overlay.hidden {
+  display: none !important;
+}
+
+.modal-box {
+  min-width: 0;
+  max-width: min(620px, calc(100vw - 40px));
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* El terminal de admin es una interfaz de pantalla completa. La regla
+   genérica de .modal-box no debe reducirlo a 620 px. */
+#admin-modal {
+  z-index: 220;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+  padding: 0 !important;
+  background: #000;
+}
+
+#admin-modal .admin-login-box {
+  width: 100vw !important;
+  max-width: none !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  max-height: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  background: #000 !important;
+  box-shadow: none !important;
+}
+
+#admin-modal .admin-terminal-panel {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+#admin-modal .admin-terminal-line {
+  max-width: calc(100vw - 96px);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Selector multimedia: modal independiente, alto limitado y scroll solo
+   dentro de la cuadrícula. Esto evita que las miniaturas alarguen el body. */
+#media-picker-modal {
+  /* Debe quedar por encima de menús contextuales y editores secundarios. */
+  z-index: 900;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px !important;
+}
+
+#media-picker-modal .media-picker-box {
+  width: min(1120px, calc(100vw - 48px)) !important;
+  max-width: 1120px !important;
+  height: min(820px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px) !important;
+  padding: 22px 24px !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden !important;
+  contain: layout paint style;
+}
+
+#media-picker-modal .media-modal-title,
+#media-picker-modal .media-toolbar,
+#media-picker-modal .media-picker-actions,
+#media-picker-modal .media-presentation-grid,
+#media-picker-modal .media-picker-status {
+  flex: 0 0 auto;
+}
+
+#media-picker-modal .media-picker-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  overscroll-behavior: contain;
+  align-content: start;
+  contain: layout paint;
+}
+
+#media-picker-modal .media-card-picker {
+  content-visibility: auto;
+  contain-intrinsic-size: 210px 180px;
+}
+
+@media (max-width: 680px) {
+  #media-picker-modal {
+    align-items: flex-end !important;
+    padding: 10px !important;
+  }
+
+  #media-picker-modal .media-picker-box {
+    width: 100% !important;
+    height: min(92dvh, 860px);
+    max-height: 92dvh !important;
+    padding: 20px 16px !important;
+    border-radius: 20px 20px 12px 12px !important;
+  }
+
+  #admin-modal .admin-terminal-line {
+    max-width: calc(100vw - 36px);
+  }
+}
+
+/* ======================================================================
+   CORRECCIÓN 2 · SELECTOR MULTIMEDIA Y EDITOR DE RECETAS
+   ====================================================================== */
+
+/* Brave puede dejar sin pintar miniaturas dentro de un contenedor con
+   content-visibility + varios contain anidados. El selector ya pagina de
+   32 en 32, así que priorizamos una vista previa estable. */
+#media-picker-modal .media-picker-grid,
+#media-picker-modal .media-card-picker,
+#media-picker-modal .media-picker-card-button,
+#media-picker-modal .media-thumb {
+  content-visibility: visible !important;
+  contain: none !important;
+}
+
+#media-picker-modal .media-picker-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  grid-auto-rows: max-content;
+  align-content: start;
+  gap: 12px;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding: 2px 8px 14px 2px;
+  scrollbar-gutter: stable;
+}
+
+#media-picker-modal .media-card-picker {
+  min-width: 0;
+  height: 176px;
+  min-height: 176px;
+  overflow: hidden;
+}
+
+#media-picker-modal .media-picker-card-button {
+  display: grid;
+  grid-template-rows: 112px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+#media-picker-modal .media-card-picker .media-thumb {
+  display: flex !important;
+  width: 100%;
+  height: 112px;
+  min-height: 112px;
+  aspect-ratio: auto;
+  background:
+    linear-gradient(45deg, rgba(255,255,255,.035) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255,255,255,.035) 25%, transparent 25%),
+    #090c1a;
+  background-size: 16px 16px;
+}
+
+#media-picker-modal .media-thumb-preview {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+  max-height: 100%;
+  visibility: visible !important;
+}
+
+#media-picker-modal .media-thumb.is-preview-error::after {
+  content: 'Vista previa no disponible';
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  color: #8f89a5;
+  font-size: 11px;
+  text-align: center;
+}
+
+#media-picker-modal .media-card-picker .media-card-body {
+  min-width: 0;
+  overflow: hidden;
+  padding: 9px 10px 10px;
+}
+
+#media-picker-modal .media-card-picker .media-card-title,
+#media-picker-modal .media-card-picker .media-card-meta {
+  max-width: 100%;
+}
+
+#media-picker-modal .media-load-more-row {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: 4px;
+  padding: 12px;
+  border: 1px solid rgba(133,112,191,.2);
+  border-radius: 12px;
+  background: rgba(10,13,27,.96);
+}
+
+/* El editor de mejora necesita más ancho que un modal genérico. El scroll
+   pertenece a la ventana del editor, no al documento ni al overlay. */
+#weapon-recipe-modal {
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  padding: 24px !important;
+}
+
+#weapon-recipe-modal > .modal-box {
+  width: min(1120px, calc(100vw - 48px)) !important;
+  max-width: 1120px !important;
+  height: min(880px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px) !important;
+  min-height: 0;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+#weapon-recipe-materials-list {
+  min-width: 0;
+}
+
+#weapon-recipe-materials-list[data-recipe-mode="crafting"],
+#weapon-recipe-materials-list[data-recipe-mode="smithing"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+#weapon-recipe-materials-list[data-recipe-mode="crafting"] .weapon-material-row,
+#weapon-recipe-materials-list[data-recipe-mode="smithing"] .weapon-material-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+}
+
+#weapon-recipe-materials-list[data-recipe-mode="crafting"] .weapon-material-slot-label,
+#weapon-recipe-materials-list[data-recipe-mode="smithing"] .weapon-material-slot-label,
+#weapon-recipe-materials-list[data-recipe-mode="crafting"] .wm-name,
+#weapon-recipe-materials-list[data-recipe-mode="smithing"] .wm-name,
+#weapon-recipe-materials-list[data-recipe-mode="crafting"] .wm-guide-link,
+#weapon-recipe-materials-list[data-recipe-mode="smithing"] .wm-guide-link {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0 !important;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#weapon-recipe-materials-list[data-recipe-mode="crafting"] .wm-img-btn,
+#weapon-recipe-materials-list[data-recipe-mode="smithing"] .wm-img-btn,
+#weapon-recipe-materials-list[data-recipe-mode="crafting"] .wm-media-btn,
+#weapon-recipe-materials-list[data-recipe-mode="smithing"] .wm-media-btn {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  white-space: nowrap;
+}
+
+#weapon-recipe-materials-list[data-recipe-mode="crafting"] .wm-qty,
+#weapon-recipe-materials-list[data-recipe-mode="smithing"] .wm-qty {
+  width: 100%;
+  min-width: 0;
+}
+
+#weapon-recipe-materials-list[data-recipe-mode="crafting"] .editor-row-actions,
+#weapon-recipe-materials-list[data-recipe-mode="smithing"] .editor-row-actions {
+  min-width: 0;
+  justify-self: end;
+}
+
+#weapon-recipe-materials-list[data-recipe-mode="crafting"] .enchant-remove,
+#weapon-recipe-materials-list[data-recipe-mode="smithing"] .enchant-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+}
+
+/* Selectores de enlaces: jamás deben salir de su tarjeta. */
+.weapon-material-row .wm-guide-link,
+#weapon-recipe-result-guide-input {
+  display: block;
+  width: 100%;
+  min-width: 0 !important;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 900px) {
+  #weapon-recipe-materials-list[data-recipe-mode="crafting"],
+  #weapon-recipe-materials-list[data-recipe-mode="smithing"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  #media-picker-modal .media-picker-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  #media-picker-modal .media-card-picker {
+    height: 158px;
+    min-height: 158px;
+  }
+
+  #media-picker-modal .media-picker-card-button {
+    grid-template-rows: 96px minmax(0, 1fr);
+  }
+
+  #media-picker-modal .media-card-picker .media-thumb {
+    height: 96px;
+    min-height: 96px;
+  }
+
+  #weapon-recipe-modal {
+    align-items: flex-end !important;
+    padding: 10px !important;
+  }
+
+  #weapon-recipe-modal > .modal-box {
+    width: 100% !important;
+    height: 92dvh;
+    max-height: 92dvh !important;
+    padding: 22px 16px !important;
+    border-radius: 20px 20px 12px 12px !important;
+  }
+
+  #weapon-recipe-materials-list[data-recipe-mode="crafting"],
+  #weapon-recipe-materials-list[data-recipe-mode="smithing"] {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ======================================================================
+   CORRECCIÓN 3 · EDICIÓN DE METADATOS, SIDEBAR MÓVIL Y LOGIN COMPACTO
+   ====================================================================== */
+
+/* Categorías y tipos: acciones separadas, sin apretar el nombre. */
+.manage-editor-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.manage-editor-actions .btn-primary {
+  width: 100%;
+  margin: 0;
+}
+
+.manage-editor-actions .btn-secondary-admin {
+  min-width: 142px;
+  justify-content: center;
+}
+
+.category-manage-row {
+  gap: 12px;
+}
+
+.category-manage-row.is-editing {
+  border-color: rgba(180,108,255,.7);
+  background: rgba(139,61,255,.12);
+  box-shadow: 0 0 18px rgba(139,61,255,.11);
+}
+
+.category-manage-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.category-manage-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.category-manage-row .category-manage-edit,
+.category-manage-row .category-manage-delete {
+  min-height: 29px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 9px;
+  border-radius: 8px;
+  font-size: 10.5px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.category-manage-row .category-manage-edit {
+  color: #d7b8ff;
+  background: rgba(139,61,255,.11);
+  border: 1px solid rgba(180,108,255,.24);
+}
+
+.category-manage-row .category-manage-edit:hover {
+  color: #fff;
+  border-color: rgba(180,108,255,.7);
+  background: rgba(139,61,255,.22);
+  transform: translateY(-1px);
+}
+
+/* Login: conserva la estética de terminal, pero todo el desafío cabe en
+   pantalla y el formulario ya no aparece perdido al final del documento. */
+#admin-modal .admin-terminal-panel {
+  min-height: 100dvh;
+  justify-content: center;
+  padding: 82px clamp(18px, 3.4vw, 48px) 54px;
+}
+
+#admin-modal .admin-login-box {
+  scrollbar-gutter: stable;
+}
+
+#admin-modal .admin-login-form {
+  margin-top: 10px;
+}
+
+@media (max-width: 900px) {
+  /* La barra superior deja de tapar el logo del menú lateral. */
+  .app-sidebar.hud-top {
+    top: 66px;
+    bottom: 0;
+    height: auto;
+    min-height: 0;
+    max-height: calc(100dvh - 66px);
+    overflow: hidden;
+  }
+
+  .app-sidebar .hud-brand {
+    flex: 0 0 auto;
+    min-height: 88px;
+    padding: 18px 20px 16px;
+    overflow: visible;
+  }
+
+  .app-sidebar .hud-title {
+    font-size: 20px;
+    letter-spacing: -.45px;
+  }
+
+  .app-sidebar .hud-subtitle {
+    display: block;
+    max-width: 190px;
+    white-space: normal;
+    line-height: 1.35;
+  }
+
+  .app-sidebar .browser-tabs {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-top: 18px;
+    padding-bottom: 14px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .app-sidebar .sidebar-footer {
+    position: relative;
+    z-index: 3;
+    flex: 0 0 auto;
+    padding: 14px 16px max(18px, env(safe-area-inset-bottom));
+    overflow: visible;
+    background: linear-gradient(180deg, rgba(8,10,22,.96), rgba(8,10,22,1));
+    box-shadow: 0 -12px 24px rgba(0,0,0,.18);
+  }
+
+  .app-sidebar .admin-mode-badge {
+    width: 100%;
+    min-height: 38px;
+    margin: 0 0 10px;
+    padding: 9px 11px;
+    border: 1px solid rgba(53,217,139,.28);
+    border-radius: 12px;
+    background: rgba(53,217,139,.055);
+    box-sizing: border-box;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 680px) {
+  .manage-editor-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .manage-editor-actions .btn-secondary-admin {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .category-manage-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .category-manage-actions {
+    width: 100%;
+  }
+
+  .category-manage-row .category-manage-edit,
+  .category-manage-row .category-manage-delete {
+    flex: 1 1 0;
+  }
+
+  #admin-modal .admin-terminal-panel {
+    min-height: 100dvh;
+    justify-content: center;
+    padding: 70px 16px 30px;
+    gap: 4px;
+  }
+
+  #admin-modal .admin-terminal-line {
+    max-width: calc(100vw - 32px);
+    font-size: 11px;
+    line-height: 1.28;
+  }
+
+  #admin-modal .admin-login-form {
+    width: 100%;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #admin-modal .admin-command-row {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  #admin-modal .admin-console-help {
+    margin-top: 5px;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 900px) {
+  .mobile-admin-indicator {
+    min-height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    line-height: 1;
+    box-sizing: border-box;
+  }
+}
+
+/* ======================================================================
+   CORRECCIÓN 4 · FONDO REAL SIN RECORTES, SIDEBAR Y BANNERS
+   ====================================================================== */
+
+/* Capa independiente del fondo personalizado. El contenido permanece por
+   encima y no se acumulan varias imágenes sobre body. */
+.custom-background-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: none;
+  overflow: hidden;
+  pointer-events: none;
+  background: #070914;
+}
+
+.custom-background-layer.is-visible {
+  display: block;
+}
+
+.custom-background-backdrop,
+.custom-background-image,
+.custom-background-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.custom-background-backdrop,
+.custom-background-image {
+  background-image: var(--custom-bg-url);
+  background-position: var(--custom-bg-position, center center);
+  background-repeat: var(--custom-bg-repeat, no-repeat);
+}
+
+.custom-background-image {
+  opacity: var(--custom-bg-opacity, 1);
+}
+
+.custom-background-veil {
+  background: rgba(7, 9, 20, var(--custom-bg-veil, .3));
+}
+
+.custom-background-layer.mode-fixed .custom-background-backdrop {
+  display: none;
+}
+
+.custom-background-layer.mode-fixed .custom-background-image {
+  background-size: cover;
+}
+
+.custom-background-layer.mode-contain .custom-background-backdrop {
+  inset: -7%;
+  background-size: cover;
+  filter: blur(34px) brightness(.56) saturate(.88);
+  opacity: calc(var(--custom-bg-opacity, 1) * .7);
+  transform: scale(1.08);
+}
+
+.custom-background-layer.mode-contain .custom-background-image {
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.custom-background-layer.mode-continuous {
+  position: absolute;
+  min-height: 100%;
+  height: 100%;
+}
+
+.custom-background-layer.mode-continuous .custom-background-backdrop {
+  display: none;
+}
+
+.custom-background-layer.mode-continuous .custom-background-image {
+  background-size: 100% auto;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+
+/* Banner personalizado encima del degradado base del hero. */
+.page-hero-custom-banner {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0;
+  background-size: cover;
+  background-repeat: no-repeat;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+
+.page-hero.has-custom-banner .page-hero-custom-banner {
+  opacity: 1;
+}
+
+.page-hero.hide-default-hero-art .page-hero-art {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.page-hero.has-custom-banner::before {
+  opacity: .18;
+}
+
+/* Footer del modo admin: siempre dentro del sidebar. */
+.app-sidebar .sidebar-footer {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  transform: none !important;
+  left: auto !important;
+  right: auto !important;
+}
+
+.app-sidebar .sidebar-footer > * {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.app-sidebar .admin-mode-badge {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.app-sidebar .btn-admin-toggle {
+  overflow: hidden;
+}
+
+/* Editor de banners en Herramientas. */
+.hero-banner-config-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.hero-banner-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--ink-400);
+  font-size: 11px;
+}
+
+.hero-banner-field .media-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.hero-banner-opacity-field input[type="range"] {
+  width: 100%;
+  accent-color: var(--admin-purple);
+}
+
+.hero-banner-hide-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 11px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+  color: var(--ink-300);
+  background: rgba(17,21,40,.55);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.hero-banner-hide-option input {
+  margin-top: 2px;
+  accent-color: var(--admin-purple);
+}
+
+.hero-banner-live-preview {
+  position: relative;
+  min-height: 142px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  margin-top: 14px;
+  padding: 24px 28px;
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 84% 25%, rgba(160, 54, 198, .22), transparent 35%),
+    linear-gradient(115deg, rgba(17, 21, 40, .96), rgba(58, 18, 69, .72));
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.hero-banner-live-preview::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(7,9,20,.85), transparent 72%);
+  pointer-events: none;
+}
+
+.hero-banner-live-preview > div {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.hero-banner-live-preview small {
+  color: #bd8bff;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.hero-banner-live-preview strong {
+  color: #fff;
+  font-size: 24px;
+}
+
+.hero-banner-live-preview span {
+  color: var(--ink-400);
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .app-sidebar.hud-top {
+    overflow: hidden !important;
+  }
+
+  .app-sidebar .sidebar-footer {
+    position: static !important;
+    flex: 0 0 auto;
+    transform: none !important;
+  }
+
+  .hero-banner-config-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .app-sidebar.hud-top {
+    width: min(340px, 88vw);
+  }
+
+  .app-sidebar .browser-tabs {
+    padding-bottom: 10px;
+  }
+
+  .app-sidebar .sidebar-footer {
+    padding: 12px 14px max(14px, env(safe-area-inset-bottom));
+  }
+
+  .app-sidebar .btn-admin-toggle {
+    min-height: 68px;
+  }
+
+  .hero-banner-live-preview {
+    min-height: 120px;
+    padding: 20px;
+  }
+
+  .hero-banner-live-preview strong {
+    font-size: 20px;
+  }
+}
+
+/* En móvil el bloque de administración queda anclado al pie del menú,
+   nunca flotando por fuera del drawer. */
+@media (max-width: 900px) {
+  .app-sidebar.hud-top {
+    position: fixed;
+  }
+
+  .app-sidebar .browser-tabs {
+    padding-bottom: 154px;
+  }
+
+  .app-sidebar .sidebar-footer {
+    position: absolute !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  .app-sidebar .admin-mode-badge.hidden + .btn-admin-toggle {
+    margin-top: 0;
+  }
+}
+
+/* ======================================================================
+   CORRECCIÓN 5 · DRAWER ADMIN Y MULTIMEDIA MÓVIL
+   Evita el desplazamiento horizontal del menú, compacta la biblioteca
+   general y hace explícita/estable la selección de recursos en táctil.
+   ====================================================================== */
+
+.media-picker-select-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  min-height: 24px;
+  margin-top: auto;
+  padding: 4px 8px;
+  border: 1px solid rgba(180,108,255,.32);
+  border-radius: 999px;
+  color: #d9bdff;
+  background: rgba(139,61,255,.12);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.media-picker-card-button {
+  touch-action: manipulation;
+}
+
+.media-picker-card-button.is-selecting {
+  pointer-events: none;
+  opacity: .72;
+}
+
+.media-picker-card-button.is-selecting .media-picker-select-hint {
+  color: #8df1be;
+  border-color: rgba(53,217,139,.38);
+  background: rgba(53,217,139,.1);
+}
+
+/* El botón de "Mostrar más" participa en el grid; nunca flota encima de
+   una tarjeta ni bloquea el toque sobre la última fila. */
+#media-picker-modal .media-load-more-row {
+  position: static !important;
+  inset: auto !important;
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+}
+
+@media (max-width: 900px) {
+  .app-sidebar.hud-top {
+    left: 0 !important;
+    right: auto !important;
+    width: min(320px, calc(100vw - 48px)) !important;
+    max-width: calc(100vw - 48px) !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    contain: layout paint;
+  }
+
+  .app-sidebar .hud-brand,
+  .app-sidebar .browser-tabs,
+  .app-sidebar .sidebar-footer {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .app-sidebar .hud-brand {
+    overflow: hidden !important;
+  }
+
+  .app-sidebar .hud-titles,
+  .app-sidebar .hud-title,
+  .app-sidebar .hud-subtitle {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .app-sidebar .hud-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-sidebar .browser-tabs {
+    position: relative !important;
+    top: auto !important;
+    align-items: stretch !important;
+    padding: 16px 14px 160px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-x: none;
+    scrollbar-gutter: stable;
+  }
+
+  .app-sidebar .browser-tabs > *,
+  .app-sidebar .sidebar-admin-group,
+  .app-sidebar .tab-item {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .app-sidebar .sidebar-admin-group {
+    flex: 0 0 auto;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .app-sidebar .sidebar-section-label {
+    width: auto !important;
+    max-width: calc(100% - 24px) !important;
+    align-self: stretch;
+    text-align: left;
+  }
+
+  .app-sidebar .tab-item {
+    flex: 0 0 auto;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    overflow: hidden;
+  }
+
+  .app-sidebar .tab-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-sidebar .sidebar-footer {
+    position: absolute !important;
+    z-index: 5;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    padding: 12px 14px max(14px, env(safe-area-inset-bottom)) !important;
+    overflow: hidden !important;
+  }
+
+  .app-sidebar .sidebar-footer > *,
+  .app-sidebar .admin-mode-badge,
+  .app-sidebar .btn-admin-toggle {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .app-sidebar .admin-mode-badge {
+    overflow: hidden !important;
+    white-space: normal;
+  }
+}
+
+/* Biblioteca completa de Herramientas: tarjetas pequeñas en móvil en vez
+   de una imagen gigante por fila. */
+@media (max-width: 720px) {
+  .media-library-section .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .media-library-section .media-card {
+    min-width: 0;
+    border-radius: 10px;
+  }
+
+  .media-library-section .media-thumb {
+    aspect-ratio: 4 / 3;
+    min-height: 0;
+  }
+
+  .media-library-section .media-card-body {
+    gap: 4px;
+    padding: 8px;
+  }
+
+  .media-library-section .media-card-title {
+    min-height: 28px;
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.25;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .media-library-section .media-card-meta {
+    overflow: hidden;
+    font-size: 9px;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .media-library-section .media-card-file,
+  .media-library-section .media-tags,
+  .media-library-section .media-usage-list {
+    display: none !important;
+  }
+
+  .media-library-section .media-usage-row {
+    font-size: 9px;
+  }
+
+  .media-library-section .media-card-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    padding: 0 8px 8px;
+  }
+
+  .media-library-section .media-card-actions > button {
+    width: 100%;
+    min-width: 0;
+    min-height: 30px;
+    padding: 5px 6px;
+    overflow: hidden;
+    font-size: 9px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .media-library-section .media-card-actions > button:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Selector móvil: ventana centrada con margen real y controles compactos.
+   La cuadrícula conserva siempre espacio táctil y dos columnas. */
+@media (max-width: 680px) {
+  #media-picker-modal {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 12px !important;
+  }
+
+  #media-picker-modal .media-picker-box {
+    width: min(560px, calc(100vw - 24px)) !important;
+    max-width: calc(100vw - 24px) !important;
+    height: min(78dvh, 680px) !important;
+    max-height: 78dvh !important;
+    min-height: 0 !important;
+    padding: 16px 14px !important;
+    border-radius: 18px !important;
+  }
+
+  #media-picker-modal .media-modal-title {
+    margin: 0 38px 8px 0;
+    font-size: 19px;
+    line-height: 1.2;
+  }
+
+  #media-picker-modal .media-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+    margin: 6px 0 !important;
+  }
+
+  #media-picker-modal .media-toolbar > :first-child,
+  #media-picker-modal .media-toolbar > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  #media-picker-modal .media-picker-actions {
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 1px;
+  }
+
+  #media-picker-modal .media-picker-actions > button {
+    flex: 0 0 auto;
+    min-height: 32px;
+  }
+
+  #media-picker-modal .media-presentation-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+    margin: 6px 0 7px !important;
+  }
+
+  #media-picker-modal .media-presentation-grid label {
+    gap: 3px;
+    min-width: 0;
+    font-size: 10px;
+  }
+
+  #media-picker-modal .media-presentation-grid .media-input {
+    min-width: 0;
+  }
+
+  #media-picker-modal .media-picker-status {
+    min-height: 15px;
+    margin: 0 0 5px;
+    font-size: 10px;
+  }
+
+  #media-picker-modal .media-picker-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-auto-rows: max-content;
+    gap: 8px !important;
+    padding: 2px 5px 8px 1px !important;
+    scroll-padding-bottom: 10px;
+    touch-action: pan-y;
+  }
+
+  #media-picker-modal .media-card-picker {
+    height: 142px !important;
+    min-height: 142px !important;
+  }
+
+  #media-picker-modal .media-picker-card-button {
+    grid-template-rows: 82px minmax(0, 1fr) !important;
+  }
+
+  #media-picker-modal .media-card-picker .media-thumb {
+    height: 82px !important;
+    min-height: 82px !important;
+  }
+
+  #media-picker-modal .media-card-picker .media-card-body {
+    gap: 2px;
+    padding: 6px 7px 7px;
+  }
+
+  #media-picker-modal .media-card-picker .media-card-title {
+    min-height: 24px;
+    font-size: 10.5px;
+  }
+
+  #media-picker-modal .media-card-picker .media-card-meta {
+    display: none;
+  }
+
+  #media-picker-modal .media-picker-select-hint {
+    min-height: 20px;
+    margin-top: 2px;
+    padding: 3px 6px;
+    font-size: 9px;
+  }
+
+  #media-picker-modal .media-load-more-row {
+    padding: 8px !important;
+    background: rgba(10,13,27,.92);
+  }
+}
+
+@media (max-width: 420px) {
+  #media-picker-modal {
+    padding: 8px !important;
+  }
+
+  #media-picker-modal .media-picker-box {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    height: 80dvh !important;
+    max-height: 80dvh !important;
+    padding: 14px 11px !important;
+  }
+
+  #media-picker-modal .media-card-picker {
+    height: 136px !important;
+    min-height: 136px !important;
+  }
+
+  #media-picker-modal .media-picker-card-button {
+    grid-template-rows: 78px minmax(0, 1fr) !important;
+  }
+
+  #media-picker-modal .media-card-picker .media-thumb {
+    height: 78px !important;
+    min-height: 78px !important;
+  }
+}
+
+/* ======================================================================
+   CORRECCIÓN 6 · DRAWER RESPONSIVE ESTABLE
+   La estructura móvil usa tres filas reales (marca, navegación y pie).
+   Así el pie de administrador nunca se superpone al listado y las
+   pestañas no desaparecen cuando cambia la altura o el ancho del viewport.
+   ====================================================================== */
+@media (max-width: 900px) {
+  .app-sidebar.hud-top {
+    top: 66px !important;
+    bottom: 0 !important;
+    height: calc(100dvh - 66px) !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+    align-items: stretch !important;
+    overflow: hidden !important;
+    contain: layout paint;
+  }
+
+  .app-sidebar .hud-brand {
+    grid-row: 1;
+    min-height: 0 !important;
+    flex: none !important;
+  }
+
+  .app-sidebar .browser-tabs {
+    grid-row: 2;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 16px 14px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    overflow-anchor: none;
+    scrollbar-gutter: stable;
+  }
+
+  .app-sidebar .tab-spacer,
+  .app-sidebar .tab-fake-url {
+    display: none !important;
+  }
+
+  .app-sidebar .sidebar-footer {
+    grid-row: 3;
+    position: relative !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    flex: none !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .app-sidebar.hud-top {
+    width: min(306px, calc(100vw - 28px)) !important;
+    max-width: calc(100vw - 28px) !important;
+  }
+
+  .app-sidebar .hud-brand {
+    padding-inline: 16px !important;
+  }
+
+  .app-sidebar .browser-tabs {
+    padding-inline: 12px !important;
+  }
+
+  .app-sidebar .sidebar-footer {
+    padding-inline: 12px !important;
+  }
+}
+
+/* ===== Identidad visual configurable ===== */
+.hud-logo-fallback{position:absolute;inset:0;display:block}.hud-logo-custom,.mobile-brand-image{width:100%;height:100%;display:block;object-fit:contain;object-position:center;image-rendering:auto}.hud-logo-custom{position:absolute;inset:0;filter:drop-shadow(0 0 12px var(--theme-selection-glow,rgba(139,61,255,.34)))}.mobile-brand-mark{width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center;overflow:hidden;color:var(--theme-primary-soft,var(--purple))}.mobile-brand-fallback{display:grid;place-items:center;width:100%;height:100%}.mobile-brand-title span{color:var(--theme-accent,var(--gold))}.mobile-admin-indicator{color:var(--theme-confirmation,var(--hud-green));border-color:color-mix(in srgb,var(--theme-confirmation,var(--hud-green)) 34%,transparent)}
+
+/* Aplicación de la paleta a los elementos generales. */
+html,body{background-color:var(--theme-page-bg,var(--bg))}body::before{background:radial-gradient(circle at 74% -10%,color-mix(in srgb,var(--theme-primary,var(--admin-purple)) 14%,transparent),transparent 34%),radial-gradient(circle at 18% 72%,color-mix(in srgb,var(--theme-info,var(--cyan)) 6%,transparent),transparent 34%),linear-gradient(180deg,color-mix(in srgb,var(--theme-page-bg,var(--bg)) 28%,transparent),color-mix(in srgb,var(--theme-page-bg,var(--bg)) 72%,transparent))}::selection{background:var(--theme-selection,var(--admin-purple));color:var(--theme-page-bg,var(--bg))}:focus-visible{outline-color:var(--theme-selection,var(--admin-purple))}::-webkit-scrollbar-track{background:var(--theme-page-bg,var(--bg))}::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--theme-primary,var(--admin-purple)),var(--theme-accent,var(--gold)));border-color:var(--theme-page-bg,var(--bg))}::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,var(--theme-primary-soft,var(--purple)),var(--theme-accent,var(--gold)))}
+.app-sidebar.hud-top,.mobile-topbar{background:radial-gradient(circle at 15% 6%,color-mix(in srgb,var(--theme-primary,var(--admin-purple)) 12%,transparent),transparent 30%),linear-gradient(180deg,color-mix(in srgb,var(--theme-sidebar-bg,var(--bg-panel)) 98%,transparent),color-mix(in srgb,var(--theme-page-bg,var(--bg)) 98%,transparent));border-color:var(--border-soft)}
+.tab-item.is-active,.tab-item[aria-current="page"]{background:linear-gradient(135deg,color-mix(in srgb,var(--theme-primary,var(--admin-purple)) 24%,var(--theme-panel-bg,var(--bg-card))),color-mix(in srgb,var(--theme-primary-soft,var(--purple)) 11%,var(--theme-panel-bg,var(--bg-card))));border-color:color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 62%,transparent);box-shadow:0 0 24px color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 17%,transparent)}.tab-item.is-active::before,.tab-item[aria-current="page"]::before{background:var(--theme-selection,var(--admin-purple))}.btn-primary,.media-action-primary,.btn-admin-toggle:hover,.btn-admin-toggle.is-active{background:linear-gradient(135deg,var(--theme-primary,var(--admin-purple)),var(--theme-primary-soft,var(--purple)))}input:focus,textarea:focus,select:focus{border-color:var(--theme-selection,var(--admin-purple));box-shadow:0 0 0 3px var(--theme-selection-soft,rgba(139,61,255,.22))}.modal-box,.admin-section{background:color-mix(in srgb,var(--theme-panel-bg,var(--bg-card)) 96%,transparent);border-color:var(--border-soft)}input,textarea,select,.media-input{background-color:var(--theme-input-bg,var(--surface-3));color:var(--ink-100);border-color:var(--border-soft)}.admin-mode-badge,.btn-admin-toggle.is-active{border-color:color-mix(in srgb,var(--theme-confirmation,var(--hud-green)) 52%,transparent)}.admin-mode-pulse,.dot-online,.btn-admin-toggle.is-active .dot-offline{background:var(--theme-confirmation,var(--hud-green));box-shadow:0 0 12px color-mix(in srgb,var(--theme-confirmation,var(--hud-green)) 65%,transparent)}
+
+/* Favicon y logo en una sola caja. */
+.identity-icons-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:18px}.identity-icon-editor{min-width:0;padding:18px;border:1px solid var(--border-soft);border-radius:16px;background:color-mix(in srgb,var(--theme-elevated-bg,var(--surface-2)) 74%,transparent)}.identity-icon-heading{display:flex;align-items:center;gap:14px;min-width:0;margin-bottom:14px}.identity-icon-heading h3{margin:0 0 4px;color:var(--ink-100);font-size:16px}.identity-icon-heading p{margin:0;color:var(--ink-400);font-size:12px;line-height:1.45}.favicon-preview,.site-logo-preview{width:64px;height:64px;flex:0 0 64px;display:grid;place-items:center;overflow:hidden;border-radius:14px;border:1px solid var(--border-strong);background:var(--theme-input-bg,var(--surface-3));color:var(--theme-primary-soft,var(--purple));font-size:30px}.favicon-preview img,.site-logo-preview img{width:100%;height:100%;object-fit:contain;image-rendering:auto}.identity-icon-editor .tier-img-dropzone{min-height:108px}.identity-clear-btn{margin-top:8px}.identity-save-hint{margin:14px 0 10px}
+
+/* Editor de paleta. */
+.theme-editor-head{align-items:flex-start;gap:18px}.theme-editor-head>div:first-child{min-width:0;flex:1}.theme-editor-actions-top{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.theme-preview-card{display:grid;grid-template-columns:210px minmax(0,1fr);min-height:150px;margin:18px 0;overflow:hidden;border:1px solid var(--border-soft);border-radius:18px;background:var(--theme-panel-bg,var(--bg-card));box-shadow:var(--shadow-card)}.theme-preview-sidebar{display:flex;flex-direction:column;gap:9px;padding:18px;background:var(--theme-sidebar-bg,var(--bg-panel));border-right:1px solid var(--border-soft)}.theme-preview-logo{width:38px;height:38px;display:grid;place-items:center;margin-bottom:5px;border-radius:11px;color:var(--theme-accent,var(--gold));background:color-mix(in srgb,var(--theme-primary,var(--admin-purple)) 24%,var(--theme-elevated-bg,var(--surface-2)))}.theme-preview-nav{padding:9px 10px;border:1px solid transparent;border-radius:10px;color:var(--ink-400);font-size:12px}.theme-preview-nav.is-active{color:var(--ink-100);border-color:var(--theme-selection,var(--admin-purple));background:var(--theme-selection-soft,rgba(139,61,255,.22))}.theme-preview-content{display:flex;flex-direction:column;justify-content:center;padding:24px;background:var(--theme-panel-bg,var(--bg-card))}.theme-preview-content strong{color:var(--ink-100);font-size:20px}.theme-preview-content p{margin:6px 0 18px;color:var(--ink-400)}.theme-preview-buttons{display:flex;flex-wrap:wrap;gap:8px}.theme-preview-btn{padding:8px 11px;border-radius:9px;color:var(--ink-100);font-size:12px;font-weight:700}.theme-preview-btn.primary{background:var(--theme-primary,var(--admin-purple))}.theme-preview-btn.confirm{background:var(--theme-confirmation,var(--hud-green));color:var(--theme-page-bg,var(--bg))}.theme-preview-btn.danger{background:var(--theme-danger,var(--admin-danger))}
+.theme-color-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:18px}.theme-color-group{min-width:0;padding:16px;border:1px solid var(--border-soft);border-radius:16px;background:color-mix(in srgb,var(--theme-elevated-bg,var(--surface-2)) 64%,transparent)}.theme-color-group h3{margin:0 0 12px;color:var(--ink-100);font-size:15px}.theme-color-list{display:grid;gap:8px}.theme-color-control{display:grid;grid-template-columns:22px minmax(0,1fr) 42px 86px;align-items:center;gap:9px;min-width:0;padding:9px;border:1px solid var(--border-dim);border-radius:12px;background:color-mix(in srgb,var(--theme-input-bg,var(--surface-3)) 78%,transparent)}.theme-color-swatch{width:22px;height:22px;border:1px solid rgba(255,255,255,.2);border-radius:7px;box-shadow:0 0 0 2px rgba(0,0,0,.18)}.theme-color-copy{min-width:0;display:flex;flex-direction:column;gap:2px}.theme-color-copy strong{color:var(--ink-100);font-size:12px}.theme-color-copy small{overflow:hidden;color:var(--ink-400);font-size:10px;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}.theme-color-control input[type="color"]{width:42px;height:34px;padding:3px;border-radius:9px;background:var(--theme-input-bg,var(--surface-3))}.theme-color-control input[type="text"]{width:86px;min-width:0;padding:8px;font-family:var(--font-mono);font-size:11px;text-transform:lowercase}
+@media(max-width:980px){.identity-icons-grid,.theme-color-groups{grid-template-columns:1fr}.theme-preview-card{grid-template-columns:160px minmax(0,1fr)}}@media(max-width:640px){.theme-editor-head{flex-direction:column}.theme-editor-actions-top{width:100%;justify-content:stretch}.theme-editor-actions-top .btn-secondary-admin{flex:1}.theme-preview-card{grid-template-columns:1fr}.theme-preview-sidebar{display:grid;grid-template-columns:auto 1fr 1fr;align-items:center;border-right:0;border-bottom:1px solid var(--border-soft)}.theme-preview-logo{margin:0}.theme-color-control{grid-template-columns:22px minmax(0,1fr) 40px}.theme-color-control input[type="text"]{grid-column:2/-1;width:100%}.identity-icon-heading{align-items:flex-start}}
+

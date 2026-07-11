@@ -75,7 +75,7 @@ export function deleteLocalDraftByKey(key) {
 }
 
 function canUseRemoteDrafts() {
-  return !!state.adminCode;
+  return !!state.adminMode;
 }
 
 function normalizeRemoteDraft(row, draft) {
@@ -94,7 +94,7 @@ function normalizeRemoteDraft(row, draft) {
 export async function upsertRemoteDraft(logId, draft) {
   if (!canUseRemoteDrafts()) return { skipped: true };
   const { error } = await supabaseClient.rpc('upsert_draft', {
-    input_code: state.adminCode,
+    input_code: state.adminMode,
     input_entity_type: 'log',
     input_entity_id: draftEntityId(logId),
     input_payload: draft,
@@ -107,7 +107,7 @@ export async function getRemoteDraft(logId) {
   if (!canUseRemoteDrafts()) return null;
   const entityId = draftEntityId(logId);
   const { data, error } = await supabaseClient.rpc('get_draft', {
-    input_code: state.adminCode,
+    input_code: state.adminMode,
     input_entity_type: 'log',
     input_entity_id: entityId,
   });
@@ -120,7 +120,7 @@ export async function getRemoteDraft(logId) {
 
 export async function listRemoteDrafts() {
   if (!canUseRemoteDrafts()) return [];
-  const { data, error } = await supabaseClient.rpc('list_drafts', { input_code: state.adminCode });
+  const { data, error } = await supabaseClient.rpc('list_drafts', { input_code: state.adminMode });
   if (error) {
     console.warn('No se pudo listar borradores remotos:', error);
     return [];
@@ -133,7 +133,7 @@ export async function listRemoteDrafts() {
 export async function deleteRemoteDraft(logId) {
   if (!canUseRemoteDrafts()) return { skipped: true };
   const { error } = await supabaseClient.rpc('delete_draft', {
-    input_code: state.adminCode,
+    input_code: state.adminMode,
     input_entity_type: 'log',
     input_entity_id: draftEntityId(logId),
   });

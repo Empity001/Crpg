@@ -1,153 +1,76 @@
 // =========================================================
 // auth.js
-// =========================================================
-// Autenticación de administrador: estado de sesión (código de 8
-// caracteres), login/logout y refresco de la UI dependiente de
-// isAdmin().
+// Inicio de sesión con Discord mediante Supabase Auth y control del modo
+// administrador. El rol se valida en una Edge Function segura.
 // =========================================================
 
-import { supabaseClient } from '../config.js';
+import { OFFICIAL_SITE_URL, supabaseClient } from '../config.js';
+import { getDiscordAdminStatus } from '../core/admin-api.js';
 import { isAdmin, state } from '../core/state.js';
 import { showToast } from '../core/utils.js';
 
 const adminUiRefreshHandlers = new Set();
-let adminLoginSequenceTimers = [];
-let adminLoginSequenceGeneration = 0;
-let adminSubmitting = false;
-let adminLoginSequenceActive = false;
-let adminTerminalPrepared = false;
-let adminTerminalLineTemplates = [];
-const ADMIN_MOBILE_TERMINAL_LINES = new Set([
-  '0', '1', '2', '3', '4', '5', '6',
-  '7', '8', '9', '10', '11', '12', '13'
-]);
+const ROLE_RECHECK_MS = 3 * 60 * 1000;
+let initialized = false;
+let validationPromise = null;
+let authSubscription = null;
+let visibilityHandler = null;
 
-/**
- * El terminal de acceso es una interfaz pesada (decenas de líneas). Se
- * conserva idéntico, pero sus nodos se desmontan mientras el modal está
- * cerrado y se crean solamente cuando el usuario abre Modo Admin.
- */
-export function prepareAdminLoginModal() {
-  if (adminTerminalPrepared) return;
-  const panel = document.querySelector('#admin-modal .admin-terminal-panel');
-  if (!panel) return;
-  const lines = [...panel.querySelectorAll('[data-admin-terminal-line]')];
-  adminTerminalLineTemplates = lines.map(line => line.cloneNode(true));
-  lines.forEach(line => line.remove());
-  adminTerminalPrepared = true;
+function setAdminMode(enabled) {
+  const next = !!(enabled && state.discordAdminEligible && state.authSession);
+  state.adminMode = next;
+  if (next) sessionStorage.setItem('culones_admin_mode', '1');
+  else sessionStorage.removeItem('culones_admin_mode');
 }
 
-function mountAdminTerminalLines() {
-  prepareAdminLoginModal();
-  const panel = document.querySelector('#admin-modal .admin-terminal-panel');
-  const form = document.getElementById('admin-login-form');
-  if (!panel || panel.querySelector('[data-admin-terminal-line]')) return;
-  const fragment = document.createDocumentFragment();
-  adminTerminalLineTemplates.forEach(template => fragment.appendChild(template.cloneNode(true)));
-  panel.insertBefore(fragment, form || panel.firstChild);
+function resetIdentity() {
+  state.authSession = null;
+  state.discordProfile = null;
+  state.discordAdminEligible = false;
+  state.discordMembership = 'unknown';
+  state.discordAuthCheckedAt = 0;
+  setAdminMode(false);
 }
 
-function unmountAdminTerminalLines() {
-  document.querySelectorAll('#admin-modal [data-admin-terminal-line]').forEach(line => line.remove());
+function profileName(profile) {
+  return profile?.displayName || profile?.globalName || profile?.username || 'Cuenta de Discord';
 }
 
+function updateAccountModal() {
+  const profile = state.discordProfile;
+  const loggedIn = !!state.authSession;
+  const avatar = document.getElementById('discord-account-avatar');
+  const name = document.getElementById('discord-account-name');
+  const status = document.getElementById('discord-account-status');
+  const login = document.getElementById('discord-login-btn');
+  const logout = document.getElementById('discord-logout-btn');
+  const toggle = document.getElementById('discord-admin-mode-btn');
+  const error = document.getElementById('discord-auth-error');
 
-function clearAdminLoginSequence() {
-  adminLoginSequenceGeneration += 1;
-  adminLoginSequenceTimers.forEach(entry => {
-    clearTimeout(entry.timer);
-    entry.resolve(false);
-  });
-  adminLoginSequenceTimers = [];
-  adminLoginSequenceActive = false;
-}
-
-function waitAdminTerminal(ms, generation) {
-  return new Promise(resolve => {
-    const entry = { timer: null, resolve };
-    entry.timer = setTimeout(() => {
-      adminLoginSequenceTimers = adminLoginSequenceTimers.filter(item => item !== entry);
-      resolve(generation === adminLoginSequenceGeneration);
-    }, ms);
-    adminLoginSequenceTimers.push(entry);
-  });
-}
-
-function getTerminalTypingProfile(line) {
-  if (line.classList.contains('admin-terminal-command')) return { chunk: 3, delay: 6, pause: 38 };
-  if (line.classList.contains('admin-terminal-cipher')) return { chunk: 8, delay: 2, pause: 8 };
-  if (line.classList.contains('admin-terminal-muted')) return { chunk: 6, delay: 3, pause: 10 };
-  return { chunk: 5, delay: 3, pause: 14 };
-}
-
-function shouldUseCompactAdminTerminal() {
-  return window.matchMedia('(max-width: 720px)').matches;
-}
-
-async function typeAdminTerminalLine(line, generation) {
-  const text = line.dataset.terminalText || '';
-  const { chunk, delay, pause } = getTerminalTypingProfile(line);
-  line.classList.add('is-visible');
-  for (let idx = 0; idx < text.length; idx += chunk) {
-    if (generation !== adminLoginSequenceGeneration) return false;
-    line.textContent = text.slice(0, idx + chunk);
-    if (!(await waitAdminTerminal(delay, generation))) return false;
+  if (avatar) {
+    avatar.src = profile?.avatarUrl || '';
+    avatar.classList.toggle('hidden', !profile?.avatarUrl);
   }
-  return waitAdminTerminal(pause, generation);
-}
-
-function revealAdminLoginPrompt() {
-  const form = document.getElementById('admin-login-form');
-  const input = document.getElementById('admin-code-input');
-  form?.classList.remove('hidden');
-  input?.focus();
-}
-
-function setAdminSubmitLoading(loading) {
-  const btn = document.getElementById('submit-admin-code');
-  const label = btn?.querySelector('.btn-label');
-  if (!btn) return;
-  btn.disabled = loading;
-  btn.classList.toggle('is-loading', loading);
-  if (label) label.textContent = loading ? 'VERIFYING...' : 'EXECUTE';
-}
-
-function setAdminAccessState(type, text, detail = '') {
-  const stateBox = document.getElementById('admin-access-state');
-  const modalBox = document.querySelector('#admin-modal .admin-login-box');
-  if (!stateBox) return;
-  const title = document.createElement('span');
-  title.className = 'admin-access-title';
-  title.textContent = text;
-  stateBox.replaceChildren(title);
-  if (detail) {
-    const detailEl = document.createElement('span');
-    detailEl.className = 'admin-access-detail';
-    detailEl.textContent = detail;
-    stateBox.appendChild(detailEl);
+  if (name) name.textContent = loggedIn ? profileName(profile) : 'Discord no conectado';
+  if (status) {
+    if (!loggedIn) status.textContent = 'Conecta tu cuenta para identificarte en la página.';
+    else if (state.discordAdminEligible) status.textContent = isAdmin() ? 'Modo administrador activo.' : 'Tu cuenta tiene el rol administrativo.';
+    else if (state.discordMembership === 'not_member') status.textContent = 'Esta cuenta no pertenece actualmente al servidor.';
+    else status.textContent = 'Sesión normal: esta cuenta no tiene el rol administrativo.';
   }
-  stateBox.className = `admin-access-state is-${type}`;
-  stateBox.classList.remove('hidden');
-  modalBox?.classList.remove('is-denied', 'is-granted');
-  modalBox?.classList.add(`is-${type}`);
+  login?.classList.toggle('hidden', loggedIn);
+  logout?.classList.toggle('hidden', !loggedIn);
+  toggle?.classList.toggle('hidden', !loggedIn || !state.discordAdminEligible);
+  if (toggle) toggle.textContent = isAdmin() ? 'Desactivar modo administrador' : 'Activar modo administrador';
+  error?.classList.add('hidden');
 }
 
-function resetAdminAccessState() {
-  const stateBox = document.getElementById('admin-access-state');
-  const errorBox = document.getElementById('admin-modal-error');
-  const modalBox = document.querySelector('#admin-modal .admin-login-box');
-  const input = document.getElementById('admin-code-input');
-  stateBox?.classList.add('hidden');
-  if (stateBox) stateBox.replaceChildren();
-  errorBox?.classList.add('hidden');
-  if (errorBox) errorBox.textContent = '';
-  modalBox?.classList.remove('is-denied', 'is-granted');
-  input?.classList.remove('input-error');
-  setAdminSubmitLoading(false);
-}
-
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+function showAuthError(message) {
+  const box = document.getElementById('discord-auth-error');
+  if (box) {
+    box.textContent = message;
+    box.classList.remove('hidden');
+  }
 }
 
 export function registerAdminUiRefreshHandler(handler) {
@@ -161,153 +84,185 @@ export function updateAdminUI() {
   const sublabel = document.getElementById('admin-toggle-sublabel');
   const subtitle = document.getElementById('hud-subtitle');
   const mobileIndicator = document.getElementById('mobile-admin-indicator');
+  const accountAvatar = document.getElementById('sidebar-account-avatar');
+  const accountName = document.getElementById('sidebar-account-name');
+  const accountWrap = document.getElementById('sidebar-account');
   const admin = isAdmin();
-  if (dot) dot.className = admin ? 'dot-online' : 'dot-offline';
-  if (badge) badge.classList.toggle('hidden', !admin);
-  if (mobileIndicator) mobileIndicator.classList.toggle('hidden', !admin);
-  if (label) label.textContent = admin ? 'Salir del Modo Admin' : 'Entrar a Modo Admin';
-  if (sublabel) sublabel.textContent = admin ? 'Sesión administrativa activa' : 'Acceso para administradores';
-  if (subtitle) subtitle.textContent = admin ? 'Panel de Administración' : 'Página oficial';
-  document.body?.classList.toggle('is-admin-mode', admin);
+  const loggedIn = !!state.authSession;
+  const eligible = !!state.discordAdminEligible;
 
-  // Botones/elementos que solo existen en algunas páginas — se ocultan
-  // o muestran si están presentes en el DOM actual, sin asumir que
-  // todos existen (cada página ahora carga solo su propio contenido).
+  if (dot) dot.className = admin ? 'dot-online' : 'dot-offline';
+  badge?.classList.toggle('hidden', !admin);
+  mobileIndicator?.classList.toggle('hidden', !admin);
+  document.body?.classList.toggle('is-admin-mode', admin);
+  document.body?.classList.toggle('has-discord-session', loggedIn);
+
+  if (label) {
+    if (!loggedIn) label.textContent = 'Iniciar sesión con Discord';
+    else if (!eligible) label.textContent = profileName(state.discordProfile);
+    else label.textContent = admin ? 'Desactivar Modo Admin' : 'Activar Modo Admin';
+  }
+  if (sublabel) {
+    if (!loggedIn) sublabel.textContent = 'Cuenta y acceso administrativo';
+    else if (!eligible) sublabel.textContent = 'Sesión de visitante';
+    else sublabel.textContent = admin ? 'Edición habilitada' : 'Rol administrativo verificado';
+  }
+  if (subtitle) subtitle.textContent = admin ? 'Panel de Administración' : 'Página oficial';
+  if (accountName) accountName.textContent = loggedIn ? profileName(state.discordProfile) : '';
+  if (accountAvatar) {
+    accountAvatar.src = state.discordProfile?.avatarUrl || '';
+    accountAvatar.classList.toggle('hidden', !state.discordProfile?.avatarUrl);
+  }
+  accountWrap?.classList.toggle('hidden', !loggedIn);
+
   const adminOnlyIds = [
     'open-new-log-btn', 'open-field-config-btn', 'open-action-log-btn',
     'open-new-tier-row-btn', 'open-new-tier-item-btn', 'admin-panel-tab',
     'open-new-weapon-btn', 'open-weapon-category-manage-btn', 'open-weapon-type-manage-btn',
-    'open-new-kit-btn',
-    'about-admin-toolbar',
+    'open-new-kit-btn', 'about-admin-toolbar',
   ];
-  adminOnlyIds.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('hidden', !admin);
-  });
+  adminOnlyIds.forEach(id => document.getElementById(id)?.classList.toggle('hidden', !admin));
 
-  // Si la sesión de admin se cerró estando en la página de Herramientas
-  // (solo accesible para admins), volvemos a la portada.
   if (!admin && state.activeTab === 'admin') {
     window.location.href = 'index.html';
     return;
   }
 
+  updateAccountModal();
   adminUiRefreshHandlers.forEach(handler => handler(admin));
-  document.dispatchEvent(new CustomEvent('culones:admin-state-changed', { detail: { admin } }));
+  document.dispatchEvent(new CustomEvent('culones:admin-state-changed', {
+    detail: { admin, loggedIn, eligible, profile: state.discordProfile },
+  }));
 }
 
-
-export function openAdminLoginModal() {
-  const modal = document.getElementById('admin-modal');
-  const form = document.getElementById('admin-login-form');
-  const input = document.getElementById('admin-code-input');
-  if (!modal) return;
-  mountAdminTerminalLines();
-  clearAdminLoginSequence();
-  const sequenceGeneration = adminLoginSequenceGeneration;
-  resetAdminAccessState();
-  if (input) input.value = '';
-  form?.classList.add('hidden');
-  const terminalLines = [...document.querySelectorAll('[data-admin-terminal-line]')];
-  const compactTerminal = shouldUseCompactAdminTerminal();
-  terminalLines.forEach(line => {
-    if (!line.dataset.terminalText) line.dataset.terminalText = line.textContent;
-    const shouldSkip = compactTerminal && !ADMIN_MOBILE_TERMINAL_LINES.has(line.dataset.adminTerminalLine);
-    line.classList.remove('is-visible', 'is-mobile-skipped');
-    line.classList.toggle('is-mobile-skipped', shouldSkip);
-    line.textContent = '';
+export async function signInWithDiscord() {
+  const redirectTo = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+  const safeRedirect = window.location.origin === new URL(OFFICIAL_SITE_URL).origin ? redirectTo : OFFICIAL_SITE_URL;
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: 'discord',
+    options: { redirectTo: safeRedirect, scopes: 'identify email' },
   });
-  const visibleTerminalLines = terminalLines.filter(line => !line.classList.contains('is-mobile-skipped'));
-  modal.classList.remove('hidden');
-  adminLoginSequenceActive = true;
-
-  (async () => {
-    if (!(await waitAdminTerminal(80, sequenceGeneration))) return;
-    for (const line of visibleTerminalLines) {
-      if (!(await typeAdminTerminalLine(line, sequenceGeneration))) return;
-    }
-    if (sequenceGeneration !== adminLoginSequenceGeneration) return;
-    adminLoginSequenceActive = false;
-    revealAdminLoginPrompt();
-  })();
-}
-
-export function skipAdminLoginIntro() {
-  const modal = document.getElementById('admin-modal');
-  const form = document.getElementById('admin-login-form');
-  if (!modal || modal.classList.contains('hidden') || !adminLoginSequenceActive || !form?.classList.contains('hidden')) return false;
-  clearAdminLoginSequence();
-  document.querySelectorAll('[data-admin-terminal-line]').forEach(line => {
-    if (line.classList.contains('is-mobile-skipped')) return;
-    if (!line.dataset.terminalText) line.dataset.terminalText = line.textContent;
-    line.textContent = line.dataset.terminalText || '';
-    line.classList.add('is-visible');
-  });
-  revealAdminLoginPrompt();
-  return true;
-}
-
-export function closeAdminLoginModal() {
-  clearAdminLoginSequence();
-  document.getElementById('admin-modal')?.classList.add('hidden');
-  resetAdminAccessState();
-  unmountAdminTerminalLines();
-}
-
-export async function submitAdminCode() {
-  if (adminSubmitting) return;
-  const input = document.getElementById('admin-code-input');
-  const errorBox = document.getElementById('admin-modal-error');
-  if (!input || !errorBox) return;
-  const code = input.value.trim();
-  if (!code) return;
-  adminSubmitting = true;
-  resetAdminAccessState();
-  setAdminSubmitLoading(true);
-
-  try {
-    const { data, error } = await supabaseClient.rpc('validate_admin_code', {
-      input_code: code
-    });
-
-    if (error) throw error;
-
-    if (!data) {
-      input.classList.add('input-error');
-      setAdminAccessState('denied', 'ACCESS DENIED', 'Mission aborted.');
-      errorBox.textContent = 'Código inválido o expirado.';
-      errorBox.classList.add('hidden');
-      await delay(950);
-      closeAdminLoginModal();
-      return;
-    }
-
-    state.adminCode = code;
-    localStorage.setItem('culones_admin_code', code);
-    errorBox.classList.add('hidden');
-    input.value = '';
-    setAdminAccessState('granted', 'ACCESS GRANTED', 'Administrator Mode enabled.');
-    showToast('Sesión de administrador activada', 'success');
-    updateAdminUI();
-    await delay(700);
-    closeAdminLoginModal();
-  } catch (error) {
-    input.classList.add('input-error');
-    setAdminAccessState('denied', 'ACCESS DENIED', 'Mission aborted.');
-    errorBox.textContent = 'Código inválido o expirado.';
-    errorBox.classList.add('hidden');
-    await delay(950);
-    closeAdminLoginModal();
-  } finally {
-    setAdminSubmitLoading(false);
-    adminSubmitting = false;
+  if (error) {
+    showAuthError(`No se pudo iniciar sesión con Discord: ${error.message}`);
+    throw error;
   }
 }
 
-
-export function logoutAdmin() {
-  state.adminCode = null;
-  localStorage.removeItem('culones_admin_code');
+export async function logoutDiscord() {
+  setAdminMode(false);
+  const { error } = await supabaseClient.auth.signOut();
+  resetIdentity();
   updateAdminUI();
-  showToast('Sesión de administrador cerrada');
+  if (error) showToast(`La sesión local se cerró, pero Discord respondió: ${error.message}`, 'error');
+  else showToast('Sesión de Discord cerrada');
+}
+
+export async function revalidateDiscordAccess({ force = false, silent = false, reason = 'manual' } = {}) {
+  if (!state.authSession) {
+    resetIdentity();
+    updateAdminUI();
+    return { isAdmin: false, reason: 'no_session' };
+  }
+  const now = Date.now();
+  if (!force && now - state.discordAuthCheckedAt < ROLE_RECHECK_MS) {
+    return { isAdmin: state.discordAdminEligible, profile: state.discordProfile, cached: true };
+  }
+  if (validationPromise) return validationPromise;
+
+  validationPromise = (async () => {
+    const { data, error } = await getDiscordAdminStatus();
+    if (error) {
+      state.discordAdminEligible = false;
+      state.discordMembership = 'unknown';
+      setAdminMode(false);
+      updateAdminUI();
+      if (!silent) showToast(`No se pudo verificar tu rol: ${error.message}`, 'error');
+      return { isAdmin: false, error, reason };
+    }
+
+    state.discordProfile = data?.profile || null;
+    state.discordAdminEligible = !!data?.isAdmin;
+    state.discordMembership = data?.isMember ? 'member' : 'not_member';
+    state.discordAuthCheckedAt = now;
+    if (!state.discordAdminEligible) setAdminMode(false);
+    updateAdminUI();
+    return data;
+  })().finally(() => { validationPromise = null; });
+
+  return validationPromise;
+}
+
+export async function toggleAdminMode() {
+  if (!state.authSession) {
+    openAdminLoginModal();
+    return;
+  }
+  if (isAdmin()) {
+    setAdminMode(false);
+    updateAdminUI();
+    showToast('Modo administrador desactivado');
+    return;
+  }
+  const result = await revalidateDiscordAccess({ force: true, reason: 'toggle' });
+  if (!result?.isAdmin) {
+    openAdminLoginModal();
+    showAuthError(result?.error?.message || 'Tu cuenta no tiene el rol administrativo configurado.');
+    return;
+  }
+  setAdminMode(true);
+  updateAdminUI();
+  showToast('Modo administrador activado', 'success');
+}
+
+export function openAdminLoginModal() {
+  updateAccountModal();
+  document.getElementById('admin-modal')?.classList.remove('hidden');
+}
+
+export function closeAdminLoginModal() {
+  document.getElementById('admin-modal')?.classList.add('hidden');
+  document.getElementById('discord-auth-error')?.classList.add('hidden');
+}
+
+// Alias de compatibilidad temporal para módulos que importaban los nombres
+// antiguos. Ya no aceptan ni validan códigos.
+export function prepareAdminLoginModal() { updateAccountModal(); }
+export function skipAdminLoginIntro() { return false; }
+export function submitAdminCode() { return signInWithDiscord(); }
+export function logoutAdmin() { return toggleAdminMode(); }
+
+export async function initializeDiscordAuth() {
+  if (initialized) return;
+  initialized = true;
+  const { data: { session }, error } = await supabaseClient.auth.getSession();
+  if (error) console.warn('[Auth] No se pudo recuperar la sesión:', error.message);
+  state.authSession = session || null;
+  if (!session) resetIdentity();
+  else await revalidateDiscordAccess({ force: true, silent: true, reason: 'page_load' });
+  updateAdminUI();
+
+  const listener = supabaseClient.auth.onAuthStateChange((_event, nextSession) => {
+    state.authSession = nextSession || null;
+    if (!nextSession) {
+      resetIdentity();
+      updateAdminUI();
+    } else {
+      queueMicrotask(() => void revalidateDiscordAccess({ force: true, silent: true, reason: 'auth_change' }));
+    }
+  });
+  authSubscription = listener?.data?.subscription || null;
+
+  visibilityHandler = () => {
+    if (document.visibilityState !== 'visible' || !state.authSession) return;
+    void revalidateDiscordAccess({ force: false, silent: true, reason: 'visibility' });
+  };
+  document.addEventListener('visibilitychange', visibilityHandler);
+}
+
+export function destroyDiscordAuth() {
+  authSubscription?.unsubscribe?.();
+  authSubscription = null;
+  if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler);
+  visibilityHandler = null;
+  initialized = false;
 }

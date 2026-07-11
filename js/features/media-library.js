@@ -27,7 +27,7 @@ import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { localAuditTime, mediaAuditLabel, recordAdminAction } from '../core/audit.js';
 import { removeStorageObject, stageMediaReplacement, uploadMediaToStorage, validateMediaReplacementFile } from '../core/storage.js';
-import { asArray, debounce, escapeHtml, mountModal, registerModalLifecycleCleanup, safeUrl, showToast } from '../core/utils.js';
+import { debounce, escapeHtml, mountModal, registerModalLifecycleCleanup, safeUrl, showToast } from '../core/utils.js';
 import { closeContextPanel } from '../core/context-actions.js';
 import {
   assetFileName,
@@ -40,6 +40,8 @@ import {
   sortedMediaList,
   sourceLabel,
 } from './media-library-helpers.js';
+import { buildMediaUsageIndex, renderMediaUsageList } from './media-usage.js';
+import { deleteStorageObjects } from '../core/admin-api.js';
 
 const MEDIA_PANEL_PAGE_SIZE = 60;
 const MEDIA_PANEL_MOBILE_PAGE_SIZE = 24;
@@ -194,111 +196,14 @@ async function reloadMediaAssets() {
   return { data: storageAssets, error: null };
 }
 
-function addUsage(map, url, label) {
-  if (!url) return;
-  const normalized = safeUrl(url);
-  if (!normalized) return;
-  if (!map.has(normalized)) map.set(normalized, []);
-  map.get(normalized).push(label);
-}
-
-async function buildMediaUsageIndex() {
-  const usage = new Map();
-
-  let logsResult = await supabaseClient.from('logs').select('id,title,cover_image_url');
-  if (logsResult.error && /cover_image_url/i.test(`${logsResult.error.message || ''} ${logsResult.error.details || ''}`)) {
-    logsResult = await supabaseClient.from('logs').select('id,title');
-    if (!logsResult.error) logsResult.data = (logsResult.data || []).map(log => ({ ...log, cover_image_url: null }));
-  }
-
-  const [
-    { data: mobs = [] },
-    { data: logItems = [] },
-    { data: tierItems = [] },
-    { data: weapons = [] },
-    { data: ranks = [] },
-    { data: kits = [] },
-  ] = await Promise.all([
-    supabaseClient.from('log_mobs').select('log_id,name,image_url'),
-    supabaseClient.from('log_items').select('log_id,name,item_type,image_url'),
-    supabaseClient.from('tierlist_items').select('name,image_url'),
-    supabaseClient.from('weapons').select('id,name,image_url'),
-    supabaseClient.from('weapon_ranks').select('id,weapon_id,name,image_url,upgrade_recipe'),
-    supabaseClient.from('kits').select('name,items'),
-  ]);
-  const logs = logsResult.data || [];
-
-  const logById = new Map(logs.map(log => [log.id, log]));
-  logs.forEach(log => addUsage(usage, log.cover_image_url, `Log: ${log.title} > Portada`));
-  mobs.forEach(mob => {
-    const logTitle = logById.get(mob.log_id)?.title || 'Log';
-    addUsage(usage, mob.image_url, `Log: ${logTitle} > Mob: ${mob.name}`);
-  });
-  logItems.forEach(item => {
-    const logTitle = logById.get(item.log_id)?.title || 'Log';
-    addUsage(usage, item.image_url, `Log: ${logTitle} > ${item.item_type === '_libre' ? 'Libre' : 'Item'}: ${item.name}`);
-  });
-
-  tierItems.forEach(item => addUsage(usage, item.image_url, `Tierlist: ${item.name}`));
-
-  const weaponById = new Map(weapons.map(weapon => [weapon.id, weapon]));
-  weapons.forEach(weapon => {
-    addUsage(usage, weapon.image_url, `Arma: ${weapon.name}`);
-  });
-  ranks.forEach(rank => {
-    const weapon = weaponById.get(rank.weapon_id);
-    const weaponName = weapon?.name || 'Arma';
-    const recipeMethods = asArray(rank.upgrade_recipe?.methods).length ? asArray(rank.upgrade_recipe?.methods) : (rank.upgrade_recipe ? [rank.upgrade_recipe] : []);
-    addUsage(usage, rank.image_url, `Arma: ${weaponName} > Rango: ${rank.name}`);
-    recipeMethods.forEach((method, methodIdx) => {
-      const inputLabels = method.mode === 'smithing'
-        ? ['Plantilla', 'Equipo', 'Material']
-        : method.mode === 'furnace'
-          ? ['Ingrediente', 'Combustible']
-          : [];
-      const methodLabel = method.title || `Método ${methodIdx + 1}`;
-      asArray(method.materials).forEach(mat => addUsage(usage, mat.image_url, `Receta: ${weaponName} > ${methodLabel} > ${mat.name}`));
-      asArray(method.grid).forEach((mat, idx) => addUsage(usage, mat.image_url, `Crafteo: ${weaponName} > ${methodLabel} > Slot ${idx + 1}${mat.name ? ` (${mat.name})` : ''}`));
-      asArray(method.inputs).forEach((mat, idx) => addUsage(usage, mat.image_url, `Fabricacion: ${weaponName} > ${methodLabel} > ${inputLabels[idx] || `Slot ${idx + 1}`}${mat.name ? ` (${mat.name})` : ''}`));
-      addUsage(usage, method.result?.image_url, `Receta: ${weaponName} > ${methodLabel} > Resultado`);
-    });
-  });
-
-  kits.forEach((kit) => {
-    const kitName = kit.name || 'Kit';
-    ['weapon', 'accessory', 'subweapon'].forEach((column) => {
-      asArray(kit.items?.[column]).forEach((item, index) => {
-        addUsage(usage, item?.image_url, `Kit: ${kitName} > ${column} ${index + 1}${item?.name ? ` (${item.name})` : ''}`);
-      });
-    });
-  });
-
-  addUsage(usage, state.backgroundConfig?.image_url, 'Fondo de página');
-  Object.entries(state.heroBannerConfig || {}).forEach(([pageKey, entry]) => {
-    addUsage(usage, entry?.image_url, `Banner de cabecera: ${pageKey}`);
-  });
-  addUsage(usage, state.faviconUrl, 'Favicon');
-  addUsage(usage, state.siteLogoUrl, 'Logo del sitio');
-  asArray(state.aboutBlocks).forEach((block, idx) => {
-    if (block.kind === 'image') addUsage(usage, block.url, `Acerca del Server: imagen ${idx + 1}`);
-  });
-
-  mediaUsageIndex = usage;
-  return usage;
+async function refreshMediaUsageIndex() {
+  mediaUsageIndex = await buildMediaUsageIndex();
+  return mediaUsageIndex;
 }
 
 function renderUsageList(asset) {
-  const usages = mediaUsageIndex.get(safeUrl(asset.url)) || [];
-  if (!usages.length) return '<p class="media-usage-empty">Sin usos detectados</p>';
-  const visible = usages.slice(0, 4);
-  const extra = usages.length - visible.length;
-  return `
-    <ul class="media-usage-list">
-      ${visible.map(u => `<li>${escapeHtml(u)}</li>`).join('')}
-      ${extra > 0 ? `<li>+ ${extra} uso(s) más</li>` : ''}
-    </ul>`;
+  return renderMediaUsageList(asset, mediaUsageIndex);
 }
-
 function findMediaAsset(id) {
   return [...mediaAssets, ...archivedMediaAssets].find(a => a.id === id);
 }
@@ -639,7 +544,7 @@ async function deleteArchivedMediaAsset(asset) {
   const bucket = asset.bucket || 'culones';
   const path = asset.storage_path || storagePathFromPublicUrl(asset.url);
   if (path) {
-    const { error: storageError } = await supabaseClient.storage.from(bucket).remove([path]);
+    const { error: storageError } = await deleteStorageObjects(bucket, [path]);
     if (storageError) {
       showToast('No se pudo borrar el archivo de Storage: ' + storageError.message, 'error');
       return;
@@ -704,7 +609,7 @@ async function uploadLibraryFiles(files, { refreshPanel = true } = {}) {
 async function indexUsedMediaAssets() {
   const status = document.getElementById('media-library-status');
   if (status) status.textContent = 'Analizando usos actuales...';
-  const usage = await buildMediaUsageIndex();
+  const usage = await refreshMediaUsageIndex();
   let created = 0;
   for (const [url, usages] of usage.entries()) {
     if (mediaAssets.some(asset => safeUrl(asset.url) === url)) continue;
@@ -798,7 +703,7 @@ export function initMediaLibraryPanel() {
     await uploadLibraryFiles(files);
   });
 
-  buildMediaUsageIndex().finally(loadAndRenderMediaLibrary);
+  refreshMediaUsageIndex().finally(loadAndRenderMediaLibrary);
 }
 
 function ensureExternalModal() {
@@ -1069,7 +974,7 @@ async function commitMediaFileReplacement() {
     showToast(`Recurso reemplazado en ${updatedRecords} registro(s)`, 'success');
     closeMediaEditModal();
     pickerAssetsLoadedAt = 0;
-    await buildMediaUsageIndex();
+    await refreshMediaUsageIndex();
     await loadAndRenderMediaLibrary();
   } catch (error) {
     if (staged?.path) await removeStorageObject(staged.path, staged.bucket).catch(() => {});
@@ -1500,7 +1405,8 @@ export function attachMediaPickerButton({ targetInputId, insertAfterId, label = 
   btn.type = 'button';
   btn.className = 'btn-media-picker';
   btn.dataset.mediaPickerFor = targetInputId;
-  btn.textContent = label;
+  btn.innerHTML = `<span class="btn-media-picker-icon" aria-hidden="true">▦</span><span>${escapeHtml(label)}</span>`;
+  btn.setAttribute('aria-label', `${label}: ${title}`);
   anchor.insertAdjacentElement('afterend', btn);
   btn.addEventListener('click', () => {
     openMediaPicker({

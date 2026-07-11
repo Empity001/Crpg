@@ -109,7 +109,7 @@ async function performKitsLoad() {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 8500);
   try {
-    let request = disableQueryRetry(supabaseClient.rpc('list_kits', { input_code: state.adminCode }));
+    let request = disableQueryRetry(supabaseClient.rpc('list_kits', { input_code: state.adminMode }));
     if (typeof request?.abortSignal === 'function') request = request.abortSignal(controller.signal);
     const { data, error } = await withTimeout(request, 9000, 'La carga de kits');
 
@@ -367,7 +367,7 @@ export async function submitKit() {
     errorBox.classList.remove('hidden');
     return;
   }
-  if (!state.adminCode) {
+  if (!state.adminMode) {
     errorBox.textContent = 'Tu sesión de administrador expiró.';
     errorBox.classList.remove('hidden');
     return;
@@ -384,7 +384,7 @@ export async function submitKit() {
 
   try {
     const { error } = await supabaseClient.rpc('upsert_kit', {
-      input_code: state.adminCode,
+      input_code: state.adminMode,
       input_id: state.editingKitId,
       input_name: name,
       input_description: description,
@@ -421,7 +421,7 @@ async function deleteKit(kitId) {
   }))) return;
 
   const { error } = await supabaseClient.rpc('delete_kit', {
-    input_code: state.adminCode,
+    input_code: state.adminMode,
     input_id: kitId,
   });
 

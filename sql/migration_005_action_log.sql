@@ -2,7 +2,7 @@
 -- CULONES-RPG · Migración 005
 -- Bitácora de acciones ("Acciones realizadas"): registra TODO
 -- lo que pasa en la web — creación/edición/borrado de logs,
--- mobs, items y bloques libres; categorías; moderación de
+-- mobs, items y Extras; categorías; moderación de
 -- comentarios; comentarios nuevos de visitantes; cambios de
 -- configuración de fichas. Solo visible para admins.
 -- =========================================================
@@ -142,7 +142,7 @@ begin
   select 'Admin',
     case when (elem->>'item_type') = '_libre' then 'block_created' else 'item_created' end,
     format('%s agregado: "%s" (en "%s")',
-      case when (elem->>'item_type') = '_libre' then '📋 Bloque libre' else '🗡 Item' end,
+      case when (elem->>'item_type') = '_libre' then '✦ Extra' else '🗡 Item' end,
       trim(elem->>'name'), input_title)
   from jsonb_array_elements(coalesce(input_items, '[]'::jsonb)) as elem
   where coalesce(trim(elem->>'name'), '') <> '';

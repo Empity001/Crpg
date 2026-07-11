@@ -2,7 +2,13 @@
 <div class="crt-overlay" aria-hidden="true"></div>
 <div class="bg-grid" aria-hidden="true"></div>
 
-<!-- ============ BUSCADOR GLOBAL · ESCRITORIO ============ -->
+<!-- ============ UTILIDADES GLOBALES · ESCRITORIO ============ -->
+<div class="header-actions-desktop" aria-label="Utilidades de la página">
+  <button class="site-notification-toggle" type="button" data-notification-toggle aria-label="Ver novedades" aria-expanded="false">
+    <span class="site-notification-bell" aria-hidden="true"></span>
+    <span class="site-notification-badge hidden" data-notification-badge>0</span>
+  </button>
+
 <div class="global-search global-search-desktop" data-global-search-root data-search-variant="desktop">
   <button class="global-search-toggle" type="button" data-global-search-toggle aria-label="Buscar en toda la página" aria-expanded="false">
     <span class="global-search-icon" aria-hidden="true"></span>
@@ -13,11 +19,11 @@
     <kbd>Ctrl K</kbd>
   </div>
   <div class="global-search-popover" aria-label="Resultados de búsqueda">
-    <div class="global-search-popover-head"><span>Buscar en todo el sitio</span><small>Logs · Guías · Tierlist · Kits</small></div>
+    <div class="global-search-popover-head"><span>Buscar en toda la web</span><small>Logs · Guías · Tierlist · Kits</small></div>
     <div class="global-search-results" data-global-search-results role="listbox"></div>
   </div>
 </div>
-
+</div>
 <!-- ============ BARRA MÓVIL ============ -->
 <header class="mobile-topbar">
   <button class="mobile-menu-btn" id="sidebar-menu-toggle" type="button" aria-label="Abrir menú" aria-controls="app-sidebar" aria-expanded="false">
@@ -25,6 +31,10 @@
   </button>
   <div class="mobile-brand-mark" aria-hidden="true"><img class="mobile-brand-image js-site-logo-image hidden" alt="" /><span class="mobile-brand-fallback js-site-logo-fallback">⚔</span></div>
   <span class="mobile-brand-title">CULONES<span>-RPG</span></span>
+  <button class="site-notification-toggle site-notification-toggle-mobile" type="button" data-notification-toggle aria-label="Ver novedades" aria-expanded="false">
+    <span class="site-notification-bell" aria-hidden="true"></span>
+    <span class="site-notification-badge hidden" data-notification-badge>0</span>
+  </button>
   <div class="global-search global-search-mobile" data-global-search-root data-search-variant="mobile">
     <button class="global-search-toggle" type="button" data-global-search-toggle aria-label="Buscar en toda la página" aria-expanded="false">
       <span class="global-search-icon" aria-hidden="true"></span>
@@ -34,7 +44,7 @@
       <button type="button" class="global-search-clear" data-global-search-clear aria-label="Limpiar búsqueda">✕</button>
     </div>
     <div class="global-search-popover" aria-label="Resultados de búsqueda">
-      <div class="global-search-popover-head"><span>Buscar en todo el sitio</span><small>Resultados de todas las secciones</small></div>
+      <div class="global-search-popover-head"><span>Buscar en toda la web</span><small>Resultados de todas las secciones</small></div>
       <div class="global-search-results" data-global-search-results role="listbox"></div>
     </div>
   </div>
@@ -63,7 +73,7 @@
       <span class="tab-icon" aria-hidden="true">📜</span>
       <span class="tab-label">Logs</span>
     </a>
-    <a class="tab-item" data-page="weapons" href="weapons.html" aria-current="false">
+    <a class="tab-item" data-page="guides" href="guides.html" aria-current="false">
       <span class="tab-icon" aria-hidden="true">⚔️</span>
       <span class="tab-label">Guías</span>
     </a>
@@ -93,6 +103,10 @@
   </nav>
 
   <div class="sidebar-footer">
+    <div class="sidebar-account hidden" id="sidebar-account">
+      <img class="sidebar-account-avatar hidden" id="sidebar-account-avatar" alt="" />
+      <span class="sidebar-account-name" id="sidebar-account-name"></span>
+    </div>
     <div class="admin-mode-badge hidden" id="admin-mode-badge" aria-live="polite">
       <span class="admin-mode-pulse"></span>
       <span>Sesión administrativa activa</span>
@@ -109,3 +123,35 @@
     </button>
   </div>
 </aside>
+
+<!-- ============ NOVEDADES LOCALES DEL NAVEGADOR ============ -->
+<aside class="site-notification-panel" id="site-notification-panel" aria-label="Novedades" aria-hidden="true">
+  <header class="site-notification-panel-head">
+    <div>
+      <strong>Novedades</strong>
+      <small>Guardadas solo en este navegador</small>
+    </div>
+    <button type="button" class="site-notification-close" data-notification-close aria-label="Cerrar novedades">✕</button>
+  </header>
+  <div class="site-notification-list" id="site-notification-list"></div>
+</aside>
+
+<!-- ============ AJUSTES LOCALES DEL VISITANTE ============ -->
+<div class="visitor-settings">
+  <button class="visitor-settings-toggle" id="visitor-settings-toggle" type="button" aria-label="Ajustes visuales" aria-expanded="false">
+    <span aria-hidden="true">⚙</span>
+  </button>
+  <aside class="visitor-settings-panel" id="visitor-settings-panel" aria-hidden="true">
+    <header>
+      <div>
+        <strong>Ajustes visuales</strong>
+        <small>Solo afectan a este navegador</small>
+      </div>
+      <button type="button" class="visitor-settings-close" id="visitor-settings-close" aria-label="Cerrar ajustes">✕</button>
+    </header>
+    <label class="visitor-setting-row" for="visitor-background-toggle">
+      <span>Mostrar fondo personalizado</span>
+      <input id="visitor-background-toggle" type="checkbox" checked />
+    </label>
+  </aside>
+</div>

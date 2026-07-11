@@ -204,7 +204,7 @@ function buildLogsSheets() {
   const logsHeaders = [
     'ID', 'Título', 'Descripción', 'Categoría', 'Emoji Cat.',
     'Relevancia', 'Likes', 'Fecha', 'Fecha (ISO)', 'Portada (URL)',
-    '# Mobs', '# Items', '# Bloques Libres',
+    '# Mobs', '# Items', '# Extras',
   ];
   const logsRows = state.logs.map(log => {
     const mobs  = state.mobsByLog[log.id]  || [];
@@ -276,7 +276,7 @@ function buildLogsSheets() {
     wsLogs:  buildXlSheet(`📜 Logs  (${logsRows.length} registros)`,  logsHeaders,  logsRows,  [6,10,11,12], [12,30,40,18,8,12,8,12,30,35,10,10,12]),
     wsMobs:  buildXlSheet(`⚔️ Mobs  (${mobsRows.length} registros)`,  mobsHeaders,  mobsRows,  [3,4,5],     [12,30,24,8,8,8,30,24,35,35,30]),
     wsItems: buildXlSheet(`🎒 Items (${itemsRows.length} registros)`,  itemsHeaders, itemsRows, [6],         [12,30,24,12,14,24,8,24,35,35,30]),
-    wsLibres: buildXlSheet(`📦 Bloques Libres (${libresRows.length} registros)`, libresHeaders, libresRows, [], [12,30,24,45,35,35]),
+    wsLibres: buildXlSheet(`📦 Extras (${libresRows.length} registros)`, libresHeaders, libresRows, [], [12,30,24,45,35,35]),
   };
 }
 
@@ -293,7 +293,7 @@ function exportLogsXlsx() {
   XLSX.utils.book_append_sheet(wb, wsLogs,   'Logs');
   XLSX.utils.book_append_sheet(wb, wsMobs,   'Mobs');
   XLSX.utils.book_append_sheet(wb, wsItems,  'Items');
-  XLSX.utils.book_append_sheet(wb, wsLibres, 'Bloques Libres');
+  XLSX.utils.book_append_sheet(wb, wsLibres, 'Extras');
 
   downloadXlsx(wb, `culones-logs-${backupFileStamp()}.xlsx`);
   showToast(`${state.logs.length} logs exportados a Excel (4 hojas)`, 'success');
@@ -401,7 +401,7 @@ async function exportAllXlsx() {
     ['Logs',              state.logs.length,                                                now],
     ['Mobs',             Object.values(state.mobsByLog).reduce((a,b) => a + b.length, 0),  now],
     ['Items',            Object.values(state.itemsByLog).reduce((a,arr) => a + arr.filter(i => i.item_type !== '_libre').length, 0), now],
-    ['Bloques Libres',   Object.values(state.itemsByLog).reduce((a,arr) => a + arr.filter(i => i.item_type === '_libre').length, 0), now],
+    ['Extras',   Object.values(state.itemsByLog).reduce((a,arr) => a + arr.filter(i => i.item_type === '_libre').length, 0), now],
     ['Filas Tierlist',   state.tierRows.length,                                             now],
     ['Items Tierlist',   state.tierItems.length,                                            now],
     ['Categorías',       state.categories.length,                                           now],
@@ -511,7 +511,7 @@ async function exportAllXlsx() {
   XLSX.utils.book_append_sheet(wb, wsLogs,     'Logs');
   XLSX.utils.book_append_sheet(wb, wsMobs,     'Mobs');
   XLSX.utils.book_append_sheet(wb, wsItems,    'Items');
-  XLSX.utils.book_append_sheet(wb, wsLibres,   'Bloques Libres');
+  XLSX.utils.book_append_sheet(wb, wsLibres,   'Extras');
   XLSX.utils.book_append_sheet(wb, wsTierRows, 'Tier - Filas');
   XLSX.utils.book_append_sheet(wb, wsTierItems,'Tier - Items');
   XLSX.utils.book_append_sheet(wb, wsCats,     'Categorías');

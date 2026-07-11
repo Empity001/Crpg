@@ -1,0 +1,705 @@
+/* ======================================================================
+   MENÚS CONTEXTUALES · acciones junto al elemento seleccionado
+   ====================================================================== */
+.context-action-panel{
+  position:fixed;
+  z-index:520;
+  width:min(var(--context-panel-width,340px),calc(100vw - 24px));
+  max-width:calc(100vw - 24px);
+  overflow:auto;
+  overscroll-behavior:contain;
+  padding:0;
+  border:1px solid color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 56%,var(--border-soft));
+  border-radius:18px;
+  background:color-mix(in srgb,var(--theme-elevated-bg,var(--surface-2)) 96%,#050611);
+  box-shadow:0 26px 80px rgba(0,0,0,.62),0 0 34px color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 18%,transparent);
+  color:var(--ink-100);
+  opacity:0;
+  transform:translateY(7px) scale(.985);
+  transition:opacity .12s ease,transform .12s ease;
+  scrollbar-gutter:stable;
+}
+.context-action-panel.is-open{opacity:1;transform:none}
+.context-action-panel.is-closing{opacity:0;transform:translateY(4px) scale(.99)}
+.context-action-head{position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 16px 13px;border-bottom:1px solid var(--border-dim);background:color-mix(in srgb,var(--theme-elevated-bg,var(--surface-2)) 97%,transparent);backdrop-filter:blur(12px)}
+.context-action-title-wrap{display:flex;min-width:0;flex-direction:column;gap:3px}.context-action-title{font-size:15px;line-height:1.25}.context-action-subtitle{overflow:hidden;color:var(--ink-500);font-size:11px;line-height:1.35;text-overflow:ellipsis;white-space:nowrap}
+.context-action-close{display:grid;width:30px;height:30px;flex:0 0 30px;place-items:center;border:1px solid var(--border-dim);border-radius:9px;background:transparent;color:var(--ink-400);cursor:pointer}.context-action-close:hover{border-color:var(--theme-selection,var(--admin-purple));color:var(--ink-100)}
+.context-action-body{display:grid;gap:12px;padding:14px 16px 16px}.context-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.context-action-button{display:flex;min-height:42px;align-items:center;justify-content:flex-start;gap:9px;padding:10px 12px;border:1px solid var(--border-soft);border-radius:11px;background:color-mix(in srgb,var(--theme-input-bg,var(--surface-3)) 82%,transparent);color:var(--ink-200);font-weight:650;text-align:left;cursor:pointer;transition:border-color .14s ease,background .14s ease,transform .14s ease}.context-action-button:hover:not(:disabled){transform:translateY(-1px);border-color:var(--theme-selection,var(--admin-purple));background:color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 15%,var(--theme-input-bg,var(--surface-3)));color:var(--ink-100)}.context-action-button.is-danger{color:var(--theme-danger,var(--magenta))}.context-action-button.is-success{color:var(--theme-confirm,var(--green))}.context-action-button:disabled{opacity:.38;cursor:not-allowed}
+.context-disclosure{overflow:hidden;border:1px solid var(--border-soft);border-radius:12px;background:rgba(0,0,0,.12)}.context-disclosure>summary{display:flex;min-height:43px;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;color:var(--ink-200);font-weight:700;cursor:pointer;list-style:none}.context-disclosure>summary::-webkit-details-marker{display:none}.context-disclosure-arrow{transition:transform .14s ease}.context-disclosure[open] .context-disclosure-arrow{transform:rotate(180deg)}.context-disclosure-content{display:grid;gap:10px;padding:0 12px 12px;border-top:1px solid var(--border-dim)}
+.context-field{display:grid;gap:6px;padding-top:10px}.context-field>span{color:var(--ink-400);font-family:var(--font-mono);font-size:10px}.context-field input,.context-field select{width:100%;min-width:0}.context-image-preview{display:grid;min-height:116px;place-items:center;overflow:hidden;border:1px dashed var(--border-soft);border-radius:12px;background:rgba(0,0,0,.18)}.context-image-preview img{width:100%;height:132px;object-fit:contain;image-rendering:pixelated}.context-image-preview span{color:var(--ink-600);font-size:12px}
+.context-anchor-active{outline:2px solid color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 70%,transparent)!important;outline-offset:3px}
+.context-menu-trigger{display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:7px;padding:7px 10px;border:1px solid var(--border-soft);border-radius:10px;background:rgba(255,255,255,.04);color:var(--ink-300);font-weight:650;cursor:pointer}.context-menu-trigger:hover{border-color:var(--theme-selection,var(--admin-purple));color:var(--ink-100)}
+
+/* Modales un poco más amplios, preservando las cuadrículas internas */
+.modal-box{width:min(720px,calc(100vw - 36px));max-width:720px;padding:30px 32px}.modal-box.modal-box-wide{width:min(1120px,calc(100vw - 40px));max-width:1120px}.kit-modal-box{width:min(1180px,calc(100vw - 40px));max-width:1180px}.weapon-recipe-modal-box{width:min(1180px,calc(100vw - 40px));max-width:1180px}
+
+/* Recetas como slots cuadrados, editados mediante panel contextual */
+#weapon-recipe-materials-list.recipe-square-editor{display:grid;grid-template-columns:repeat(3,minmax(112px,1fr));gap:12px;align-items:start;padding:14px;border:1px solid var(--border-soft);border-radius:16px;background:rgba(0,0,0,.14)}
+#weapon-recipe-materials-list.recipe-square-editor[data-recipe-mode="trade"]{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
+#weapon-recipe-materials-list.recipe-square-editor[data-recipe-mode="furnace"]{grid-template-columns:repeat(2,minmax(132px,180px));justify-content:center}
+#weapon-recipe-materials-list.recipe-square-editor[data-recipe-mode="smithing"]{grid-template-columns:repeat(3,minmax(132px,180px));justify-content:center}
+.recipe-editor-slot{position:relative;display:flex;aspect-ratio:1/1;min-width:0;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px;border:1px solid var(--border-soft);border-radius:15px;background:color-mix(in srgb,var(--theme-input-bg,var(--surface-3)) 78%,transparent);color:var(--ink-200);cursor:pointer;overflow:hidden;transition:transform .14s ease,border-color .14s ease,background .14s ease}.recipe-editor-slot:hover{transform:translateY(-2px);border-color:var(--theme-selection,var(--admin-purple));background:color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 10%,var(--theme-input-bg,var(--surface-3)))}.recipe-editor-slot.is-empty{border-style:dashed}.recipe-editor-slot img{width:62%;height:62%;object-fit:contain;image-rendering:pixelated}.recipe-editor-slot-icon{display:grid;width:52px;height:52px;place-items:center;border-radius:12px;background:rgba(255,255,255,.04);font-size:24px}.recipe-editor-slot-name{width:100%;overflow:hidden;font-size:11px;font-weight:700;text-align:center;text-overflow:ellipsis;white-space:nowrap}.recipe-editor-slot-label{position:absolute;top:8px;left:8px;color:var(--ink-600);font-family:var(--font-mono);font-size:8px;text-transform:uppercase}.recipe-editor-slot-qty{position:absolute;right:8px;bottom:8px;display:grid;min-width:26px;height:26px;padding:0 6px;place-items:center;border:1px solid var(--border-soft);border-radius:999px;background:rgba(5,6,17,.82);color:var(--ink-100);font-size:10px}.recipe-editor-slot-link{position:absolute;right:8px;top:8px;color:var(--cyan);font-size:10px}
+.recipe-slot-context{--context-panel-width:370px}.recipe-slot-context .context-action-body{gap:10px}
+
+/* Acciones de cards reducidas a un único disparador */
+.log-card-admin-actions,.kit-admin-actions{justify-content:flex-end}.log-card-admin-actions .context-menu-trigger{width:100%}.tier-chip-admin-overlay{align-items:flex-end;justify-content:flex-end;padding:6px}.tier-chip-admin-overlay .context-menu-trigger{width:32px;height:32px;min-height:32px;padding:0;border-radius:9px;background:rgba(5,6,17,.82)}
+
+@media(max-width:760px){
+  .modal-box,.modal-box.modal-box-wide,.kit-modal-box,.weapon-recipe-modal-box{width:min(94vw,680px);max-width:94vw;padding:24px 20px}
+  .context-action-panel{width:min(360px,calc(100vw - 20px));max-height:min(72dvh,620px)!important;border-radius:16px}
+  .context-action-grid{grid-template-columns:1fr 1fr}
+  #weapon-recipe-materials-list.recipe-square-editor{grid-template-columns:repeat(3,minmax(82px,1fr));gap:8px;padding:10px}.recipe-editor-slot{padding:8px;border-radius:12px}.recipe-editor-slot-name{font-size:9px}.recipe-editor-slot-label{font-size:7px}.recipe-editor-slot img{width:58%;height:58%}
+}
+@media(max-width:420px){.context-action-grid{grid-template-columns:1fr}.modal-box,.modal-box.modal-box-wide,.kit-modal-box,.weapon-recipe-modal-box{width:calc(100vw - 18px);max-width:calc(100vw - 18px);padding:22px 16px}#weapon-recipe-materials-list.recipe-square-editor{grid-template-columns:repeat(3,minmax(72px,1fr))}}
+
+/* Editor contextual de kits */
+.kit-context-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px!important}.kit-context-item{position:relative;display:flex;min-width:0;min-height:154px;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px;border:1px solid var(--border-soft);border-radius:14px;background:rgba(17,21,40,.72);color:var(--ink-200);cursor:pointer}.kit-context-item:hover{border-color:var(--theme-selection,var(--admin-purple));background:color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 9%,rgba(17,21,40,.72));transform:translateY(-1px)}.kit-context-item .kit-image-preview{width:72px;height:72px;flex:0 0 72px}.kit-context-item strong{max-width:100%;overflow:hidden;font-size:12px;text-overflow:ellipsis;white-space:nowrap}.kit-context-hint{color:var(--ink-600);font-size:9px}.kit-context-index{position:absolute;top:8px;left:9px;color:var(--ink-600);font-family:var(--font-mono);font-size:9px}
+.draft-block-context-trigger{display:inline-flex;align-items:center;gap:8px;cursor:pointer}.draft-block-more{color:var(--ink-600);font-weight:800}
+@media(max-width:900px){.kit-context-grid{grid-template-columns:1fr!important}.kit-context-item{min-height:132px}}
+
+/* Ajustes de compatibilidad para los nuevos disparadores contextuales */
+button.draft-block-chip{appearance:none;color:var(--ink-100);font:inherit;cursor:pointer}.draft-block-chip .draft-block-label:hover{color:var(--ink-100);text-decoration:none}.draft-block-chip:hover{border-color:var(--theme-selection,var(--admin-purple));background:color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 10%,var(--bg-card))}
+.about-editor-block-actions .context-menu-trigger{width:auto;min-width:104px;height:34px;padding:6px 10px;white-space:nowrap}.about-editor-block-actions{align-self:flex-start}
+.kit-context-item{appearance:none;font:inherit}.kit-context-item .kit-image-preview img{width:100%;height:100%;object-fit:contain}
+
+/* En los slots de recetas, subir y biblioteca se muestran uno debajo del otro. */
+.recipe-slot-context > .context-action-body > .context-action-grid {
+  grid-template-columns: 1fr;
+}
+.recipe-slot-context .context-disclosure-content > .context-action-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 420px) {
+  .recipe-slot-context .context-disclosure-content > .context-action-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Los editores internos muestran un solo botón de acciones; el resto vive en el panel contextual. */
+.editor-row-actions .editor-row-context-trigger {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  flex: 0 0 36px;
+  padding: 0;
+  border-radius: 10px;
+  font-size: 18px;
+}
+
+/* ======================================================================
+   RECETAS MINECRAFT · slots uniformes, resultado visible y panel seguro
+   ====================================================================== */
+
+/* El selector multimedia siempre va por encima de cualquier panel contextual. */
+#modal-portal > #media-picker-modal:not(.hidden) {
+  z-index: 900 !important;
+}
+
+/* Rango: el selector y su menú de acciones forman una sola unidad. */
+.weapon-rank-pill-wrap {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+}
+.weapon-rank-pill-wrap > .pill {
+  min-height: 38px;
+}
+.weapon-rank-pill-wrap > .weapon-rank-admin-mini {
+  display: inline-grid;
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  min-height: 38px;
+  place-items: center;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Área principal del editor: máquina → flecha → resultado. */
+.recipe-editor-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, auto) 44px 92px;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin: 14px 0 18px;
+  padding: 18px;
+  border: 1px solid var(--border-soft);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.025), rgba(0,0,0,.08)),
+    color-mix(in srgb, var(--theme-panel-bg, var(--bg-card)) 88%, transparent);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+.recipe-editor-machine-wrap {
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+  gap: 8px;
+}
+.recipe-editor-machine-wrap > .field-label {
+  width: 100%;
+  margin: 0;
+  text-align: center;
+}
+.recipe-editor-arrow {
+  display: grid;
+  place-items: center;
+  color: var(--theme-accent, var(--gold));
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--theme-accent, var(--gold)) 28%, transparent);
+}
+
+/* El contenedor ya no estira las celdas al ancho completo del modal. */
+#weapon-recipe-materials-list.recipe-square-editor {
+  --recipe-editor-slot-size: 84px;
+  display: grid !important;
+  width: max-content;
+  max-width: min(100%, 420px);
+  grid-template-columns: repeat(3, var(--recipe-editor-slot-size)) !important;
+  grid-auto-rows: var(--recipe-editor-slot-size);
+  justify-content: center;
+  align-items: center;
+  gap: 6px !important;
+  padding: 12px !important;
+  border: 3px solid #666a76 !important;
+  border-top-color: #d6d8df !important;
+  border-left-color: #d6d8df !important;
+  border-radius: 4px !important;
+  background: #b9bbc4 !important;
+  box-shadow:
+    inset 2px 2px 0 rgba(255,255,255,.5),
+    inset -2px -2px 0 rgba(0,0,0,.32),
+    0 12px 32px rgba(0,0,0,.25);
+}
+#weapon-recipe-materials-list.recipe-square-editor[data-recipe-mode="trade"] {
+  grid-template-columns: repeat(auto-fit, var(--recipe-editor-slot-size)) !important;
+  max-width: 380px;
+}
+#weapon-recipe-materials-list.recipe-square-editor[data-recipe-mode="smithing"] {
+  grid-template-columns: repeat(3, var(--recipe-editor-slot-size)) !important;
+}
+#weapon-recipe-materials-list.recipe-square-editor[data-recipe-mode="furnace"] {
+  grid-template-columns: var(--recipe-editor-slot-size) !important;
+  grid-template-rows: var(--recipe-editor-slot-size) 24px var(--recipe-editor-slot-size) !important;
+}
+
+.recipe-editor-slot,
+.recipe-editor-result-slot {
+  position: relative;
+  display: grid;
+  width: var(--recipe-editor-slot-size, 84px);
+  min-width: var(--recipe-editor-slot-size, 84px);
+  height: var(--recipe-editor-slot-size, 84px);
+  min-height: var(--recipe-editor-slot-size, 84px);
+  aspect-ratio: 1 / 1;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  padding: 8px;
+  overflow: hidden;
+  border: 3px solid #5e6069;
+  border-top-color: #ececf1;
+  border-left-color: #ececf1;
+  border-radius: 2px;
+  background: #8f919a;
+  color: #11131a;
+  box-shadow: inset -2px -2px 0 rgba(0,0,0,.3);
+  cursor: pointer;
+  transition: filter .14s ease, transform .14s ease, box-shadow .14s ease;
+}
+.recipe-editor-slot:hover,
+.recipe-editor-result-slot:hover {
+  transform: none;
+  filter: brightness(1.06);
+  border-color: var(--theme-selection, var(--admin-purple));
+  box-shadow: inset -2px -2px 0 rgba(0,0,0,.3), 0 0 0 2px color-mix(in srgb, var(--theme-selection, var(--admin-purple)) 40%, transparent);
+}
+.recipe-editor-slot.is-empty,
+.recipe-editor-result-slot.is-empty {
+  border-style: solid;
+  opacity: .78;
+}
+.recipe-editor-slot img,
+.recipe-editor-result-preview img {
+  display: block;
+  width: 52px !important;
+  max-width: 52px;
+  height: 52px !important;
+  max-height: 52px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.recipe-editor-result-preview {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+}
+.recipe-editor-slot-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 4px;
+  background: rgba(255,255,255,.16);
+  color: #343640;
+  font-size: 22px;
+}
+.recipe-editor-slot-name {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  left: 4px;
+  overflow: hidden;
+  color: #f7f7fb;
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 1.1;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0,0,0,.92);
+  white-space: nowrap;
+}
+.recipe-editor-slot-label {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  color: #393b44;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.recipe-editor-slot-qty {
+  position: absolute;
+  right: 3px;
+  bottom: 16px;
+  display: grid;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  place-items: center;
+  border: 0;
+  border-radius: 3px;
+  background: rgba(9,10,17,.8);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-shadow: 0 1px #000;
+}
+.recipe-editor-slot-link {
+  top: 4px;
+  right: 5px;
+  color: #1c6d90;
+  font-size: 10px;
+}
+.recipe-editor-furnace-flame {
+  display: grid;
+  height: 24px;
+  place-items: center;
+  color: #d65f22;
+  font-size: 18px;
+  line-height: 1;
+}
+.recipe-editor-result-slot {
+  --recipe-editor-slot-size: 84px;
+  align-self: center;
+}
+.recipe-editor-result-slot::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  z-index: -1;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--theme-accent, var(--gold)) 16%, transparent);
+  filter: blur(10px);
+}
+
+.recipe-result-properties {
+  margin: 0 0 16px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: rgba(0,0,0,.12);
+}
+.recipe-result-properties > summary {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  color: var(--ink-200);
+  font-weight: 750;
+  cursor: pointer;
+  list-style: none;
+}
+.recipe-result-properties > summary::-webkit-details-marker { display: none; }
+.recipe-result-properties > summary span { transition: transform .14s ease; }
+.recipe-result-properties[open] > summary span { transform: rotate(180deg); }
+.recipe-result-properties-body {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--border-dim);
+}
+
+/* Vista pública: todos los slots, incluido el resultado, usan exactamente
+   el mismo tamaño en crafteo, horno, herrería e intercambio. */
+.weapon-recipe-method {
+  --mc-recipe-slot: 54px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+.weapon-recipe-slot,
+.weapon-recipe-slot.is-result {
+  width: var(--mc-recipe-slot) !important;
+  min-width: var(--mc-recipe-slot);
+  height: var(--mc-recipe-slot) !important;
+  min-height: var(--mc-recipe-slot);
+  box-sizing: border-box;
+}
+.weapon-recipe-slot img {
+  width: 78%;
+  height: 78%;
+}
+.weapon-crafting-grid {
+  grid-template-columns: repeat(3, var(--mc-recipe-slot));
+  grid-template-rows: repeat(3, var(--mc-recipe-slot));
+  gap: 3px;
+  width: max-content;
+  padding: 10px;
+}
+.weapon-smithing-machine {
+  grid-template-columns: repeat(3, var(--mc-recipe-slot));
+  gap: 3px;
+  width: max-content;
+  padding: 10px;
+}
+.weapon-furnace-machine {
+  grid-template-columns: var(--mc-recipe-slot);
+  gap: 5px;
+  width: max-content;
+  padding: 10px 12px;
+}
+.weapon-recipe-material {
+  width: calc(var(--mc-recipe-slot) + 8px);
+}
+.weapon-recipe-result {
+  width: calc(var(--mc-recipe-slot) + 10px);
+  min-width: calc(var(--mc-recipe-slot) + 10px);
+}
+.weapon-recipe-result-name,
+.weapon-recipe-material-name {
+  max-width: 82px;
+  overflow-wrap: anywhere;
+}
+.weapon-recipe-arrow {
+  display: grid;
+  min-width: 34px;
+  place-items: center;
+  font-size: 30px;
+}
+
+@media (max-width: 760px) {
+  .recipe-editor-workbench {
+    grid-template-columns: minmax(0, auto) 32px 74px;
+    gap: 10px;
+    padding: 12px;
+  }
+  #weapon-recipe-materials-list.recipe-square-editor {
+    --recipe-editor-slot-size: 68px;
+    gap: 4px !important;
+    padding: 8px !important;
+  }
+  .recipe-editor-result-slot {
+    --recipe-editor-slot-size: 68px;
+  }
+  .recipe-editor-slot img,
+  .recipe-editor-result-preview img {
+    width: 42px !important;
+    max-width: 42px;
+    height: 42px !important;
+    max-height: 42px;
+  }
+  .recipe-editor-result-preview {
+    width: 44px;
+    height: 44px;
+  }
+  .recipe-editor-arrow { font-size: 26px; }
+  .weapon-recipe-method { --mc-recipe-slot: 48px; }
+}
+
+@media (max-width: 520px) {
+  .recipe-editor-workbench {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    overflow-x: visible;
+  }
+  .recipe-editor-arrow {
+    transform: rotate(90deg);
+  }
+  #weapon-recipe-materials-list.recipe-square-editor[data-recipe-mode="trade"] {
+    grid-template-columns: repeat(3, var(--recipe-editor-slot-size)) !important;
+  }
+  .recipe-result-properties-body .field-row {
+    grid-template-columns: 1fr;
+  }
+}
+/* Los tooltips de los slots deben poder salir del bloque sin quedar cortados. */
+.weapon-recipe-method { overflow: visible; }
+#weapon-recipe-materials-list.recipe-square-editor[data-recipe-mode="trade"] {
+  grid-template-columns: repeat(4, var(--recipe-editor-slot-size)) !important;
+}
+@media (max-width: 760px) {
+  #weapon-recipe-materials-list.recipe-square-editor[data-recipe-mode="trade"] {
+    grid-template-columns: repeat(3, var(--recipe-editor-slot-size)) !important;
+  }
+}
+
+
+/* ======================================================================
+   AJUSTES DE RESULTADO Y PANELES CONTEXTUALES · 2026-07-10
+   ====================================================================== */
+
+/* El panel siempre queda dentro del viewport, incluso cuando se abren
+   Propiedades o Acciones después de haberlo posicionado. */
+.context-action-panel {
+  max-height: calc(100dvh - 24px);
+  max-height: calc(100svh - 24px);
+}
+.context-action-body {
+  min-width: 0;
+}
+.context-disclosure-content {
+  min-width: 0;
+}
+.recipe-result-context .context-action-body {
+  padding-bottom: 18px;
+}
+
+/* Reserva una zona real para la X. Los botones del encabezado nunca quedan
+   debajo ni pegados al control de cerrar. */
+.modal-title-row {
+  min-width: 0;
+  padding-right: 48px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.modal-title-row .modal-title {
+  min-width: 0;
+  flex: 1 1 260px;
+}
+.modal-title-row .context-menu-trigger {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+#tier-item-modal .modal-title-row {
+  min-height: 40px;
+}
+
+/* La cantidad del resultado usa el mismo indicador que los ingredientes. */
+.recipe-editor-result-slot .recipe-editor-slot-qty {
+  right: 3px;
+  bottom: 16px;
+  z-index: 2;
+}
+
+@media (max-width: 560px) {
+  .modal-title-row {
+    padding-right: 44px;
+    align-items: stretch;
+  }
+  .modal-title-row .modal-title {
+    flex-basis: 100%;
+    padding-right: 4px;
+  }
+  .modal-title-row .context-menu-trigger {
+    width: 100%;
+    margin-left: 0;
+  }
+  .context-action-panel {
+    width: min(380px, calc(100vw - 18px));
+    max-width: calc(100vw - 18px);
+    max-height: calc(100dvh - 18px) !important;
+    max-height: calc(100svh - 18px) !important;
+  }
+}
+
+
+/* ======================================================================
+   ESPACIADO DE DISCLOSURES Y LIMPIEZA DE ACCIONES · 2026-07-10
+   ====================================================================== */
+/* Cuando Propiedades o Acciones están abiertos, el primer control no debe
+   quedar pegado a la línea divisoria del título. */
+.context-disclosure[open] > .context-disclosure-content {
+  padding-top: 12px;
+}
+
+/* Al quedar una sola acción (Biblioteca), ocupa el ancho disponible y no
+   deja un hueco que parezca un botón faltante. */
+.recipe-slot-context > .context-action-body > .context-action-grid,
+.kit-item-context > .context-action-body > .context-action-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* ======================================================================
+   ALCANCE DE LA PALETA · local por navegador o pública para el servidor
+   ====================================================================== */
+.theme-title-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.theme-title-row .admin-section-title{margin:0}
+.theme-source-badge{
+  display:inline-flex;
+  align-items:center;
+  min-height:28px;
+  padding:5px 10px;
+  border:1px solid color-mix(in srgb,var(--theme-info,var(--cyan)) 42%,transparent);
+  border-radius:999px;
+  background:color-mix(in srgb,var(--theme-info,var(--cyan)) 10%,transparent);
+  color:var(--theme-info,var(--cyan));
+  font-family:var(--font-mono);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+.theme-source-badge.is-local{
+  border-color:color-mix(in srgb,var(--theme-confirmation,var(--hud-green)) 48%,transparent);
+  background:color-mix(in srgb,var(--theme-confirmation,var(--hud-green)) 11%,transparent);
+  color:var(--theme-confirmation,var(--hud-green));
+}
+.theme-scope-panel{
+  margin:18px 0;
+  padding:16px;
+  border:1px solid var(--border-soft);
+  border-radius:18px;
+  background:color-mix(in srgb,var(--theme-elevated-bg,var(--surface-2)) 72%,transparent);
+}
+.theme-scope-heading{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:14px;
+}
+.theme-scope-heading>div{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.theme-scope-heading strong{
+  color:var(--ink-100);
+  font-size:14px;
+}
+.theme-scope-heading small{
+  color:var(--ink-400);
+  font-size:11px;
+  line-height:1.45;
+}
+.theme-scope-options{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+.theme-scope-card{
+  position:relative;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:start;
+  gap:12px;
+  min-width:0;
+  padding:15px;
+  overflow:hidden;
+  border:1px solid var(--border-soft);
+  border-radius:15px;
+  background:color-mix(in srgb,var(--theme-input-bg,var(--surface-3)) 78%,transparent);
+  cursor:pointer;
+  transition:transform 160ms ease,border-color 160ms ease,background 160ms ease,box-shadow 160ms ease;
+}
+.theme-scope-card:hover{
+  transform:translateY(-2px);
+  border-color:color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 46%,transparent);
+}
+.theme-scope-card.is-selected{
+  border-color:var(--theme-selection,var(--admin-purple));
+  background:linear-gradient(135deg,color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 18%,var(--theme-input-bg,var(--surface-3))),color-mix(in srgb,var(--theme-primary-soft,var(--purple)) 8%,var(--theme-input-bg,var(--surface-3))));
+  box-shadow:0 0 24px color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 13%,transparent);
+}
+.theme-scope-card input{
+  position:absolute;
+  width:1px;
+  height:1px;
+  opacity:0;
+  pointer-events:none;
+}
+.theme-scope-icon{
+  width:40px;
+  height:40px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--border-soft);
+  border-radius:12px;
+  background:color-mix(in srgb,var(--theme-panel-bg,var(--bg-card)) 86%,transparent);
+  font-size:19px;
+}
+.theme-scope-card.is-selected .theme-scope-icon{
+  border-color:color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 54%,transparent);
+  background:color-mix(in srgb,var(--theme-selection,var(--admin-purple)) 16%,var(--theme-panel-bg,var(--bg-card)));
+}
+.theme-scope-copy{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.theme-scope-copy strong{
+  color:var(--ink-100);
+  font-size:13px;
+}
+.theme-scope-copy small{
+  color:var(--ink-400);
+  font-size:11px;
+  line-height:1.45;
+}
+.theme-scope-note{
+  margin:12px 0 0;
+  padding:10px 12px;
+  border-left:3px solid var(--theme-info,var(--cyan));
+  border-radius:0 10px 10px 0;
+  background:color-mix(in srgb,var(--theme-info,var(--cyan)) 7%,transparent);
+  color:var(--ink-400);
+  font-size:11px;
+  line-height:1.5;
+}
+.theme-scope-note strong{color:var(--ink-100)}
+#theme-clear-local-btn{
+  flex:0 0 auto;
+  max-width:320px;
+  white-space:normal;
+  text-align:center;
+}
+
+@media(max-width:860px){
+  .theme-scope-heading{flex-direction:column}
+  #theme-clear-local-btn{width:100%;max-width:none}
+}
+@media(max-width:680px){
+  .theme-scope-options{grid-template-columns:1fr}
+  .theme-scope-panel{padding:13px}
+  .theme-source-badge{width:100%;justify-content:center}
+}
+

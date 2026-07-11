@@ -20,6 +20,85 @@ import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 let selectedLogId = null;
 let inspectorTab = 'summary';
 
+
+// Seguimiento del inspector en escritorio ---------------------------------
+// CSS `position: sticky` puede dejar de funcionar cuando algún contenedor
+// superior usa transformaciones, filtros o ciertos modos de overflow. En vez
+// de depender de eso, fijamos el inspector al viewport solo cuando su borde
+// superior intentaría salir de la pantalla. El panel conserva su propia zona
+// desplazable (`.logs-inspector-body`) y la columna derecha de la cuadrícula
+// sigue reservada por el layout original.
+let inspectorTrackingStarted = false;
+let inspectorTrackingFrame = 0;
+let inspectorTrackingResizeObserver = null;
+
+function clearPinnedInspectorStyles(inspector) {
+  if (!inspector) return;
+  inspector.classList.remove('is-viewport-pinned');
+  inspector.style.removeProperty('--logs-inspector-left');
+  inspector.style.removeProperty('--logs-inspector-width');
+  inspector.style.removeProperty('--logs-inspector-height');
+}
+
+function syncDesktopInspectorPosition() {
+  inspectorTrackingFrame = 0;
+
+  const inspector = document.getElementById('logs-inspector');
+  const workspace = document.querySelector('.logs-workspace');
+  const masterColumn = document.querySelector('.logs-master-column');
+  if (!inspector || !workspace || !masterColumn) return;
+
+  if (!window.matchMedia('(min-width: 1181px)').matches) {
+    clearPinnedInspectorStyles(inspector);
+    return;
+  }
+
+  const workspaceRect = workspace.getBoundingClientRect();
+  const masterRect = masterColumn.getBoundingClientRect();
+  const topGap = 12;
+  const bottomGap = 12;
+  const shouldPin = workspaceRect.top < topGap;
+
+  if (!shouldPin) {
+    clearPinnedInspectorStyles(inspector);
+    return;
+  }
+
+  // Medimos la segunda columna desde la geometría real del grid para que el
+  // panel siga alineado aunque cambie el ancho de la ventana o del sidebar.
+  const left = Math.max(masterRect.right, workspaceRect.left);
+  const width = Math.max(320, workspaceRect.right - left);
+  const height = Math.max(420, window.innerHeight - topGap - bottomGap);
+
+  inspector.style.setProperty('--logs-inspector-left', `${Math.round(left)}px`);
+  inspector.style.setProperty('--logs-inspector-width', `${Math.round(width)}px`);
+  inspector.style.setProperty('--logs-inspector-height', `${Math.round(height)}px`);
+  inspector.classList.add('is-viewport-pinned');
+}
+
+function requestInspectorPositionSync() {
+  if (inspectorTrackingFrame) return;
+  inspectorTrackingFrame = window.requestAnimationFrame(syncDesktopInspectorPosition);
+}
+
+export function initDesktopLogInspectorTracking() {
+  if (inspectorTrackingStarted) return;
+  inspectorTrackingStarted = true;
+
+  window.addEventListener('scroll', requestInspectorPositionSync, { passive: true });
+  window.addEventListener('resize', requestInspectorPositionSync, { passive: true });
+
+  if ('ResizeObserver' in window) {
+    inspectorTrackingResizeObserver = new ResizeObserver(requestInspectorPositionSync);
+    const workspace = document.querySelector('.logs-workspace');
+    const masterColumn = document.querySelector('.logs-master-column');
+    if (workspace) inspectorTrackingResizeObserver.observe(workspace);
+    if (masterColumn) inspectorTrackingResizeObserver.observe(masterColumn);
+  }
+
+  requestInspectorPositionSync();
+}
+
 function getLogCollections(logId) {
   const mobs = state.mobsByLog[logId] || [];
   const allItems = state.itemsByLog[logId] || [];
@@ -106,9 +185,9 @@ function buildLogCardHtml(log) {
       <div class="log-row-metrics" aria-label="Contenido del log">
         <span><b>👾</b><span>Mobs</span><strong>${counts.mobs}</strong></span>
         <span><b>🗡</b><span>Items</span><strong>${counts.items}</strong></span>
-        <span><b>📋</b><span>Bloques</span><strong>${counts.libres}</strong></span>
+        <span><b>📋</b><span>Extras</span><strong>${counts.libres}</strong></span>
         <button class="log-like-btn ${isLiked ? 'is-liked' : ''}" data-log-id="${log.id}" aria-label="${isLiked ? 'Quitar me gusta' : 'Dar me gusta'}">
-          ${isLiked ? '❤️' : '♡'} <span class="like-count">${log.likes}</span>
+          <span class="like-heart" aria-hidden="true">${isLiked ? '❤︎' : '♡'}</span> <span class="like-count">${log.likes}</span>
         </button>
       </div>
 
@@ -247,7 +326,7 @@ function renderInspectorTabBody(log) {
   if (inspectorTab === 'blocks') {
     return libres.length
       ? `<div class="inspector-entity-list">${libres.map(entry => renderInspectorEntityCard(entry, 'libre', contextKey)).join('')}</div>`
-      : '<div class="logs-inspector-tab-empty">Este log no tiene bloques libres.</div>';
+      : '<div class="logs-inspector-tab-empty">Este log no tiene Extras.</div>';
   }
 
   return `
@@ -266,9 +345,9 @@ function renderInspectorTabBody(log) {
       <section class="logs-inspector-section inspector-count-grid">
         <div><strong>${mobs.length}</strong><span>Mobs</span></div>
         <div><strong>${items.length}</strong><span>Items</span></div>
-        <div><strong>${libres.length}</strong><span>Bloques</span></div>
+        <div><strong>${libres.length}</strong><span>Extras</span></div>
         <button class="inspector-like-btn ${isLiked ? 'is-liked' : ''}" data-inspector-action="like">
-          <strong>${isLiked ? '❤️' : '♡'} ${log.likes}</strong><span>Me gusta</span>
+          <strong><span class="like-heart" aria-hidden="true">${isLiked ? '❤︎' : '♡'}</span> ${log.likes}</strong><span>Me gusta</span>
         </button>
       </section>
 
@@ -282,6 +361,78 @@ function renderInspectorTabBody(log) {
           </div>` : ''}
       </section>
     </div>`;
+}
+
+
+function bindInspectorTouchScroll(inspector) {
+  const scrollBody = inspector?.querySelector('.logs-inspector-body');
+  if (!scrollBody || scrollBody.dataset.touchScrollBound === 'true') return;
+  scrollBody.dataset.touchScrollBound = 'true';
+
+  let lastY = 0;
+  let velocity = 0;
+  let lastTime = 0;
+  let dragging = false;
+  let inertiaFrame = 0;
+
+  const stopInertia = () => {
+    if (inertiaFrame) window.cancelAnimationFrame(inertiaFrame);
+    inertiaFrame = 0;
+  };
+
+  const canScroll = () => scrollBody.scrollHeight > scrollBody.clientHeight + 1;
+
+  scrollBody.addEventListener('touchstart', event => {
+    if (event.touches.length !== 1 || !canScroll()) return;
+    stopInertia();
+    dragging = true;
+    lastY = event.touches[0].clientY;
+    lastTime = performance.now();
+    velocity = 0;
+  }, { passive: true });
+
+  scrollBody.addEventListener('touchmove', event => {
+    if (!dragging || event.touches.length !== 1 || !canScroll()) return;
+    const now = performance.now();
+    const currentY = event.touches[0].clientY;
+    const delta = lastY - currentY;
+    const elapsed = Math.max(8, now - lastTime);
+
+    // Algunos WebView móviles no entregan el gesto al overflow interno
+    // cuando comienza sobre una ficha/botón. Movemos el panel de forma
+    // explícita para que las listas extensas siempre sean recorribles.
+    if (Math.abs(delta) > 0.5) {
+      if (event.cancelable) event.preventDefault();
+      scrollBody.scrollTop += delta;
+      velocity = delta / elapsed * 16;
+      lastY = currentY;
+      lastTime = now;
+    }
+  }, { passive: false });
+
+  const finish = () => {
+    if (!dragging) return;
+    dragging = false;
+    let speed = velocity;
+    const glide = () => {
+      if (Math.abs(speed) < 0.12) {
+        inertiaFrame = 0;
+        return;
+      }
+      const before = scrollBody.scrollTop;
+      scrollBody.scrollTop += speed;
+      if (scrollBody.scrollTop === before) {
+        inertiaFrame = 0;
+        return;
+      }
+      speed *= 0.92;
+      inertiaFrame = window.requestAnimationFrame(glide);
+    };
+    if (Math.abs(speed) >= 0.5) inertiaFrame = window.requestAnimationFrame(glide);
+  };
+
+  scrollBody.addEventListener('touchend', finish, { passive: true });
+  scrollBody.addEventListener('touchcancel', finish, { passive: true });
 }
 
 function resetLogInspectorScroll({ focusTop = false } = {}) {
@@ -329,11 +480,12 @@ function renderLogInspector() {
       <button class="${inspectorTab === 'summary' ? 'is-active' : ''}" data-inspector-tab="summary">Resumen</button>
       <button class="${inspectorTab === 'mobs' ? 'is-active' : ''}" data-inspector-tab="mobs">Mobs <span>${mobs.length}</span></button>
       <button class="${inspectorTab === 'items' ? 'is-active' : ''}" data-inspector-tab="items">Items <span>${items.length}</span></button>
-      <button class="${inspectorTab === 'blocks' ? 'is-active' : ''}" data-inspector-tab="blocks">Bloques <span>${libres.length}</span></button>
+      <button class="${inspectorTab === 'blocks' ? 'is-active' : ''}" data-inspector-tab="blocks">Extras <span>${libres.length}</span></button>
     </nav>
 
     <div class="logs-inspector-body">${renderInspectorTabBody(log)}</div>`;
 
+  bindInspectorTouchScroll(inspector);
   requestAnimationFrame(() => resetLogInspectorScroll({ focusTop: true }));
 
   inspector.querySelectorAll('[data-inspector-tab]').forEach(button => {
@@ -583,7 +735,7 @@ async function openDetailModal(logId) {
     ${renderBlocksSection(log.id, ctx)}
     <div class="detail-meta">
       <span>📅 ${formatDate(log.created_at)}</span>
-      <span>❤️ ${log.likes} likes</span>
+      <span><span class="like-heart" aria-hidden="true">❤︎</span> ${log.likes} likes</span>
       <span>⚡ Relevancia: ${RELEVANCE_LABELS[log.relevance]}</span>
     </div>`;
 
@@ -659,7 +811,7 @@ export async function submitLog() {
   const dateValue = document.getElementById('log-date-input').value;
   if (!title || !description) { errorBox.textContent = 'Título y descripción son obligatorios.'; errorBox.classList.remove('hidden'); return; }
   if (!category) { errorBox.textContent = 'Elige o crea una categoría primero.'; errorBox.classList.remove('hidden'); return; }
-  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminMode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
   const isoDate = dateValue ? new Date(dateValue).toISOString() : null;
 
   const mobsPayload = state.draftMobs.map(({ name, health, damage, armor, equipment, location, description, extra_fields, image_url }) => ({
@@ -695,7 +847,7 @@ export async function submitLog() {
   let result;
   if (state.editingLogId) {
     result = await supabaseClient.rpc('update_log', {
-      input_code: state.adminCode, input_id: state.editingLogId,
+      input_code: state.adminMode, input_id: state.editingLogId,
       input_title: title, input_description: description,
       input_category: category, input_relevance: relevance,
       input_created_at: isoDate, input_mobs: mobsPayload, input_items: itemsPayload,
@@ -703,7 +855,7 @@ export async function submitLog() {
     });
   } else {
     result = await supabaseClient.rpc('create_log', {
-      input_code: state.adminCode, input_title: title, input_description: description,
+      input_code: state.adminMode, input_title: title, input_description: description,
       input_category: category, input_relevance: relevance,
       input_created_at: isoDate, input_mobs: mobsPayload, input_items: itemsPayload,
       input_cover_image_url: coverImageUrl || null,
@@ -728,7 +880,7 @@ async function deleteLog(logId) {
     confirmLabel: 'Borrar log',
     danger: true,
   }))) return;
-  const { error } = await supabaseClient.rpc('delete_log', { input_code: state.adminCode, input_id: logId });
+  const { error } = await supabaseClient.rpc('delete_log', { input_code: state.adminMode, input_id: logId });
   if (error) { showToast('No se pudo borrar el log', 'error'); return; }
   showToast('Log eliminado', 'success');
   suppressNextRealtimeReload();

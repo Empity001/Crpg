@@ -1,7 +1,7 @@
 // =========================================================
 // weapons-state.js
 // =========================================================
-// Selectores puros sobre el estado de la Guía de Armas (visibilidad,
+// Selectores puros sobre el estado de la Guías (visibilidad,
 // categoría/tipo por id, rangos de un arma, arma actual). Sin efectos
 // secundarios ni acceso a red.
 // =========================================================

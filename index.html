@@ -9,13 +9,14 @@
 <link rel="preload" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="css/style.css" />
-<link rel="stylesheet" href="css/tierlist.css" />
-<link rel="stylesheet" href="css/kits.css" />
-<link rel="stylesheet" href="css/admin-tools.css" />
-<link rel="stylesheet" href="css/weapons.css" />
-<link rel="stylesheet" href="css/about.css?v=20260711-12" />
 <link rel="stylesheet" href="css/media.css?v=20260711-11" />
-<link rel="stylesheet" href="css/rebrand.css?v=20260711-13" />
+<link rel="stylesheet" href="css/rebrand.css?v=20260711-21" />
+<link rel="stylesheet" href="css/rebrand-runtime.css?v=20260711-21" />
+<link rel="stylesheet" href="css/rebrand-editors.css?v=20260711-21" />
+<link rel="stylesheet" href="css/rebrand-logs.css?v=20260711-21" />
+<link rel="stylesheet" href="css/rebrand-extras.css?v=20260711-21" />
+<link rel="stylesheet" href="css/rebrand-controls.css?v=20260711-21" />
+<link rel="stylesheet" href="css/command-center.css?v=20260711-21" />
 </head>
 <body>
 
@@ -179,7 +180,7 @@
 <div class="modal-overlay hidden" id="category-modal">
   <div class="modal-box">
     <button class="modal-close" id="close-category-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title">🏷 NUEVA CATEGORÍA</h3>
+    <h3 class="modal-title" id="category-modal-title">🏷 NUEVA CATEGORÍA</h3>
 
     <label class="field-label">Nombre visible</label>
     <input type="text" id="category-label-input" class="modal-input" maxlength="40" placeholder="Ej: NPC, Remodelado, Versión..." />
@@ -196,7 +197,10 @@
     </div>
 
     <div class="modal-error hidden" id="category-modal-error"></div>
-    <button class="btn-primary" id="submit-category-btn">Crear categoría</button>
+    <div class="modal-action-row category-editor-actions">
+      <button class="btn-primary" id="submit-category-btn">Crear categoría</button>
+      <button class="btn-secondary-admin hidden" id="cancel-category-edit-btn" type="button">Cancelar edición</button>
+    </div>
 
     <hr class="modal-divider" />
     <h4 class="manage-list-heading">Categorías existentes</h4>
@@ -338,7 +342,7 @@
 <div class="modal-overlay modal-overlay-nested hidden" id="libre-modal">
   <div class="modal-box">
     <button class="modal-close" id="close-libre-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title">📋 BLOQUE LIBRE</h3>
+    <h3 class="modal-title">📋 EXTRA</h3>
     <p class="modal-hint">Define el nombre del bloque y luego agrega los campos que quieras — cada uno con su nombre y valor. Podés añadir sub-campos dentro de cada campo.</p>
 
     <label class="field-label">Nombre del bloque</label>
@@ -398,6 +402,6 @@
 
 <script src="js/boot-watchdog.js?v=20260711-11"></script>
 <script src="js/vendor/supabase.js?v=20260711-11"></script>
-<script type="module" src="js/pages/logs.js?v=20260711-13"></script>
+<script type="module" src="js/pages/logs.js?v=20260711-21"></script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 // shell.js
 // =========================================================
 // Arranque compartido por TODAS las páginas de la aplicación
-// (index.html, weapons.html, tierlist.html, about.html, admin.html).
+// (index.html, guides.html, tierlist.html, about.html, admin.html).
 // Se encarga de:
 //   1. Inyectar el header/nav/footer compartidos (partials/).
 //   2. Marcar la pestaña activa según la página actual.
@@ -22,16 +22,19 @@
 // =========================================================
 
 import { loadSharedShell } from './include.js';
-import { closeAdminLoginModal, logoutAdmin, openAdminLoginModal, prepareAdminLoginModal, skipAdminLoginIntro, submitAdminCode, updateAdminUI } from '../features/auth.js';
+import { closeAdminLoginModal, initializeDiscordAuth, logoutDiscord, openAdminLoginModal, prepareAdminLoginModal, signInWithDiscord, toggleAdminMode, updateAdminUI } from '../features/auth.js';
 import { loadAppSettings } from '../features/field-config.js';
 import { isAdmin, state } from '../core/state.js';
 import { openAssetFullscreen } from '../core/storage.js';
 import { registerModalLifecycleCleanup, setupModalLifecycleObserver, withTimeout } from '../core/utils.js';
+import { initCommandCenter } from '../features/command-center.js';
 
 let modalVisualCleanupsRegistered = false;
 let shellBootPromise = null;
 let shellListenersController = null;
 let globalSearchModulePromise = null;
+let visitorPreferencesModulePromise = null;
+let notificationsModulePromise = null;
 
 const PAGE_HERO_COPY = {
   logs: {
@@ -40,7 +43,7 @@ const PAGE_HERO_COPY = {
     normal: 'Explora los eventos, cambios y mecánicas más importantes del servidor.',
     admin: 'Explora y administra los eventos, cambios y mecánicas más importantes del servidor.',
   },
-  weapons: {
+  guides: {
     eyebrow: 'Catálogo y progresión',
     title: 'Guías del servidor',
     normal: 'Consulta armas, objetos, rangos, estadísticas y formas de obtención.',
@@ -193,36 +196,21 @@ function wireHeaderNav(pageKey) {
 
 function wireAdminModal() {
   document.getElementById('admin-toggle-btn')?.addEventListener('click', () => {
-    if (isAdmin()) logoutAdmin();
-    else openAdminLoginModal();
+    if (!state.authSession || !state.discordAdminEligible) openAdminLoginModal();
+    else void toggleAdminMode();
   });
-  document.getElementById('close-admin-modal')?.addEventListener('click', () => {
-    closeAdminLoginModal();
+  document.getElementById('close-admin-modal')?.addEventListener('click', closeAdminLoginModal);
+  document.getElementById('discord-login-btn')?.addEventListener('click', () => {
+    void signInWithDiscord().catch(error => console.error('[Auth] OAuth:', error));
   });
-  document.getElementById('admin-login-form')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    submitAdminCode();
+  document.getElementById('discord-logout-btn')?.addEventListener('click', () => {
+    void logoutDiscord();
   });
-  document.getElementById('submit-admin-code')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    submitAdminCode();
+  document.getElementById('discord-admin-mode-btn')?.addEventListener('click', () => {
+    void toggleAdminMode();
   });
-  document.getElementById('admin-code-input')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      submitAdminCode();
-    }
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.code !== 'Space' || e.repeat) return;
-    const target = e.target instanceof Element ? e.target : null;
-    if (target?.matches('input, textarea, select, button, [contenteditable="true"]')) return;
-    if (skipAdminLoginIntro()) e.preventDefault();
-  });
-  // El fondo oscuro no cierra modales: así no se pierde progreso por
-  // clicks accidentales. Cada modal debe cerrarse con su X o acción propia.
   document.addEventListener('click', (e) => {
-    const overlay = e.target.closest('.modal-overlay');
+    const overlay = e.target.closest?.('.modal-overlay');
     if (!overlay || e.target !== overlay) return;
     e.preventDefault();
   });
@@ -235,10 +223,32 @@ function wireAssetFullscreenDelegation() {
   });
 }
 
-// pageKey: 'logs' | 'weapons' | 'tierlist' | 'about' | 'admin'
+// pageKey: 'logs' | 'guides' | 'tierlist' | 'kits' | 'about' | 'admin'
 // Devuelve una promesa que se resuelve cuando el shell está listo
 // (header/footer inyectados, admin UI actualizada, app_settings
 // cargados). Cada página debe `await`earla antes de cablear lo suyo.
+
+function initVisitorTools() {
+  if (!visitorPreferencesModulePromise) {
+    visitorPreferencesModulePromise = import('../features/user-preferences.js')
+      .then(module => { module.initUserPreferences(); return module; })
+      .catch(error => {
+        visitorPreferencesModulePromise = null;
+        console.warn('[VisitorPreferences] No se pudo iniciar:', error);
+      });
+  }
+
+  const schedule = window.requestIdleCallback || (callback => window.setTimeout(callback, 800));
+  schedule(() => {
+    if (notificationsModulePromise) return;
+    notificationsModulePromise = import('../features/notifications.js')
+      .then(module => { module.initSiteNotifications(); return module; })
+      .catch(error => {
+        notificationsModulePromise = null;
+        console.warn('[Notifications] No se pudo iniciar:', error);
+      });
+  }, { timeout: 2200 });
+}
 
 function loadGlobalSearchModule() {
   if (!globalSearchModulePromise) {
@@ -261,9 +271,10 @@ function wireLazyGlobalSearch() {
   shellListenersController = new AbortController();
   const { signal } = shellListenersController;
 
-  // El buscador no se importa al arrancar. Solo se descarga cuando el
-  // usuario pulsa la lupa o usa Ctrl/Cmd + K. Así una consulta pesada o un
-  // fallo del módulo nunca deja la página en blanco.
+  // El buscador no se importa al arrancar. Solo se descarga cuando se pulsa
+  // la lupa. Ctrl/Cmd + K pasa por command-center.js y termina haciendo clic
+  // en este mismo control; así todos los atajos se resuelven en un único
+  // lugar y ninguna combinación puede disparar dos acciones.
   document.addEventListener('click', event => {
     const trigger = event.target instanceof Element
       ? event.target.closest('[data-global-search-toggle]')
@@ -277,18 +288,6 @@ function wireLazyGlobalSearch() {
       .then(module => {
         root.dataset.searchReady = 'true';
         module.openGlobalSearch(root);
-      })
-      .catch(() => {});
-  }, { capture: true, signal });
-
-  document.addEventListener('keydown', event => {
-    if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k') return;
-    if (document.documentElement.dataset.globalSearchReady === 'true') return;
-    event.preventDefault();
-    loadGlobalSearchModule()
-      .then(module => {
-        document.documentElement.dataset.globalSearchReady = 'true';
-        module.openGlobalSearch();
       })
       .catch(() => {});
   }, { capture: true, signal });
@@ -317,6 +316,9 @@ export function bootShell(pageKey) {
     wireAdminModal();
     wireAssetFullscreenDelegation();
     wireLazyGlobalSearch();
+    initCommandCenter(pageKey);
+    initVisitorTools();
+    await initializeDiscordAuth();
     updateAdminUI();
 
     // Los valores locales/predeterminados se aplican de forma síncrona al

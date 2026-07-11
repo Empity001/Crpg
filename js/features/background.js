@@ -7,6 +7,7 @@
 
 import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
+import { normalizePageKeys } from '../core/pages.js';
 import { DEFAULT_MEDIA_PRESENTATION } from '../core/media.js';
 import { initGenericImageDropzone, syncGenericDropzoneState, updateAssetPreview } from '../core/storage.js';
 import { confirmAction, showToast } from '../core/utils.js';
@@ -92,7 +93,7 @@ export function populateBackgroundForm() {
   if (selectedMode) selectedMode.checked = true;
 
   document.querySelectorAll('#bg-tabs-options input[type="checkbox"]').forEach((checkbox) => {
-    checkbox.checked = Array.isArray(cfg.tabs) && cfg.tabs.includes(checkbox.value);
+    checkbox.checked = normalizePageKeys(cfg.tabs).includes(checkbox.value);
   });
 }
 
@@ -101,7 +102,7 @@ function readBackgroundForm() {
   return {
     image_url: document.getElementById('bg-image-input')?.value.trim() || '',
     mode: document.querySelector('input[name="bg-mode"]:checked')?.value || 'fixed',
-    tabs: Array.from(document.querySelectorAll('#bg-tabs-options input:checked')).map(cb => cb.value),
+    tabs: normalizePageKeys(Array.from(document.querySelectorAll('#bg-tabs-options input:checked')).map(cb => cb.value)),
     presentation,
     opacity: presentation.opacity,
   };
@@ -110,7 +111,7 @@ function readBackgroundForm() {
 export function applyCustomBackground(config) {
   const cfg = config || state.backgroundConfig;
   const valid = !!cfg.image_url && /^https?:\/\//i.test(cfg.image_url);
-  const show = valid && Array.isArray(cfg.tabs) && cfg.tabs.includes(state.activeTab || 'logs');
+  const show = valid && normalizePageKeys(cfg.tabs).includes(state.activeTab || 'logs');
   const layer = ensureBackgroundLayer();
 
   clearLegacyBodyBackground();
@@ -138,14 +139,14 @@ async function saveBackgroundConfig() {
   errorBox.classList.add('hidden');
   const value = readBackgroundForm();
 
-  if (!state.adminCode) {
+  if (!state.adminMode) {
     errorBox.textContent = 'Tu sesión de administrador expiró.';
     errorBox.classList.remove('hidden');
     return;
   }
 
   const { error } = await supabaseClient.rpc('update_app_setting', {
-    input_code: state.adminCode,
+    input_code: state.adminMode,
     input_key: 'background_config',
     input_value: value,
   });
@@ -164,7 +165,7 @@ async function saveBackgroundConfig() {
 async function clearBackgroundConfig() {
   if (!(await confirmAction({
     title: 'Quitar fondo',
-    message: 'Quitar el fondo personalizado para todos los visitantes.',
+    message: 'Quitar el fondo personalizado para toda la web.',
     confirmLabel: 'Quitar fondo',
     danger: true,
   }))) return;

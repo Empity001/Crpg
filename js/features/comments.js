@@ -11,6 +11,8 @@ import { isAdmin, state } from '../core/state.js';
 import { confirmAction, escapeHtml, formatDate, showToast } from '../core/utils.js';
 
 export async function loadComments(logId) {
+  const aliasInput = document.getElementById('comment-username-input');
+  if (aliasInput && !aliasInput.value.trim() && state.discordProfile?.displayName) aliasInput.value = state.discordProfile.displayName;
   const list = document.getElementById('comments-list');
   list.innerHTML = `<p class="comments-empty">Cargando comentarios...</p>`;
   const { data, error } = await supabaseClient.from('comments').select('id,log_id,username,comment,likes,hidden,parent_id,created_at').eq('log_id', logId).order('created_at', { ascending: true });
@@ -41,7 +43,7 @@ function renderCommentNode(c, repliesByParent, isReply) {
       </div>
       <p class="comment-text">${escapeHtml(c.comment)}</p>
       <div class="comment-actions">
-        <button type="button" class="comment-action-btn comment-like-btn ${liked ? 'is-liked' : ''}" data-comment-id="${c.id}">${liked ? '❤️' : '🤍'} ${c.likes || 0}</button>
+        <button type="button" class="comment-action-btn comment-like-btn ${liked ? 'is-liked' : ''}" data-comment-id="${c.id}"><span class="like-heart" aria-hidden="true">${liked ? '❤︎' : '♡'}</span> ${c.likes || 0}</button>
         ${!isReply ? `<button type="button" class="comment-action-btn comment-reply-btn" data-comment-id="${c.id}" data-username="${escapeHtml(c.username || 'Anónimo')}">↩ Responder</button>` : ''}
         ${adminBtns}
       </div>
@@ -88,8 +90,8 @@ export async function toggleCommentLike(commentId) {
 
 
 export async function toggleCommentHidden(commentId, currentlyHidden) {
-  if (!state.adminCode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
-  const { error } = await supabaseClient.rpc('set_comment_hidden', { input_code: state.adminCode, input_id: commentId, input_hidden: !currentlyHidden });
+  if (!state.adminMode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
+  const { error } = await supabaseClient.rpc('set_comment_hidden', { input_code: state.adminMode, input_id: commentId, input_hidden: !currentlyHidden });
   if (error) { showToast('No se pudo actualizar el comentario', 'error'); return; }
   const c = state.commentsFlat.find(x => x.id === commentId);
   if (c) c.hidden = !currentlyHidden;
@@ -105,8 +107,8 @@ export async function deleteCommentAction(commentId) {
     confirmLabel: 'Borrar comentario',
     danger: true,
   }))) return;
-  if (!state.adminCode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
-  const { error } = await supabaseClient.rpc('delete_comment', { input_code: state.adminCode, input_id: commentId });
+  if (!state.adminMode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
+  const { error } = await supabaseClient.rpc('delete_comment', { input_code: state.adminMode, input_id: commentId });
   if (error) { showToast('No se pudo borrar el comentario', 'error'); return; }
   state.commentsFlat = state.commentsFlat.filter(c => c.id !== commentId && c.parent_id !== commentId);
   renderCommentsList();
@@ -118,7 +120,7 @@ export async function submitComment() {
   const logId = state.currentDetailLogId;
   const usernameInput = document.getElementById('comment-username-input');
   const textInput = document.getElementById('comment-text-input');
-  const username = usernameInput.value.trim() || 'Anónimo';
+  const username = usernameInput.value.trim() || state.discordProfile?.displayName || 'Anónimo';
   const comment = textInput.value.trim();
   if (!comment) { showToast('Escribe un comentario antes de enviar', 'error'); return; }
   const { error } = await supabaseClient.from('comments').insert({ log_id: logId, username, comment, parent_id: state.replyToCommentId });

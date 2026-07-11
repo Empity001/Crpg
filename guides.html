@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>culones-rpg · Guías</title>
+<meta name="description" content="Guías del servidor Minecraft RPG/Gacha culones-rpg" />
+
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/guides.css?v=20260711-21" />
+<link rel="stylesheet" href="css/media.css?v=20260711-11" />
+<link rel="stylesheet" href="css/rebrand.css?v=20260711-21" />
+<link rel="stylesheet" href="css/rebrand-runtime.css?v=20260711-21" />
+<link rel="stylesheet" href="css/rebrand-editors.css?v=20260711-21" />
+<link rel="stylesheet" href="css/rebrand-logs.css?v=20260711-21" />
+<link rel="stylesheet" href="css/rebrand-extras.css?v=20260711-21" />
+<link rel="stylesheet" href="css/rebrand-controls.css?v=20260711-21" />
+<link rel="stylesheet" href="css/command-center.css?v=20260711-21" />
+</head>
+<body>
+
+<div id="shell-header"></div>
+
+<main class="app-main">
+  <section class="tab-panel is-active" id="panel-weapons">
+
+    <!-- Vista de catálogo: buscador + filtros dinámicos + grid -->
+    <div id="weapons-catalog-view">
+      <div class="weapons-toolbar">
+        <input type="text" id="weapon-search-input" class="modal-input weapons-search-input" placeholder="🔍 Buscar arma por nombre..." />
+        <div class="weapons-toolbar-actions">
+          <button class="btn-secondary-admin hidden" id="open-weapon-category-manage-btn" type="button">🏷 Categorías</button>
+          <button class="btn-secondary-admin hidden" id="open-weapon-type-manage-btn" type="button">🏷 Tipos</button>
+          <button class="btn-new-log hidden" id="open-new-weapon-btn" type="button">+ Nueva arma</button>
+        </div>
+      </div>
+
+      <div class="filter-pills weapon-filter-row" id="weapon-category-filters">
+        <button class="pill is-active" data-wcat="all">Todas las categorías</button>
+      </div>
+      <div class="filter-pills weapon-filter-row" id="weapon-type-filters">
+        <button class="pill is-active" data-wtype="all">Todos los tipos</button>
+      </div>
+
+      <div class="weapons-grid" id="weapons-grid">
+        <div class="logs-empty" id="weapons-loading">
+          <div class="spinner"></div>
+          <p>Cargando guías...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vista de detalle: aparece al elegir un arma del catálogo -->
+    <div class="hidden" id="weapon-detail-view">
+      <button type="button" class="link-btn weapon-back-btn" id="weapon-back-btn">← Volver al catálogo</button>
+      <div id="weapon-detail-content"></div>
+    </div>
+
+  </section>
+</main>
+
+<!-- ============ MODALES DE ESTA PÁGINA (Guías) ============ -->
+<div class="modal-overlay hidden" id="weapon-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-weapon-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title" id="weapon-modal-title">⚔️ NUEVA ARMA</h3>
+    <p class="modal-hint">El arma queda oculta para los jugadores hasta que la publiques desde su página de detalle.</p>
+
+    <label class="field-label">Nombre</label>
+    <input type="text" id="weapon-name-input" class="modal-input" maxlength="80" placeholder="Ej: Filo del Vacío" />
+
+    <label class="field-label" style="margin-top:10px;">Imagen</label>
+    <div class="image-upload-only">
+      <input type="hidden" id="weapon-image-input" />
+      <input type="file" id="weapon-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
+      <button type="button" class="btn-upload-zone" id="weapon-image-upload-btn">📁 Elegir imagen</button>
+    </div>
+    <div class="asset-preview hidden" id="weapon-image-preview-wrap">
+      <img id="weapon-image-preview" alt="Vista previa" class="pixel-art" />
+      <button type="button" class="link-btn js-open-asset" id="weapon-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+      <button type="button" class="link-btn" id="weapon-image-clear-btn">✕ Quitar imagen</button>
+    </div>
+
+    <div class="field-row" style="margin-top:10px;">
+      <div class="field-col">
+        <label class="field-label">Categoría</label>
+        <select id="weapon-category-input" class="modal-select"></select>
+        <button type="button" class="link-btn" id="open-weapon-category-manage-btn-inline">+ Crear categoría</button>
+      </div>
+      <div class="field-col">
+        <label class="field-label">Tipo</label>
+        <select id="weapon-type-input" class="modal-select"></select>
+        <button type="button" class="link-btn" id="open-weapon-type-manage-btn-inline">+ Crear tipo</button>
+      </div>
+    </div>
+
+    <div id="weapon-initial-rank-row">
+      <label class="field-label" style="margin-top:10px;">Rango inicial</label>
+      <input type="text" id="weapon-initial-rank-input" class="modal-input" maxlength="40" placeholder="Ej: MK1" value="MK1" />
+      <p class="field-hint">Podrás agregar más rangos (MK2, MK3...) después, desde la página del arma.</p>
+    </div>
+
+    <div class="modal-error hidden" id="weapon-modal-error"></div>
+    <button class="btn-primary" id="submit-weapon-btn">Guardar arma</button>
+  </div>
+</div>
+
+<div class="modal-overlay modal-overlay-nested hidden" id="weapon-category-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-weapon-category-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title">🏷 CATEGORÍAS DE ARMA</h3>
+    <p class="modal-hint">Dinámicas y propias de Guías — no se mezclan con las categorías de Logs. Aparecen como filtro automáticamente para todos los jugadores.</p>
+
+    <label class="field-label">Nombre</label>
+    <input type="text" id="weapon-category-label-input" class="modal-input" maxlength="40" placeholder="Ej: MK1, Legendaria, Gacha S..." />
+
+    <label class="field-label" style="margin-top:8px;">Color</label>
+    <input type="color" id="weapon-category-color-input" class="modal-color-input" value="#4dd4e8" />
+
+    <div class="modal-error hidden" id="weapon-category-modal-error"></div>
+    <div class="manage-editor-actions">
+      <button class="btn-primary" id="submit-weapon-category-btn">Crear categoría</button>
+      <button class="btn-secondary-admin hidden" id="cancel-weapon-category-edit-btn" type="button">Cancelar edición</button>
+    </div>
+
+    <hr class="modal-divider" />
+    <h4 class="manage-list-heading">Categorías existentes</h4>
+    <p class="field-hint">Solo se puede borrar una categoría si ningún arma la está usando.</p>
+    <div class="category-manage-list" id="weapon-category-manage-list"></div>
+  </div>
+</div>
+
+<div class="modal-overlay modal-overlay-nested hidden" id="weapon-type-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-weapon-type-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title">🏷 TIPOS DE ARMA</h3>
+    <p class="modal-hint">Dinámicos — aparecen como filtro automáticamente para todos los jugadores.</p>
+
+    <label class="field-label">Nombre</label>
+    <input type="text" id="weapon-type-label-input" class="modal-input" maxlength="40" placeholder="Ej: Arma, Accesorio, Reliquia..." />
+
+    <div class="modal-error hidden" id="weapon-type-modal-error"></div>
+    <div class="manage-editor-actions">
+      <button class="btn-primary" id="submit-weapon-type-btn">Crear tipo</button>
+      <button class="btn-secondary-admin hidden" id="cancel-weapon-type-edit-btn" type="button">Cancelar edición</button>
+    </div>
+
+    <hr class="modal-divider" />
+    <h4 class="manage-list-heading">Tipos existentes</h4>
+    <p class="field-hint">Solo se puede borrar un tipo si ningún arma lo está usando.</p>
+    <div class="category-manage-list" id="weapon-type-manage-list"></div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="weapon-rank-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-weapon-rank-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title" id="weapon-rank-modal-title">📈 NUEVO RANGO</h3>
+
+    <label class="field-label">Nombre del rango</label>
+    <input type="text" id="weapon-rank-name-input" class="modal-input" maxlength="40" placeholder="Ej: MK1, MK2, Nivel 60..." />
+
+    <label class="field-label" style="margin-top:10px;">Descripción <span class="optional-tag">(opcional)</span></label>
+    <textarea id="weapon-rank-desc-input" class="modal-textarea" maxlength="800" rows="3" placeholder="Lore o detalles de este rango..."></textarea>
+
+    <label class="field-label" style="margin-top:10px;">Imagen de este rango <span class="optional-tag">(opcional — si no se define, se usa la imagen del arma)</span></label>
+    <div class="image-upload-only">
+      <input type="hidden" id="weapon-rank-image-input" />
+      <input type="file" id="weapon-rank-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
+      <button type="button" class="btn-upload-zone" id="weapon-rank-image-upload-btn">📁 Elegir imagen</button>
+    </div>
+    <div class="asset-preview hidden" id="weapon-rank-image-preview-wrap">
+      <img id="weapon-rank-image-preview" alt="Vista previa" class="pixel-art" />
+      <button type="button" class="link-btn js-open-asset" id="weapon-rank-image-fullscreen-btn">⛶ Ver en pantalla completa</button>
+      <button type="button" class="link-btn" id="weapon-rank-image-clear-btn">✕ Quitar imagen</button>
+    </div>
+
+    <label class="field-label" style="margin-top:10px;">Recursos visuales de Info <span class="optional-tag">(opcional)</span></label>
+    <p class="modal-hint">Imágenes de apoyo para la casilla Info. No reemplazan la imagen principal del rango.</p>
+    <div id="weapon-rank-info-visuals-list" class="equip-editor-list"></div>
+    <button type="button" class="link-btn" id="weapon-rank-info-visual-add-btn">+ Recurso visual</button>
+
+    <div class="modal-error hidden" id="weapon-rank-modal-error"></div>
+    <button class="btn-primary" id="submit-weapon-rank-btn">Guardar rango</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="weapon-stats-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-weapon-stats-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title">📊 ESTADÍSTICAS</h3>
+    <p class="modal-hint">Una fila por estadística (ej. "PV Base" → "4210"). Se muestran como barra, igual que Vida/Daño/Armor en mobs e items.</p>
+
+    <div id="weapon-stats-list" class="equip-editor-list"></div>
+    <button type="button" class="link-btn" id="weapon-stats-add-btn">+ Estadística</button>
+
+    <div class="modal-error hidden" id="weapon-stats-modal-error"></div>
+    <button class="btn-primary" id="submit-weapon-stats-btn">Guardar estadísticas</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="weapon-ability-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-weapon-ability-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title" id="weapon-ability-modal-title">✨ NUEVA HABILIDAD</h3>
+
+    <label class="field-label">Nombre</label>
+    <input type="text" id="weapon-ability-name-input" class="modal-input" maxlength="80" placeholder="Ej: A: Fuego de supresión superior" />
+
+    <label class="field-label" style="margin-top:10px;">Etiqueta <span class="optional-tag">(opcional, ej: "Técnica activa")</span></label>
+    <input type="text" id="weapon-ability-tag-input" class="modal-input" maxlength="40" placeholder="Ej: Técnica activa" />
+
+    <label class="field-label" style="margin-top:10px;">Descripción <span class="optional-tag">(opcional)</span></label>
+    <textarea id="weapon-ability-desc-input" class="modal-textarea" maxlength="800" rows="3" placeholder="Qué hace esta habilidad..."></textarea>
+
+    <div class="field-row" style="margin-top:10px;">
+      <div class="field-col">
+        <label class="field-label">Nivel actual</label>
+        <input type="number" id="weapon-ability-level-input" class="modal-input" min="0" value="1" />
+      </div>
+      <div class="field-col">
+        <label class="field-label">Nivel máximo</label>
+        <input type="number" id="weapon-ability-level-max-input" class="modal-input" min="1" value="10" />
+      </div>
+    </div>
+
+    <label class="field-label" style="margin-top:10px;">Estadísticas de la habilidad <span class="optional-tag">(opcional, ej: "DMG Multiplier" → "544%")</span></label>
+    <div id="weapon-ability-stats-list" class="equip-editor-list"></div>
+    <button type="button" class="link-btn" id="weapon-ability-stats-add-btn">+ Estadística</button>
+
+    <div class="modal-error hidden" id="weapon-ability-modal-error"></div>
+    <button class="btn-primary" id="submit-weapon-ability-btn">Guardar habilidad</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="weapon-recipe-modal">
+  <div class="modal-box modal-box-wide weapon-recipe-modal-box">
+    <button class="modal-close" id="close-weapon-recipe-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title">🛠️ MESAS DE TRABAJO</h3>
+    <p class="modal-hint">Configura cómo se obtiene este rango: intercambio, mesa de crafteo u horno.</p>
+
+    <div class="field-row">
+      <div class="field-col">
+        <label class="field-label">Método</label>
+        <select id="weapon-recipe-method-input" class="modal-select"></select>
+      </div>
+      <div class="field-col recipe-method-actions">
+        <button type="button" class="btn-secondary-admin" id="weapon-recipe-add-method-btn">+ Método</button>
+        <button type="button" class="btn-secondary-admin danger" id="weapon-recipe-remove-method-btn">Quitar</button>
+        <button type="button" class="context-menu-trigger" id="weapon-recipe-method-actions-btn">⋯ Acciones</button>
+      </div>
+    </div>
+
+    <label class="field-label">Título visible</label>
+    <input type="text" id="weapon-recipe-title-input" class="modal-input" maxlength="80" placeholder="Ej: Se craftea, Mejorar equipamiento, Se funde..." />
+
+    <div class="field-row">
+      <div class="field-col">
+        <label class="field-label">Tipo de mesa</label>
+        <select id="weapon-recipe-mode-input" class="modal-select">
+          <option value="trade">Intercambio</option>
+          <option value="crafting">Mesa de crafteo</option>
+          <option value="furnace">Horno</option>
+          <option value="smithing">Mesa de herrería</option>
+        </select>
+      </div>
+      <div class="field-col hidden" id="weapon-recipe-furnace-type-wrap">
+        <label class="field-label">Tipo de horno</label>
+        <select id="weapon-recipe-furnace-type-input" class="modal-select">
+          <option value="furnace">Horno normal</option>
+          <option value="blast_furnace">Alto horno</option>
+          <option value="smoker">Ahumador</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="recipe-editor-workbench" id="weapon-recipe-workbench">
+      <div class="recipe-editor-machine-wrap">
+        <label class="field-label" id="weapon-recipe-materials-label">Materiales</label>
+        <div id="weapon-recipe-materials-list" class="equip-editor-list"></div>
+        <button type="button" class="link-btn" id="weapon-recipe-add-material-btn">+ Material</button>
+      </div>
+      <span class="recipe-editor-arrow" aria-hidden="true">→</span>
+      <button type="button" class="recipe-editor-result-slot is-empty" id="weapon-recipe-result-slot" aria-label="Editar resultado">
+        <span class="recipe-editor-slot-label">Resultado</span>
+        <span class="recipe-editor-result-preview" id="weapon-recipe-result-preview"><span class="recipe-editor-slot-icon">+</span></span>
+        <span class="recipe-editor-slot-name" id="weapon-recipe-result-preview-name">Vacío</span>
+        <span class="recipe-editor-slot-qty hidden" id="weapon-recipe-result-preview-qty">×1</span>
+      </button>
+    </div>
+
+    <!-- Estado interno del resultado. La edición visible se hace desde el
+         cuadro de resultado, igual que con cualquier otro slot. -->
+    <div class="hidden" id="weapon-recipe-result-state" aria-hidden="true">
+      <input type="hidden" id="weapon-recipe-result-name-input" />
+      <input type="hidden" id="weapon-recipe-result-image-input" />
+      <input type="hidden" id="weapon-recipe-result-qty-input" value="1" />
+      <select id="weapon-recipe-result-guide-input" tabindex="-1"></select>
+    </div>
+
+    <div class="modal-error hidden" id="weapon-recipe-modal-error"></div>
+    <div class="field-row" style="margin-top:14px;">
+      <button class="btn-primary" id="submit-weapon-recipe-btn">Guardar mesas de trabajo</button>
+      <button type="button" class="btn-secondary-admin danger" id="clear-weapon-recipe-btn">🗑 Quitar Mesas de trabajo</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="weapon-section-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="close-weapon-section-modal" aria-label="Cerrar">✕</button>
+    <h3 class="modal-title" id="weapon-section-modal-title">📑 NUEVA SECCIÓN</h3>
+    <p class="modal-hint">Para cualquier apartado que no tenga un campo dedicado todavía: curiosidades, notas de balance, builds, historia...</p>
+
+    <label class="field-label">Título de la sección</label>
+    <input type="text" id="weapon-section-title-input" class="modal-input" maxlength="60" placeholder="Ej: Builds recomendadas" />
+
+    <label class="field-label" style="margin-top:10px;">Formato</label>
+    <select id="weapon-section-kind-input" class="modal-select">
+      <option value="text">Texto libre</option>
+      <option value="keyvalue">Lista de campos (clave/valor)</option>
+    </select>
+
+    <div id="weapon-section-text-wrap" style="margin-top:10px;">
+      <label class="field-label">Contenido</label>
+      <textarea id="weapon-section-text-input" class="modal-textarea" maxlength="2000" rows="5" placeholder="Escribe el contenido de esta sección..."></textarea>
+    </div>
+
+    <div id="weapon-section-fields-wrap" class="hidden" style="margin-top:10px;">
+      <label class="field-label">Campos</label>
+      <div id="weapon-section-fields-list" class="equip-editor-list"></div>
+      <button type="button" class="link-btn" id="weapon-section-add-field-btn">+ Campo</button>
+    </div>
+
+    <div class="modal-error hidden" id="weapon-section-modal-error"></div>
+    <button class="btn-primary" id="submit-weapon-section-btn">Guardar sección</button>
+  </div>
+</div>
+
+
+<div id="shell-footer"></div>
+
+<script src="js/boot-watchdog.js?v=20260711-11"></script>
+<script src="js/vendor/supabase.js?v=20260711-11"></script>
+<script type="module" src="js/pages/guides.js?v=20260711-21"></script>
+</body>
+</html>

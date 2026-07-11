@@ -1,7 +1,7 @@
 // =========================================================
 // weapons-data.js
 // =========================================================
-// Carga de datos de la Guía de Armas desde Supabase: metadatos
+// Carga de datos de la Guías desde Supabase: metadatos
 // (categorías/tipos), catálogo completo, y una variante de solo-datos
 // para exportación.
 // =========================================================

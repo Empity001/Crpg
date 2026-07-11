@@ -8,6 +8,7 @@
 // ni Herramientas.
 // =========================================================
 
+import { startPage } from '../app/page-bootstrap.js';
 import { bootShell } from '../app/shell.js';
 import { initLogsRealtime } from '../app/realtime.js';
 import { addEquipmentPiece, addItemEnchant, addLibreField, openItemModal, openLibreModal, openMobModal, renderExtraFieldsEditor, submitItemBlock, submitLibreBlock, submitMobBlock } from '../features/blocks-editor.js';
@@ -17,7 +18,7 @@ import { cancelReply, deleteCommentAction, startReplyTo, submitComment, toggleCo
 import { initBeforeUnload, restoreDraft, saveDraft, stopDraftAutosave } from '../features/drafts.js';
 import { loadDraftByKey } from '../features/drafts-store.js';
 import { openFieldConfigModal, saveFieldConfig, setFieldConfigSavedHandler } from '../features/field-config.js';
-import { initSortControl, loadLogs, openEditLogModal, openLogFromSearch, openNewLogModal, renderLogs, submitLog, updateLogCoverPreview } from '../features/logs.js';
+import { initDesktopLogInspectorTracking, initSortControl, loadLogs, openEditLogModal, openLogFromSearch, openNewLogModal, renderLogs, submitLog, updateLogCoverPreview } from '../features/logs.js';
 import { attachMediaPickerButton, openMediaPicker } from '../features/media-library.js';
 import { state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
@@ -112,7 +113,7 @@ function initLogsModals() {
   attachMediaPickerButton({
     targetInputId: 'libre-image-input',
     insertAfterId: 'libre-image-upload-btn',
-    title: 'Seleccionar imagen de bloque libre',
+    title: 'Seleccionar imagen de Extra',
     onSelect: ({ url }) => updateAssetPreview('libre', url),
   });
   document.getElementById('libre-image-clear-btn').addEventListener('click', () => {
@@ -180,6 +181,7 @@ async function init() {
   await bootShell('logs');
   initLogsModals();
   initSortControl();
+  initDesktopLogInspectorTracking();
   registerAdminUiRefreshHandler(renderLogs);
   setCategoryFiltersChangedHandler(renderLogs);
   setFieldConfigSavedHandler(renderLogs);
@@ -200,20 +202,4 @@ async function init() {
   await checkIncomingDraftLink();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  init().catch(error => {
-    console.error('[Boot] Error al iniciar la página:', error);
-    const main = document.querySelector('.app-main') || document.body;
-    const existing = document.getElementById('boot-error-panel');
-    if (existing) return;
-    const panel = document.createElement('section');
-    panel.id = 'boot-error-panel';
-    panel.className = 'boot-error-panel';
-    panel.innerHTML = `
-      <strong>No se pudo iniciar esta página</strong>
-      <p>Recarga con Ctrl + F5. Si continúa, revisa la consola del navegador o la conexión con Supabase.</p>
-      <button type="button">Recargar</button>`;
-    panel.querySelector('button')?.addEventListener('click', () => window.location.reload());
-    main.prepend(panel);
-  });
-});
+startPage(init);

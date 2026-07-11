@@ -15,7 +15,7 @@ import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 
 const ABOUT_BLOCK_KINDS = {
   heading:   { label: '🔤 Título',     icon: '🔤' },
-  text:      { label: '📝 Texto',      icon: '📝' },
+  text:      { label: '📝 Extra',      icon: '📝' },
   image:     { label: '🖼 Imagen',     icon: '🖼' },
   divider:   { label: '➖ Separador',  icon: '➖' },
   highlight: { label: '✨ Destacado',  icon: '✨' },
@@ -174,7 +174,7 @@ function renderAboutEditorBlocks() {
     container.innerHTML = '<p class="admin-empty" style="padding:16px 0;">No hay bloques todavía. Usá los botones de abajo para agregar contenido.</p>';
     return;
   }
-  const meta = (b) => ({ heading:'🔤 Título', text:'📝 Texto', image:'🖼 Imagen', divider:'➖ Separador', highlight:'✨ Destacado', statistic:'📊 Estadística' }[b.kind] || b.kind);
+  const meta = (b) => ({ heading:'🔤 Título', text:'📝 Extra', image:'🖼 Imagen', divider:'➖ Separador', highlight:'✨ Destacado', statistic:'📊 Estadística' }[b.kind] || b.kind);
   container.innerHTML = state.aboutEditorBlocks.map((block, idx) => {
     const first = idx === 0, last = idx === state.aboutEditorBlocks.length - 1;
     const btns = aboutBlockActions(idx);
@@ -376,9 +376,9 @@ function addAboutBlock(kind) {
 async function saveAboutContent() {
   const errorBox = document.getElementById('about-editor-error');
   errorBox.classList.add('hidden');
-  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminMode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
   state.aboutEditorBlocks = state.aboutEditorBlocks.map(normalizeAboutBlock);
-  const { error } = await supabaseClient.rpc('update_app_setting', { input_code: state.adminCode, input_key: 'about_blocks', input_value: state.aboutEditorBlocks });
+  const { error } = await supabaseClient.rpc('update_app_setting', { input_code: state.adminMode, input_key: 'about_blocks', input_value: state.aboutEditorBlocks });
   if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
   state.aboutBlocks = JSON.parse(JSON.stringify(state.aboutEditorBlocks));
   document.getElementById('about-editor-modal').classList.add('hidden');

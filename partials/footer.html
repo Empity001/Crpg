@@ -1,41 +1,28 @@
-<!-- ============ MODAL: LOGIN DE ADMIN ============ -->
-<!-- Presente en todas las páginas: el botón ADMIN del header vive en
-     el partial de header, así que este modal debe estar disponible
-     sin importar en qué página esté el usuario. -->
+<!-- ============ MODAL: CUENTA DE DISCORD ============ -->
 <div class="modal-overlay hidden" id="admin-modal">
-  <div class="modal-box admin-login-box" role="dialog" aria-modal="true" aria-labelledby="admin-login-title">
+  <div class="modal-box discord-account-modal" role="dialog" aria-modal="true" aria-labelledby="admin-login-title">
     <button class="modal-close" id="close-admin-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title admin-login-title" id="admin-login-title">Secure Administrator Gateway</h3>
-    <div class="admin-terminal-panel" aria-live="polite">
-      <div class="admin-terminal-line admin-terminal-command" data-admin-terminal-line="0">service admin-gateway status</div>
-      <div class="admin-terminal-line admin-terminal-output" data-admin-terminal-line="1">Secure Administrator Gateway: active and sealed</div>
-      <div class="admin-terminal-line admin-terminal-output admin-terminal-indent" data-admin-terminal-line="2">Session guard: ready · temporary code required</div>
-      <div class="admin-terminal-line admin-terminal-output admin-terminal-indent" data-admin-terminal-line="3">Protected routes: logs, guides, tierlist, kits and media</div>
-      <div class="admin-terminal-line admin-terminal-muted" data-admin-terminal-line="4">storage index mounted in read-only mode before authentication</div>
-      <div class="admin-terminal-line admin-terminal-muted" data-admin-terminal-line="5">validate_admin_code RPC connected to the operator shell</div>
-      <div class="admin-terminal-line admin-terminal-command" data-admin-terminal-line="6">preload admin-toolchain --lazy --secure</div>
-      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="7">[admin.ui] controls staged; privileges remain locked</div>
-      <div class="admin-terminal-line admin-terminal-cipher" data-admin-terminal-line="8">[media.library] previews and destructive confirmations armed</div>
-      <div class="admin-terminal-line admin-terminal-output" data-admin-terminal-line="9">Gateway integrity check: OK</div>
-      <div class="admin-terminal-line admin-terminal-output" data-admin-terminal-line="10">Permission lattice: LOCKED</div>
-      <div class="admin-terminal-line admin-terminal-output" data-admin-terminal-line="11">Operator challenge required.</div>
-      <div class="admin-terminal-line admin-terminal-command" data-admin-terminal-line="12">open secure-shell --administrator</div>
-      <div class="admin-terminal-line admin-terminal-output" data-admin-terminal-line="13">Introduce access code:</div>
-      <form class="admin-login-form hidden" id="admin-login-form">
-        <label class="admin-command-row" for="admin-code-input">
-          <span class="admin-terminal-prompt">root@culones:/admin#</span>
-          <span class="admin-command-prefix">auth --code</span>
-          <input type="text" id="admin-code-input" class="admin-code-input" placeholder="XXXXXXXX" maxlength="32" autocomplete="off" />
-        </label>
-        <button class="admin-login-submit" id="submit-admin-code" type="submit">
-          <span class="btn-spinner" aria-hidden="true"></span>
-          <span class="btn-label">EXECUTE</span>
-        </button>
-        <p class="admin-console-help">Use /getcode en Discord para generar un código temporal.</p>
-      </form>
-      <div class="admin-access-state hidden" id="admin-access-state"></div>
-      <div class="modal-error hidden" id="admin-modal-error"></div>
+    <span class="discord-account-eyebrow">Cuenta de Culones-RPG</span>
+    <h3 class="modal-title" id="admin-login-title">Iniciar sesión con Discord</h3>
+    <p class="discord-account-intro">Conecta tu cuenta para mostrar tu identidad en la página. El modo administrador solo aparece si conservas el rol configurado en el servidor.</p>
+
+    <div class="discord-account-card">
+      <div class="discord-account-avatar-wrap">
+        <img id="discord-account-avatar" class="discord-account-avatar hidden" alt="Avatar de Discord" />
+        <span class="discord-account-avatar-fallback" aria-hidden="true">◆</span>
+      </div>
+      <div class="discord-account-copy">
+        <strong id="discord-account-name">Discord no conectado</strong>
+        <span id="discord-account-status">Conecta tu cuenta para identificarte en la página.</span>
+      </div>
     </div>
+
+    <div class="discord-account-actions">
+      <button class="btn-primary" id="discord-login-btn" type="button">Iniciar sesión con Discord</button>
+      <button class="btn-primary hidden" id="discord-admin-mode-btn" type="button">Activar modo administrador</button>
+      <button class="btn-secondary hidden" id="discord-logout-btn" type="button">Cerrar sesión</button>
+    </div>
+    <div class="modal-error hidden" id="discord-auth-error"></div>
   </div>
 </div>
 

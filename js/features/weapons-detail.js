@@ -14,6 +14,7 @@ import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 import { guideLinkUrl } from './guide-links.js';
 import { getInfoVisuals, visibleRankSections } from './weapons-rank-extras.js';
 import { getCurrentWeapon, getWeaponCategory, getWeaponRanks, getWeaponType, replaceWeaponRank } from './weapons-state.js';
+import { bindGuideForumControls, renderGuideForumControls } from './guide-forum.js';
 
 function loadWeaponAdminActions() {
   return import('./weapons-admin.js');
@@ -85,12 +86,18 @@ export function renderWeaponDetail() {
       ${admin ? `<button type="button" class="pill" data-action="add-rank">+ Rango</button>` : ''}
     </div>`;
 
+  const forumHtml = admin ? `<div id="guide-forum-controls" data-weapon-id="${escapeHtml(weapon.id)}"></div>` : '';
+
   const bodyHtml = rank
     ? renderWeaponRankBody(weapon, rank, admin)
     : `<p class="comments-empty">${admin ? 'Esta arma no tiene rangos todavía. Agrega el primero con "+ Rango".' : 'Esta arma no tiene información todavía.'}</p>`;
 
-  container.innerHTML = headerHtml + rankSelectorHtml + bodyHtml;
+  container.innerHTML = headerHtml + forumHtml + rankSelectorHtml + bodyHtml;
   bindWeaponDetailEvents(container);
+  if (admin) {
+    bindGuideForumControls(container, getCurrentWeapon);
+    void renderGuideForumControls(weapon);
+  }
 }
 
 
@@ -598,7 +605,7 @@ export async function saveRankPatch(rankId, patch) {
   const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
   if (!rank) return { error: { message: 'Este rango ya no existe' } };
   const patchResult = await supabaseClient.rpc('patch_weapon_rank', {
-    input_code: state.adminCode,
+    input_code: state.adminMode,
     input_id: rank.id,
     ...patch,
   });
@@ -609,7 +616,7 @@ export async function saveRankPatch(rankId, patch) {
   if (!isMissingPatchRankRpc(patchResult.error)) return patchResult;
 
   const fallback = await supabaseClient.rpc('upsert_weapon_rank', {
-    input_code: state.adminCode,
+    input_code: state.adminMode,
     input_id: rank.id,
     input_weapon_id: rank.weapon_id,
     input_name: patch.input_name ?? rank.name,

@@ -11,6 +11,7 @@ export const DEFAULT_THEME_CONFIG = Object.freeze({
   textPrimary: '#f5f3ff',
   textSecondary: '#aaa6c5',
   textMuted: '#6d6a87',
+  textGlow: '#8b3dff',
   brandPrimary: '#f5f3ff',
   brandAccent: '#ffb83e',
   brandSubtitle: '#aaa6c5',
@@ -62,6 +63,7 @@ const THEME_GROUPS = [
     ['textPrimary', 'Texto principal', 'Títulos y contenido importante.'],
     ['textSecondary', 'Texto secundario', 'Descripciones y ayudas.'],
     ['textMuted', 'Texto apagado', 'Fechas, metadatos y placeholders.'],
+    ['textGlow', 'Brillo del texto', 'Resplandor detrás del texto del panel de detalle de Logs.'],
   ]],
   ['Identidad del servidor', [
     ['brandPrimary', 'Nombre del servidor', 'Color de “CULONES” en el menú y la barra móvil.'],
@@ -140,10 +142,6 @@ export function clearLocalThemeOverride() {
   localStorage.removeItem(LOCAL_THEME_STORAGE_KEY);
 }
 
-export function resolveEffectiveThemeConfig(serverConfig = state.serverThemeConfig) {
-  return getLocalThemeOverride() || normalizeThemeConfig(serverConfig || {});
-}
-
 function renderThemeControls() {
   const grid = document.getElementById('theme-color-grid');
   if (!grid || grid.children.length) return;
@@ -213,6 +211,8 @@ export function applyThemeConfig(config = state.themeConfig) {
     '--ink-500': mix(colors.textSecondary, colors.textMuted, 0.45),
     '--ink-600': colors.textMuted,
     '--ink-700': mix(colors.textMuted, colors.pageBackground, 0.4),
+    '--theme-text-glow': colors.textGlow,
+    '--theme-text-glow-soft': rgba(colors.textGlow, 0.32),
     '--gold': colors.accent,
     '--gold-dim': mix(colors.accent, colors.pageBackground, 0.52),
     '--magenta': colors.event,
@@ -400,14 +400,14 @@ function updateScopeUi(scope = getCurrentScope()) {
   const hasLocal = !!state.localThemeConfig;
 
   if (badge) {
-    badge.textContent = hasLocal ? 'Paleta local activa' : 'Usando paleta del servidor';
+    badge.textContent = hasLocal ? 'Paleta local activa' : 'Usando paleta de la web';
     badge.classList.toggle('is-local', hasLocal);
   }
 
   if (note) {
     note.innerHTML = scope === 'local'
       ? '<strong>Solo este navegador:</strong> se guarda en este dispositivo y dominio. Nadie más verá estos colores.'
-      : '<strong>Todo el servidor:</strong> se publica para todos los visitantes. Quienes tengan una paleta local seguirán viendo la suya.';
+      : '<strong>Toda la web:</strong> se publica para toda la web. Quienes tengan una paleta local seguirán viendo la suya.';
   }
 
   if (clearButton) {
@@ -436,7 +436,7 @@ function setEditorScope(scope, { populate = true, announce = false } = {}) {
     showToast(
       normalizedScope === 'local'
         ? 'Edición cambiada a este navegador'
-        : 'Edición cambiada a la paleta del servidor',
+        : 'Edición cambiada a la paleta de la web',
       'info',
     );
   }
@@ -459,7 +459,7 @@ async function saveTheme() {
     return;
   }
 
-  if (!state.adminCode) {
+  if (!state.adminMode) {
     if (errorBox) {
       errorBox.textContent = 'Tu sesión de administrador expiró.';
       errorBox.classList.remove('hidden');
@@ -468,7 +468,7 @@ async function saveTheme() {
   }
 
   const { error } = await supabaseClient.rpc('update_app_setting', {
-    input_code: state.adminCode,
+    input_code: state.adminMode,
     input_key: 'theme_config',
     input_value: value,
   });
@@ -499,7 +499,7 @@ function clearBrowserTheme() {
   state.localThemeConfig = null;
   state.themeConfig = normalizeThemeConfig(state.serverThemeConfig || {});
   setEditorScope('server', { populate: true });
-  showToast('Este navegador vuelve a usar los colores del servidor', 'success');
+  showToast('Este navegador vuelve a usar los colores de la web', 'success');
 }
 
 function bindScopeControls() {

@@ -1,0 +1,195 @@
+/* Controles compactos compartidos: reemplazan enlaces sueltos heredados. */
+
+.link-btn,
+a.link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  max-width: 100%;
+  padding: 7px 11px;
+  border: 1px solid var(--btn-secondary-border, rgba(133, 112, 191, .32));
+  border-radius: 9px;
+  color: var(--btn-secondary-text, var(--theme-text-main)) !important;
+  background: var(--btn-secondary-bg, rgba(17, 21, 40, .78));
+  box-shadow: none;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none !important;
+  text-underline-offset: 0;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+.link-btn:hover,
+a.link-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--btn-secondary-hover-border, color-mix(in srgb, var(--theme-selection) 48%, transparent));
+  color: var(--btn-secondary-hover-text, #fff) !important;
+  background: var(--btn-secondary-hover-bg, color-mix(in srgb, var(--theme-selection) 14%, var(--bg-panel)));
+  text-decoration: none !important;
+}
+
+.link-btn:active,
+a.link-btn:active {
+  transform: scale(.98);
+}
+
+.link-btn:focus-visible,
+a.link-btn:focus-visible {
+  outline: 2px solid var(--theme-selection, #8b3dff);
+  outline-offset: 2px;
+}
+
+.link-btn[id$="-clear-btn"],
+.tier-img-clear-btn,
+.identity-clear-btn,
+.about-block-img-clear {
+  border-color: color-mix(in srgb, var(--btn-danger-bg, #ff3d8d) 35%, transparent);
+  color: var(--btn-danger-text, #ff8fbd) !important;
+  background: color-mix(in srgb, var(--btn-danger-bg, #ff3d8d) 10%, transparent);
+}
+
+.link-btn[id$="-clear-btn"]:hover,
+.tier-img-clear-btn:hover,
+.identity-clear-btn:hover,
+.about-block-img-clear:hover {
+  border-color: var(--btn-danger-bg, #ff3d8d);
+  color: #fff !important;
+  background: color-mix(in srgb, var(--btn-danger-bg, #ff3d8d) 28%, transparent);
+}
+
+.asset-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.asset-preview-actions .link-btn {
+  flex: 0 1 auto;
+}
+
+.btn-media-picker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  margin-top: 8px;
+  text-decoration: none;
+}
+
+.btn-media-picker-icon {
+  color: var(--theme-selection, #8b3dff);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.tier-img-dropzone + .btn-media-picker,
+.asset-preview + .btn-media-picker {
+  margin-bottom: 8px;
+}
+
+.identity-clear-btn {
+  margin-top: 10px;
+}
+
+@media (max-width: 520px) {
+  .asset-preview-actions .link-btn {
+    flex: 1 1 150px;
+  }
+}
+
+/* =========================================================
+   Cuenta Discord y modo administrador
+   ========================================================= */
+.sidebar-account {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  min-width: 0;
+  padding: .55rem .7rem;
+  border: 1px solid rgba(157, 120, 255, .2);
+  border-radius: 12px;
+  background: rgba(18, 13, 35, .62);
+}
+.sidebar-account-avatar {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  image-rendering: auto;
+}
+.sidebar-account-name {
+  overflow: hidden;
+  color: var(--text-primary, #f4efff);
+  font-size: .82rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.discord-account-modal {
+  width: min(520px, calc(100vw - 28px));
+  padding: clamp(1.35rem, 4vw, 2rem);
+}
+.discord-account-eyebrow {
+  display: block;
+  margin-bottom: .45rem;
+  color: var(--accent, #a985ff);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+.discord-account-intro {
+  margin: .2rem 0 1.15rem;
+  color: var(--text-muted, #aaa2c1);
+  line-height: 1.55;
+}
+.discord-account-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid rgba(164, 126, 255, .25);
+  border-radius: 16px;
+  background: rgba(11, 8, 24, .58);
+}
+.discord-account-avatar-wrap {
+  position: relative;
+  display: grid;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(174, 144, 255, .32);
+  border-radius: 50%;
+  background: rgba(115, 79, 213, .18);
+}
+.discord-account-avatar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.discord-account-avatar-fallback { color: #b99cff; font-size: 1.35rem; }
+.discord-account-copy { display: grid; min-width: 0; gap: .25rem; }
+.discord-account-copy strong {
+  overflow: hidden;
+  color: #f5f0ff;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.discord-account-copy span { color: #aaa2c1; font-size: .82rem; line-height: 1.4; }
+.discord-account-actions { display: flex; flex-wrap: wrap; gap: .7rem; }
+.discord-account-actions button { flex: 1 1 190px; }

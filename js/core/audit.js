@@ -54,11 +54,11 @@ export function countSummary(label, count) {
 }
 
 export async function recordAdminAction(action, description) {
-  if (!state.adminCode || !action || !description) return;
+  if (!state.adminMode || !action || !description) return;
   const cleanDescription = compactAuditText(description);
   try {
     const { error } = await supabaseClient.rpc('record_admin_action', {
-      input_code: state.adminCode,
+      input_code: state.adminMode,
       input_action: compactAuditText(action, 'admin_action'),
       input_description: cleanDescription,
     });

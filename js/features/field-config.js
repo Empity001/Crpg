@@ -174,10 +174,10 @@ function moveFieldConfig(kind, idx, dir) {
 
 export async function saveFieldConfig() {
   const errorBox = document.getElementById('field-config-modal-error');
-  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+  if (!state.adminMode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
   const [r1, r2] = await Promise.all([
-    supabaseClient.rpc('update_app_setting', { input_code: state.adminCode, input_key: 'mob_fields', input_value: state.fieldConfigDraft.mob }),
-    supabaseClient.rpc('update_app_setting', { input_code: state.adminCode, input_key: 'item_fields', input_value: state.fieldConfigDraft.item }),
+    supabaseClient.rpc('update_app_setting', { input_code: state.adminMode, input_key: 'mob_fields', input_value: state.fieldConfigDraft.mob }),
+    supabaseClient.rpc('update_app_setting', { input_code: state.adminMode, input_key: 'item_fields', input_value: state.fieldConfigDraft.item }),
   ]);
   if (r1.error || r2.error) { errorBox.textContent = 'Error: ' + (r1.error || r2.error).message; errorBox.classList.remove('hidden'); return; }
   state.fieldConfig = { mob: state.fieldConfigDraft.mob, item: state.fieldConfigDraft.item };

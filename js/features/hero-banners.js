@@ -6,6 +6,7 @@
 // =========================================================
 
 import { supabaseClient } from '../config.js';
+import { normalizePageKey } from '../core/pages.js';
 import { state } from '../core/state.js';
 import { initGenericImageDropzone, syncGenericDropzoneState, updateAssetPreview } from '../core/storage.js';
 import { confirmAction, showToast } from '../core/utils.js';
@@ -13,7 +14,7 @@ import { attachMediaPickerButton } from './media-library.js';
 
 export const HERO_BANNER_PAGES = [
   { key: 'logs', label: 'Logs' },
-  { key: 'weapons', label: 'Guías' },
+  { key: 'guides', label: 'Guías' },
   { key: 'tierlist', label: 'Tierlist' },
   { key: 'kits', label: 'Kits' },
   { key: 'about', label: 'Acerca del servidor' },
@@ -30,7 +31,9 @@ const DEFAULT_ENTRY = Object.freeze({
 export function normalizeHeroBannerConfig(value) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   return Object.fromEntries(HERO_BANNER_PAGES.map(({ key }) => {
-    const entry = source[key] && typeof source[key] === 'object' ? source[key] : {};
+    const legacyKey = key === 'guides' ? 'weapons' : key;
+    const candidate = source[key] ?? source[legacyKey];
+    const entry = candidate && typeof candidate === 'object' ? candidate : {};
     const position = ['center center', 'center top', 'center bottom', 'left center', 'right center'].includes(entry.position)
       ? entry.position
       : DEFAULT_ENTRY.position;
@@ -59,7 +62,7 @@ export function applyHeroBanner(pageKey = state.activeTab, config = state.heroBa
   if (!hero) return;
 
   const normalized = normalizeHeroBannerConfig(config);
-  const entry = normalized[pageKey] || DEFAULT_ENTRY;
+  const entry = normalized[normalizePageKey(pageKey)] || DEFAULT_ENTRY;
   const valid = /^https?:\/\//i.test(entry.image_url || '');
   const layer = ensureHeroBannerLayer(hero);
 
@@ -132,7 +135,7 @@ export function populateHeroBannerForm(pageKey = selectedPageKey()) {
 async function saveHeroBanner() {
   const errorBox = document.getElementById('hero-banner-error');
   errorBox?.classList.add('hidden');
-  if (!state.adminCode) {
+  if (!state.adminMode) {
     if (errorBox) {
       errorBox.textContent = 'Tu sesión de administrador expiró.';
       errorBox.classList.remove('hidden');
@@ -145,7 +148,7 @@ async function saveHeroBanner() {
   next[pageKey] = formEntry();
 
   const { error } = await supabaseClient.rpc('update_app_setting', {
-    input_code: state.adminCode,
+    input_code: state.adminMode,
     input_key: 'hero_banner_config',
     input_value: next,
   });
@@ -176,7 +179,7 @@ async function clearHeroBanner() {
   next[pageKey] = { ...DEFAULT_ENTRY };
 
   const { error } = await supabaseClient.rpc('update_app_setting', {
-    input_code: state.adminCode,
+    input_code: state.adminMode,
     input_key: 'hero_banner_config',
     input_value: next,
   });

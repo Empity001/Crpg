@@ -107,7 +107,7 @@ begin
     case when (elem->>'item_type') = '_libre' then 'block_created' else 'item_created' end,
     format(
       '%s agregado: "%s" (en "%s")',
-      case when (elem->>'item_type') = '_libre' then '📋 Bloque libre' else '🗡 Item' end,
+      case when (elem->>'item_type') = '_libre' then '✦ Extra' else '🗡 Item' end,
       trim(elem->>'name'),
       input_title
     )

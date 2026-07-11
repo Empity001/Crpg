@@ -11,6 +11,7 @@ import { confirmAction, escapeHtml, showToast, withTimeout } from '../core/utils
 
 let onCategoryFiltersChanged = () => {};
 let categoriesLoadPromise = null;
+let editingCategorySlug = null;
 
 export function setCategoryFiltersChangedHandler(handler) {
   onCategoryFiltersChanged = typeof handler === 'function' ? handler : () => {};
@@ -91,16 +92,59 @@ export function renderCategorySelectOptions() {
 }
 
 
+function syncCategoryEditorMode() {
+  const title = document.getElementById('category-modal-title');
+  const submit = document.getElementById('submit-category-btn');
+  const cancel = document.getElementById('cancel-category-edit-btn');
+  const editing = !!editingCategorySlug;
+  if (title) title.textContent = editing ? '✎ EDITAR CATEGORÍA' : '🏷 NUEVA CATEGORÍA';
+  if (submit) submit.textContent = editing ? 'Guardar categoría' : 'Crear categoría';
+  cancel?.classList.toggle('hidden', !editing);
+}
+
+function resetCategoryEditor({ keepModal = true } = {}) {
+  editingCategorySlug = null;
+  const label = document.getElementById('category-label-input');
+  const emoji = document.getElementById('category-emoji-input');
+  const color = document.getElementById('category-color-input');
+  const error = document.getElementById('category-modal-error');
+  if (label) label.value = '';
+  if (emoji) emoji.value = '📦';
+  if (color) color.value = '#4dd4e8';
+  error?.classList.add('hidden');
+  syncCategoryEditorMode();
+  if (keepModal) renderCategoryManageList();
+}
+
+function startCategoryEdit(slug) {
+  const category = state.categories.find(item => item.slug === slug);
+  if (!category) return;
+  editingCategorySlug = slug;
+  document.getElementById('category-label-input').value = category.label || '';
+  document.getElementById('category-emoji-input').value = category.emoji || '📦';
+  document.getElementById('category-color-input').value = category.color || '#4dd4e8';
+  document.getElementById('category-modal-error')?.classList.add('hidden');
+  syncCategoryEditorMode();
+  renderCategoryManageList();
+  document.getElementById('category-label-input')?.focus({ preventScroll: true });
+}
+
 function renderCategoryManageList() {
   const container = document.getElementById('category-manage-list');
   if (!container) return;
   if (state.categories.length === 0) { container.innerHTML = `<p class="category-manage-empty">No hay categorías todavía.</p>`; return; }
   container.innerHTML = state.categories.map(cat => `
-    <div class="category-manage-row">
-      <span class="category-manage-label">${cat.emoji} ${escapeHtml(cat.label)}</span>
-      <button type="button" class="category-manage-delete" data-slug="${cat.slug}">🗑 Borrar</button>
+    <div class="category-manage-row${editingCategorySlug === cat.slug ? ' is-editing' : ''}">
+      <span class="category-manage-label"><span class="category-manage-dot" style="background:${escapeHtml(cat.color || '#9a92b8')}"></span>${escapeHtml(cat.emoji || '📦')} ${escapeHtml(cat.label)}</span>
+      <span class="category-manage-actions">
+        <button type="button" class="category-manage-edit" data-slug="${escapeHtml(cat.slug)}">✎ Editar</button>
+        <button type="button" class="category-manage-delete" data-slug="${escapeHtml(cat.slug)}">🗑 Borrar</button>
+      </span>
     </div>
   `).join('');
+  container.querySelectorAll('.category-manage-edit').forEach(btn => {
+    btn.addEventListener('click', () => startCategoryEdit(btn.dataset.slug));
+  });
   container.querySelectorAll('.category-manage-delete').forEach(btn => {
     btn.addEventListener('click', () => deleteCategory(btn.dataset.slug));
   });
@@ -108,11 +152,13 @@ function renderCategoryManageList() {
 
 
 export function openNewCategoryModal() {
-  document.getElementById('category-label-input').value = '';
-  document.getElementById('category-emoji-input').value = '📦';
-  document.getElementById('category-color-input').value = '#4dd4e8';
-  document.getElementById('category-modal-error').classList.add('hidden');
+  resetCategoryEditor({ keepModal: false });
   renderCategoryManageList();
+  const cancel = document.getElementById('cancel-category-edit-btn');
+  if (cancel && cancel.dataset.bound !== 'true') {
+    cancel.dataset.bound = 'true';
+    cancel.addEventListener('click', () => resetCategoryEditor());
+  }
   document.getElementById('category-modal').classList.remove('hidden');
 }
 
@@ -123,14 +169,25 @@ export async function submitCategory() {
   const emoji = document.getElementById('category-emoji-input').value.trim() || '📦';
   const color = document.getElementById('category-color-input').value || '#4dd4e8';
   if (!label) { errorBox.textContent = 'Ponle un nombre a la categoría.'; errorBox.classList.remove('hidden'); return; }
-  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
-  const { data, error } = await supabaseClient.rpc('create_category', { input_code: state.adminCode, input_slug: '', input_label: label, input_emoji: emoji, input_color: color });
+  if (!state.adminMode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
+
+  const wasEditing = !!editingCategorySlug;
+  const rpcName = wasEditing ? 'update_category' : 'create_category';
+  const payload = wasEditing
+    ? { input_code: state.adminMode, input_slug: editingCategorySlug, input_label: label, input_emoji: emoji, input_color: color }
+    : { input_code: state.adminMode, input_slug: '', input_label: label, input_emoji: emoji, input_color: color };
+  const { data, error } = await supabaseClient.rpc(rpcName, payload);
   if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
+
   errorBox.classList.add('hidden');
-  document.getElementById('category-label-input').value = '';
-  showToast(`Categoría "${data.label}" creada`, 'success');
+  const selectedSlug = data?.slug || editingCategorySlug;
+  showToast(wasEditing ? `Categoría "${label}" actualizada` : `Categoría "${data.label}" creada`, 'success');
+  editingCategorySlug = null;
   await loadCategories();
-  document.getElementById('log-category-input').value = data.slug;
+  resetCategoryEditor({ keepModal: false });
+  renderCategoryManageList();
+  if (selectedSlug) document.getElementById('log-category-input').value = selectedSlug;
+  onCategoryFiltersChanged();
 }
 
 
@@ -142,8 +199,8 @@ async function deleteCategory(slug) {
     confirmLabel: 'Borrar categoría',
     danger: true,
   }))) return;
-  if (!state.adminCode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
-  const { error } = await supabaseClient.rpc('delete_category', { input_code: state.adminCode, input_slug: slug });
+  if (!state.adminMode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
+  const { error } = await supabaseClient.rpc('delete_category', { input_code: state.adminMode, input_slug: slug });
   if (error) { showToast(error.message.replace(/^.*?:\s*/, '') || 'No se pudo borrar', 'error'); return; }
   showToast(`Categoría "${cat.label}" eliminada`, 'success');
   if (state.activeFilter === slug) state.activeFilter = 'all';

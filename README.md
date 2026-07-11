@@ -1,222 +1,186 @@
-# culones-rpg · Centro de Logs
-
-Plataforma web del servidor Minecraft RPG/Gacha **culones-rpg**. Es el lugar donde queda registrado todo lo que cambia en el servidor — mobs nuevos, ítems, eventos, mecánicas — para que cualquier jugador pueda consultarlo, comentar y reaccionar, y donde el staff administra todo ese contenido desde el propio navegador.
-
-Este documento explica **qué hace cada parte de la web**, no cómo instalarla.
-
----
-
-## 🗂 Navegación
-
-La barra superior tiene pestañas estilo navegador:
-
-- **📜 Logs** — el contenido principal, explicado abajo.
-- **⚔️ Guía de Armas** — catálogo de armas con buscador, filtros 100% dinámicos, rangos ilimitados, habilidades y recetas de mejora. Explicada más abajo.
-- **🏆 Tierlist** — tabla de personajes por tier (fila) y rol (columna: Arma / Sub-arma / Accesorio). Explicada más abajo.
-- **🎮 Acerca del Server** — texto fijo de presentación del servidor.
-- **🛠 Herramientas** — solo visible con sesión de administrador activa. Biblioteca Multimedia, borradores, exportar/importar y la bitácora de acciones (ver "Modo Administrador" más abajo).
-
-Arriba a la derecha está el botón **ADMIN**, con un punto que indica si hay una sesión de administrador activa (ver más abajo).
-
----
-
-## 📜 Sistema de Logs
-
-Un **log** es una entrada de "esto cambió en el servidor". Cada uno tiene:
-
-- **Título** y **descripción** (texto libre, con saltos de línea).
-- **Categoría** (ver siguiente sección).
-- **Relevancia**: Baja / Normal / Alta / Crítica — se muestra como una etiqueta de color en la tarjeta.
-- **Fecha de publicación**, editable libremente por un admin (sirve para registrar algo que pasó antes y no se subió a tiempo).
-- **Likes**: cualquier visitante puede darle ❤️ a un log. Es anónimo (no hace falta cuenta), pero cada navegador solo puede dar un like por log — se recuerda con un identificador local, así que recargar la página no permite inflar el contador.
-- Opcionalmente, **fichas de Mob, Item y/o Bloque Libre** adjuntas (ver siguiente sección) — son las que le dan estructura a logs como "se agregó un mob nuevo con tales stats".
-
-Desde **Herramientas** se puede exportar todo. El Excel de logs genera **4 hojas relacionadas** (Logs, Mobs, Items, Bloques Libres) con encabezados estilizados, colores, filtros automáticos y una propiedad por columna — nada de texto plano con todo mezclado. Las listas (equipamiento, encantamientos, "algo más") quedan formateadas de forma legible. También hay un export en JSON completo, pensado para backup/restauración más que para lectura humana.
-
-### Filtrar y ordenar
-
-- Arriba de la grilla hay un filtro por categoría (pastillas: "Todos", y una por cada categoría existente).
-- Un selector **"Ordenar por"** permite ordenar por Fecha (recientes o antiguos primero) o por Relevancia (mayor o menor primero), de forma independiente al filtro de categoría.
-
----
-
-## 🏷 Categorías
-
-Las categorías **no están fijas en el código** — son filas editables en la base de datos. Un administrador puede:
-
-- **Crear** una categoría nueva en cualquier momento (desde el formulario de "Nuevo Log" → "+ Crear categoría nueva"), eligiendo su nombre, un **emoji** y un **color** propios. No hay límite de cuántas se pueden crear.
-- **Borrar** una categoría desde esa misma ventana — solo se permite si ningún log la está usando actualmente (si hay logs con esa categoría, el sistema avisa cuántos y no la deja borrar, para no dejar logs huérfanos).
-
-Cada categoría se ve como una pastilla con su emoji, su nombre y su color tanto en los filtros como en la tarjeta de cada log.
-
----
-
-## 🧩 Fichas dentro de un log: Mob, Item y Bloque Libre
-
-Al crear o editar un log, un admin puede adjuntarle cualquier cantidad de **fichas**, de tres tipos distintos. En la tarjeta del log y en su vista de detalle, cada ficha aparece como un botón compacto (chip) con su nombre — al hacer clic se despliega justo debajo con todos sus datos, sin abrir nada nuevo. Solo una ficha se mantiene abierta a la vez por tarjeta/detalle.
-
-### 👾 Ficha de Mob
-
-Pensada para enemigos, jefes, NPCs hostiles, etc.
-
-- **Nombre**
-- **❤️ Vida** y **⚔️ Daño** (obligatorios)
-- **🛡 Armor** (opcional)
-- **Equipamiento**: una lista de piezas (ej. "Casco de diamante", "Espada de Pyrois"), y cada pieza puede tener sus propios **encantamientos** (también en lista, ej. "Filo V", "Sin Maldición"). No es texto suelto — cada pieza y cada encantamiento son entradas propias, así que se ven como etiquetas separadas y prolijas en vez de una sola frase larga.
-- **Dónde aparece** (texto libre, ej. "Aparece en el Nether")
-
-### 🗡 Ficha de Item
-
-Pensada para armas, accesorios, materiales gacha, etc.
-
-- **Nombre**
-- **Rango/Tier** (texto libre, ej. "S", "Z", "MK-3" — no hay un set fijo de rangos)
-- **Tipo** (ej. "Arma", "Accesorio")
-- **⚔️ Daño** (opcional)
-- **Encantamientos** (lista, igual que en mob)
-- **Dónde se obtiene** (ej. "Máquina de Armas", "Dropeado por X")
-
-### 📋 Bloque Libre (ficha personalizada)
-
-Para todo lo que no encaja como mob ni item: NPCs, estructuras, eventos especiales, lo que sea. Es una ficha completamente en blanco:
-
-- **Nombre del bloque** (vos decidís qué es: "NPC Mercader", "Estructura del Casino", etc.)
-- **Campos**: tantos como quieras, cada uno con su propio nombre y valor (ej. "Ubicación" → "Plaza central"). Cada campo además puede tener **sub-campos** propios (un nivel de anidación) — útil para agrupar datos relacionados dentro de un mismo campo.
-
-### Elementos comunes a las tres fichas
-
-- **Descripción** (opcional): notas adicionales en texto libre, con saltos de línea respetados.
-- **Imagen de referencia** (opcional): se puede subir un archivo o reutilizar un recurso desde la Biblioteca Multimedia. Se mantiene como URL en el campo actual para compatibilidad, con vista previa, opción de quitar y botón **"⛶ Ver en pantalla completa"**.
-- **"Algo más"** (solo mob/item, opcional): campos libres clave/valor adicionales, para cualquier dato que no tenga un campo fijo dedicado. Siempre se muestran al final de la ficha, después de los campos fijos.
-
----
-
-## ⚙ Configurar fichas
-
-Botón de administrador (junto a "+ Nuevo Log") que permite, por separado para **Mob** y para **Item**:
-
-- **Activar o desactivar** cualquier campo fijo (ej. ocultar "Armor" en todas las fichas de mob si no se usa).
-- **Reordenar** en qué orden aparecen esos campos dentro de la ficha, con flechas ▲▼.
-
-Los campos personalizados ("Algo más") no se ven afectados por esta configuración — siempre van al final.
-
----
-
-## ⚔️ Guía de Armas
-
-Catálogo de armas independiente del sistema de Logs, con su propia búsqueda y filtros.
-
-### Catálogo
-
-- **Buscador por nombre** en tiempo real.
-- **Filtro por categoría** (ej. "MK1", "Legendaria"...) — las categorías las crea el admin con nombre + color, igual que las filas de la Tierlist. No están escritas en el código: en cuanto el admin crea una, aparece como filtro para todos.
-- **Filtro por tipo** (ej. "Arma", "Accesorio") — mismo concepto, dinámico, sembrado con "Arma" y "Accesorio" pero ampliable sin tocar código.
-- Las armas sin publicar ("ocultas") solo las ve el admin, marcadas con una etiqueta — mismo patrón que los comentarios ocultos: se filtran en el navegador, no por permisos de base de datos.
-
-### Página de un arma
-
-Al hacer clic en una tarjeta se abre su página de detalle (dentro de la misma pestaña, sin recargar):
-
-- **Rangos ilimitados** (MK1, MK2, MK3... el nombre y la cantidad los decide el admin). Un selector tipo pastillas cambia de rango y actualiza automáticamente todo lo que sigue.
-- **Estadísticas** del rango activo, mostradas como barra — mismo lenguaje visual que ❤️Vida/⚔️Daño/🛡Armor de mobs e items.
-- **Habilidades**: tantas como el admin quiera, cada una con etiqueta, descripción, nivel (con barra) y sus propias estadísticas internas.
-- **Receta de mejora**: vista tipo "trade" — materiales (cualquier cantidad) → flecha → resultado. Cada material tiene nombre, imagen y cantidad.
-- **Secciones extra libres**: para curiosidades, notas de balance, builds, historia o cualquier apartado futuro, sin necesidad de migrar la base de datos de nuevo. Pueden ser texto libre o una lista de campos clave/valor.
-
-### Modo admin
-
-- **+ Nueva arma**: nombre, imagen, categoría, tipo y rango inicial. Queda **oculta** hasta publicarla desde su propia página.
-- Dentro de la página de un arma: editar info básica, publicar/despublicar, borrar arma, agregar/borrar rangos, y editar estadísticas/habilidades/receta/secciones de cada rango — todo con modales enfocados, sin tocar la base de datos a mano.
-- Gestión de categorías y tipos desde botones dedicados en la barra del catálogo.
-
----
-
-Tabla de personajes organizada en **filas dinámicas** (tiers: SSS, SS, S, A... el nombre y color lo define el admin) cruzadas con **3 columnas fijas que no se pueden eliminar**: Arma, Sub-arma y Accesorio.
-
-- **Visitantes**: solo pueden ver la tierlist. Sin botones de edición.
-- **Banco "Sin clasificar"**: debajo de la tabla, agrupado también por columna — ahí caen los elementos nuevos hasta que un admin los asigna a una fila.
-- **Mover un elemento**: en computadora, **arrastra y suelta** el elemento a la celda destino (otra fila, otra columna, o el banco). En el celular, donde no hay arrastre, cada elemento tiene un botón **↕ Mover** que abre un selector de fila + columna.
-- **Admin puede**: crear/renombrar/cambiar color/reordenar/borrar filas (al borrar una fila, sus elementos vuelven al banco, no se pierden); crear/editar/borrar elementos con nombre + imagen subida o reutilizada desde la Biblioteca Multimedia.
-- Pensado para crecer: cada elemento tiene un campo `extra_fields` libre en la base de datos por si en el futuro quieres agregarle más datos (rareza, nota, etc.) sin tener que migrar de nuevo.
-
----
-
-## 💬 Comentarios
-
-Cada log tiene su propia sección de comentarios, abajo del detalle:
-
-- Cualquier visitante puede comentar con un **alias opcional** (si no pone nada, queda como "Anónimo").
-- Se puede dar **like** a cada comentario.
-- Se puede **responder** a un comentario (un nivel de anidación — las respuestas se muestran indentadas debajo del comentario original).
-- **Moderación de admin**: cada comentario tiene botones para **ocultar/mostrar** (queda marcado como "OCULTO" para otros admins, pero se puede revertir) o **borrar definitivamente** (borrar un comentario con respuestas borra también todas sus respuestas).
-
----
-
-## 🔐 Modo Administrador
-
-El botón **ADMIN** (arriba a la derecha) pide un código temporal de 24 horas, que se solicita al bot de Discord con `/admincode`. Una vez validado, el navegador queda "logueado" como admin (se recuerda hasta que el código expire o se cierre sesión manualmente con el mismo botón).
-
-En modo admin aparecen:
-
-- **+ Nuevo Log** y, en cada tarjeta, **✏️ Editar** / **🗑️ Borrar**.
-- **+ Crear categoría nueva** y poder borrar categorías existentes.
-- **⚙ Configurar fichas**.
-- Herramientas completas de gestión en **🏆 Tierlist**: filas y elementos.
-- Herramientas completas de gestión en **⚔️ Guía de Armas**: armas, rangos, categorías y tipos.
-- Botones de moderación en los comentarios.
-- En **🛠 Herramientas**: Biblioteca Multimedia, borradores, exportar/importar, y el botón discreto **🕒 Acciones** (ver siguiente sección).
-
----
-
-## 🗂 Biblioteca Multimedia
-
-En **🛠 Herramientas**, el admin puede registrar recursos reutilizables en Supabase Storage. La biblioteca guarda nombre visible, tipo MIME, tipo dinámico, tamaño, hash, tags, descripción, opciones de presentación y usos detectados dentro de Logs, Tierlist, Armas, About, fondo y favicon. También permite minimizar el panel, revisar recursos archivados, restaurarlos o eliminarlos definitivamente con confirmación propia.
-
-Los formularios actuales siguen guardando URLs (`image_url` o equivalentes), pero ahora pueden elegir recursos ya subidos desde el selector multimedia o usar una URL externa solo para ese campo. Los uploads aceptan PNG, JPG/JPEG, WEBP, GIF, SVG y APNG; el modelo queda preparado para MP4 y WEBM desde la biblioteca. El fondo de página guarda presentación por uso (`fit`, posición, repetición y opacidad) en su configuración.
-
----
-
-## 🕒 Acciones realizadas (bitácora)
-
-Botón discreto (**🕒 Acciones**) en la pestaña **🛠 Herramientas**, que abre un registro de **todo lo que pasa en la web**, en orden cronológico (más reciente primero):
-
-- Logs creados, editados o borrados.
-- Cada mob, item o bloque libre agregado o quitado individualmente (no solo "el log cambió" — se ve exactamente qué ficha entró o salió).
-- Categorías creadas o borradas.
-- Armas, rangos, categorías y tipos de arma creados, editados, publicados/despublicados o borrados.
-- Comentarios publicados por cualquier visitante, ocultados, mostrados de nuevo o borrados.
-- Cambios guardados en "Configurar fichas".
-
-Este registro es **solo visible para administradores** y es permanente — no depende de haber visto el aviso emergente (toast) en el momento en que ocurrió la acción. Cosas como "dar like" no quedan registradas aquí, para no llenar la bitácora de ruido.
-
----
-
-## 🔄 Tiempo real
-
-Los logs, sus mobs/items, los comentarios y el catálogo de la Guía de Armas se sincronizan automáticamente entre navegadores: si un admin publica un log o un arma nueva, o alguien comenta, cualquier otra persona que tenga la página abierta lo ve aparecer sin necesidad de recargar.
-
----
-
-## 🖼 Visor de imágenes a pantalla completa
-
-Cuando una ficha tiene imagen de referencia, "Ver en pantalla completa" la abre en una página dedicada (`asset-view.html`) en una pestaña nueva, mostrando la imagen a tamaño grande sobre fondo oscuro, con su propio título y un botón de "← Volver".
-
-## Migración 018: portada de Logs
-
-Esta versión añade una imagen de portada opcional e independiente para cada log. Antes de publicar o editar logs con portada, ejecuta en Supabase:
-
-```sql
-sql/migration_018_log_cover_image.sql
+# culones-rpg
+
+Plataforma web del servidor Minecraft RPG/Gacha **culones-rpg**. Reúne logs, guías, tierlist, kits recomendados, contenido del servidor y herramientas administrativas en un sitio estático conectado a Supabase.
+
+## Secciones
+
+| Página | Contenido | Acceso |
+|---|---|---|
+| `index.html` | Logs, fichas, comentarios y likes | Público |
+| `guides.html` | Catálogo de guías, rangos y fabricación | Público |
+| `tierlist.html` | Clasificación por filas y columnas | Público |
+| `kits.html` | Combinaciones recomendadas | Público |
+| `about.html` | Información editable del servidor | Público |
+| `admin.html` | Multimedia, backups, borradores y ajustes | Administrador |
+| `asset-view.html` | Visor de recursos a pantalla completa | Público |
+
+El shell compartido vive en `partials/header.html` y `partials/footer.html`. La navegación, el login y las herramientas globales se inicializan desde `js/app/shell.js`.
+
+## Funciones principales
+
+### Logs
+
+- Título, descripción, categoría, relevancia, fecha y portada opcional.
+- Fichas ilimitadas de Mob, Item y bloque Extra.
+- Imágenes reutilizables y enlaces hacia elementos existentes de Guías.
+- Vista master/detail con inspector independiente.
+- Comentarios, respuestas, likes y moderación administrativa.
+- Categorías dinámicas editables por administradores.
+- Borradores locales con sincronización remota best-effort.
+
+### Guías
+
+- Catálogo con búsqueda y filtros dinámicos por categoría y tipo.
+- Elementos publicados u ocultos y rangos ilimitados.
+- Estadísticas, habilidades, recursos visuales y secciones extra.
+- Apartado **Mesas de trabajo** con varias recetas por rango.
+- Modos de intercambio, mesa de crafteo 3x3, horno y mesa de herrería.
+- Horno normal, alto horno o ahumador.
+- Slots con nombre, cantidad, imagen y enlace opcional a otra Guía.
+- URL y entry point propios en `guides.html` y `js/pages/guides.js`.
+
+### Tierlist
+
+- Filas dinámicas y tres columnas fijas: Arma, Sub-arma y Accesorio.
+- Banco de elementos sin clasificar.
+- Drag and drop en escritorio y modal de movimiento en móvil.
+- Elementos con imagen, campos adicionales y vínculo opcional a Guías.
+
+### Kits
+
+- Kits apilados verticalmente en orden de creación.
+- Varias entradas por columna: Arma, Accesorio y Sub-arma.
+- Cada entrada admite nombre, imagen y vínculo opcional a Guías.
+- Creación, edición, duplicación y eliminación para administradores.
+- Protección contra envíos y cargas simultáneas duplicadas.
+
+### Biblioteca Multimedia
+
+- Recursos internos reutilizables desde Supabase Storage.
+- PNG, JPG/JPEG, WEBP, GIF, SVG y APNG; infraestructura preparada para MP4 y WEBM.
+- Búsqueda, filtros, paginación progresiva, preview, metadatos y detección de duplicados.
+- Biblioteca activa y archivo con restauración o eliminación definitiva.
+- Índice de usos y reemplazo global de archivos compatibles.
+- Selector liviano separado del modo administrativo.
+- URLs externas por uso sin registrarlas como recursos permanentes.
+
+### Administración
+
+- Inicio de sesión con Discord mediante Supabase Auth.
+- Nombre y avatar del servidor en la interfaz.
+- Un único rol configurable mediante `/adminrole` concede acceso administrativo.
+- El modo administrador se activa voluntariamente y se revoca al perder el rol.
+- Publicación, actualización y despublicación manual de Guías en el foro de Discord.
+- Indicador global de Administrator Mode.
+- Confirmaciones propias para acciones críticas.
+- Action Logs descriptivos con hora del servidor y hora local del navegador.
+- Exportación JSON/XLSX e importación con análisis de conflictos.
+- Ajustes de fondo, favicon, banners, tema y preferencias visuales.
+
+### Herramientas para visitantes
+
+- Buscador global bajo demanda con enlaces profundos.
+- Campana local de novedades.
+- Preferencias visuales guardadas en el navegador.
+- Visor de recursos a pantalla completa.
+
+## Atajos y paleta de comandos
+
+La interfaz incluye una capa global de productividad que solo activa cada acción cuando existe un contexto válido.
+
+| Atajo | Acción |
+|---|---|
+| `Ctrl + K` | Abrir el buscador global |
+| `/` | Enfocar el buscador o filtro de la sección actual |
+| `Alt + 1…6` | Ir a Logs, Guías, Tierlist, Kits, Acerca o Herramientas |
+| `Alt + N` | Crear un elemento según la sección |
+| `Alt + E` | Editar el elemento seleccionado |
+| `Ctrl + S` | Guardar el editor o borrador abierto |
+| `Ctrl + Enter` | Confirmar el formulario o modal superior |
+| `Esc` | Cerrar la capa superior |
+| `Ctrl + Alt + M` | Abrir Biblioteca Multimedia para el campo activo |
+| `Ctrl + Alt + D` | Duplicar el elemento seleccionado |
+| `Ctrl + Alt + C / V` | Copiar o pegar datos estructurados compatibles |
+| `[ / ]` | Ir al rango o elemento anterior/siguiente |
+| `?` | Mostrar el listado de atajos |
+| `Ctrl + Shift + K` | Abrir la paleta de comandos |
+
+La paleta permite buscar acciones y navegación por nombre, muestra sus atajos y deshabilita los comandos que no tienen sentido en el contexto actual. Las combinaciones se resuelven desde un único controlador y se ejecutan al soltar todas sus teclas, por lo que `Ctrl + Shift + K` no puede activar también `Ctrl + K`. La disponibilidad de los comandos se calcula una sola vez al abrir la paleta y la lista se actualiza por frame para mantener la interfaz fluida. La capa vive en `js/features/command-center.js` y su presentación en `css/command-center.css`.
+
+## Arquitectura
+
+```text
+css/                 estilos base, capas por sección y rebrand
+js/app/              shell, includes, bootstrap y Realtime
+js/core/             estado, utilidades, Storage, multimedia y auditoría
+js/features/         módulos funcionales por dominio
+js/pages/            entry point de cada página
+js/vendor/           cliente local de Supabase
+partials/            header y footer compartidos
+sql/                 esquema y migraciones incrementales
 ```
 
-La migración añade `logs.cover_image_url` y nuevas variantes compatibles de los RPC `create_log` y `update_log`.
+El proyecto es una MPA estática sin bundler ni build step. Usa ES Modules nativos. Cada página carga su entry point y su hoja específica. El rebrand compartido está dividido, en orden de cascada, entre `rebrand.css`, `rebrand-runtime.css`, `rebrand-editors.css`, `rebrand-logs.css`, `rebrand-extras.css` y `rebrand-controls.css`.
 
-## Migración 019: reemplazo global de recursos
+Supabase proporciona Postgres, Auth, Edge Functions, RPC, RLS, Storage y Realtime. La `anon key` es pública por diseño. Las escrituras administrativas pasan por `discord-admin-api`, que valida la sesión, la identidad de Discord, la pertenencia al servidor y el rol configurado antes de usar `service_role` en el servidor. Nunca debe incluirse una `service_role`, un Bot Token ni un Client Secret en el cliente.
 
-El editor de Biblioteca Multimedia permite sustituir el archivo físico de un recurso sin editar manualmente cada uso. Antes de usar **Reemplazar archivo**, ejecuta una vez en Supabase:
+## Migraciones SQL
 
-```sql
-sql/migration_019_replace_media_asset.sql
+Aplicar en orden desde Supabase SQL Editor:
+
+1. `sql/schema.sql`
+2. `sql/migration_002_categories_and_dates.sql`
+3. `sql/migration_003_mob_item_blocks.sql`
+4. `sql/migration_004_advanced_features.sql`
+5. `sql/migration_005_action_log.sql`
+6. `sql/migration_006_tierlist.sql`
+7. `sql/migration_007_drafts.sql`
+8. `sql/migration_008_weapons.sql`
+9. `sql/migration_009_fix_create_category_slug.sql`
+10. `sql/migration_010_storage.sql`
+11. `sql/migration_011_media_library.sql`
+12. `sql/migration_012_media_library_archive_cleanup.sql`
+13. `sql/migration_013_media_picker_light_list.sql`
+14. `sql/migration_014_admin_action_audit_details.sql`
+15. `sql/migration_015_patch_weapon_rank.sql`
+16. `sql/migration_016_kits.sql`
+17. `sql/migration_017_discord_deletion_queue.sql`
+18. `sql/migration_018_log_cover_image.sql`
+19. `sql/migration_019_replace_media_asset.sql`
+20. `sql/migration_020_update_log_category.sql`
+21. `sql/migration_021_discord_auth_and_forum.sql`
+
+Las migraciones nuevas reemplazan algunas RPC conservando sus firmas públicas. No deben ejecutarse fuera de orden.
+
+## Desarrollo local
+
+El sitio debe servirse por HTTP porque los partials se cargan con `fetch()` y los módulos usan rutas relativas. Puede abrirse con Live Server desde VS Code. Abrir los HTML directamente con `file://` no es una prueba válida.
+
+Pruebas mínimas antes de publicar:
+
+```powershell
+$files = rg --files js -g '*.js'
+foreach ($file in $files) { node --check $file }
+git diff --check
 ```
 
-La operación sube un archivo nuevo, actualiza las referencias en logs, mobs, items, tierlist, guías, recetas, kits, borradores y ajustes globales, y después elimina el objeto anterior de Storage. Para evitar romper componentes, una imagen solo puede reemplazarse por otra imagen y un video por otro video.
+Después, comprobar con Live Server:
+
+- Logs: carga, filtros, detalle, fichas, portada, comentarios y edición.
+- Guías: catálogo, filtros, rangos, recetas y enlaces profundos.
+- Tierlist: carga, movimiento, edición y enlaces.
+- Kits: crear una vez, editar, recargar y confirmar que no se duplique.
+- Admin: Discord Login, activación/desactivación del modo, revocación de rol, Multimedia, foro, archivados, import/export y Action Logs.
+- Móvil: sidebar, modal de cuenta, inspector y selectores multimedia.
+
+## Bot de Discord
+
+El bot vive en un repositorio independiente y utiliza la misma aplicación de Discord que el login OAuth. Publica Logs por elemento, procesa la cola del foro de Guías, escala pixel art, genera screenshots y comprueba el rol administrativo. `/getcode` fue retirado. La configuración completa está en `GUIA_DESPLIEGUE_DISCORD_AUTH.md`.
+
+## Estado de mantenimiento
+
+La auditoría del 11 de julio de 2026 confirmó sintaxis válida, imports resueltos, IDs HTML únicos, CSS balanceado y cero ciclos estáticos. La página antigua `weapons.html` fue eliminada: Guías usa `guides.html`, `js/pages/guides.js` y `css/guides.css`. Multimedia separa helpers, usos y orquestación; Mesas de trabajo vive en `weapons-recipes-admin.js` y el resto del CRUD en `weapons-admin.js`.
+
+
+> Los comandos que configuran el canal de Logs o el foro de Guías requieren que el bot tenga **Gestionar roles** y **Gestionar canales**, además de los permisos de mensajes, hilos, embeds y archivos. Discord exige Gestionar roles para editar los overwrites del canal.
+
