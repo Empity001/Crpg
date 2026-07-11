@@ -4933,3 +4933,429 @@ button[aria-disabled="true"],
     min-height: 38px;
   }
 }
+
+/* ======================================================================
+   PILA GLOBAL DE MODALES
+   Cada popup abierto recibe una capa según el orden real de apertura.
+   Evita que confirmaciones, bibliotecas o editores secundarios queden
+   detrás de la ventana que los lanzó, sin depender del orden del HTML.
+   ====================================================================== */
+#modal-portal {
+  z-index: 2147480000 !important;
+}
+
+#modal-portal > .modal-overlay {
+  z-index: var(--modal-stack-z, 100) !important;
+}
+
+#modal-portal > .modal-overlay.is-stack-obscured {
+  pointer-events: none !important;
+}
+
+#modal-portal > .modal-overlay.is-stacked-modal {
+  background: rgba(3, 5, 13, .72) !important;
+}
+
+#modal-portal > .modal-overlay.is-stack-top {
+  pointer-events: auto !important;
+}
+
+#modal-portal > .modal-overlay > .modal-box,
+#modal-portal > .modal-overlay > .admin-login-box {
+  position: relative;
+  z-index: 1;
+}
+
+/* ======================================================================
+   BUSCADOR GLOBAL · todas las secciones
+   ====================================================================== */
+.global-search {
+  --search-height: 42px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: var(--search-height);
+  height: var(--search-height);
+  color: var(--theme-text-main, var(--ink-100));
+  z-index: 122;
+}
+
+.global-search-desktop {
+  position: fixed;
+  top: 17px;
+  right: 20px;
+  width: var(--search-height);
+  transition: width 170ms cubic-bezier(.2,.72,.28,1);
+}
+
+.global-search-desktop.is-open {
+  width: min(390px, calc(100vw - var(--sidebar-width) - 48px));
+}
+
+.global-search-toggle {
+  position: relative;
+  z-index: 2;
+  width: var(--search-height);
+  height: var(--search-height);
+  flex: 0 0 var(--search-height);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--theme-text-secondary, var(--ink-300));
+  border: 1px solid var(--theme-border, var(--border-soft));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--theme-elevated-bg, var(--surface-2)) 88%, transparent);
+  box-shadow: 0 12px 34px rgba(0,0,0,.25);
+  backdrop-filter: blur(18px);
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease, border-radius 170ms ease;
+}
+
+.global-search.is-open .global-search-toggle {
+  color: var(--theme-selection, var(--admin-purple-light));
+  border-color: color-mix(in srgb, var(--theme-selection, var(--admin-purple)) 58%, transparent);
+  border-radius: 12px 0 0 12px;
+  background: color-mix(in srgb, var(--theme-input-bg, var(--surface-2)) 96%, transparent);
+  box-shadow: none;
+}
+
+.global-search-icon {
+  position: relative;
+  width: 17px;
+  height: 17px;
+  display: block;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+.global-search-icon::after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 2px;
+  right: -5px;
+  bottom: -2px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: rotate(45deg);
+  transform-origin: center;
+}
+
+.global-search-field {
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  border: 1px solid transparent;
+  border-left: 0;
+  border-radius: 0 12px 12px 0;
+  background: color-mix(in srgb, var(--theme-input-bg, var(--surface-2)) 96%, transparent);
+  backdrop-filter: blur(18px);
+  transition: opacity 120ms ease, border-color 150ms ease;
+}
+
+.global-search.is-open .global-search-field {
+  opacity: 1;
+  pointer-events: auto;
+  border-color: color-mix(in srgb, var(--theme-selection, var(--admin-purple)) 58%, transparent);
+}
+
+.global-search-field input {
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0 8px 0 11px;
+  color: var(--theme-text-main, var(--ink-100));
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 13px;
+}
+.global-search-field input::placeholder { color: var(--theme-text-muted, var(--ink-600)); }
+.global-search-field input::-webkit-search-cancel-button { display: none; }
+
+.global-search-clear {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--theme-text-muted, var(--ink-600));
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+.global-search-clear:hover { color: var(--theme-text-main, var(--ink-100)); background: color-mix(in srgb, var(--theme-secondary-hover, var(--surface-3)) 72%, transparent); }
+
+.global-search-field kbd {
+  margin-right: 7px;
+  padding: 3px 6px;
+  color: var(--theme-text-muted, var(--ink-600));
+  border: 1px solid var(--theme-border, var(--border-soft));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--theme-page-bg, var(--bg)) 58%, transparent);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.global-search-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(560px, calc(100vw - var(--sidebar-width) - 40px));
+  max-height: min(620px, calc(100dvh - 84px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-7px) scale(.985);
+  transform-origin: top right;
+  border: 1px solid color-mix(in srgb, var(--theme-selection, var(--admin-purple)) 42%, var(--theme-border, var(--border-soft)));
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 90% 0%, color-mix(in srgb, var(--theme-selection, var(--admin-purple)) 10%, transparent), transparent 36%),
+    color-mix(in srgb, var(--theme-card-bg, var(--bg-card)) 97%, transparent);
+  box-shadow: 0 28px 80px rgba(0,0,0,.58), 0 0 28px color-mix(in srgb, var(--theme-selection, var(--admin-purple)) 13%, transparent);
+  backdrop-filter: blur(24px);
+  transition: opacity 140ms ease, transform 160ms ease, visibility 0s linear 160ms;
+}
+.global-search.is-open .global-search-popover {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+  transition-delay: 0s;
+}
+
+.global-search-popover-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--theme-border, var(--border-dim));
+}
+.global-search-popover-head span { font-size: 13px; font-weight: 750; }
+.global-search-popover-head small { color: var(--theme-text-muted, var(--ink-600)); font-size: 9px; }
+
+.global-search-results {
+  min-height: 116px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px;
+  scrollbar-gutter: stable;
+}
+
+.global-search-message {
+  min-height: 126px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 24px;
+  color: var(--theme-text-muted, var(--ink-600));
+  text-align: center;
+}
+.global-search-message > span:not(.global-search-spinner) { font-size: 24px; color: var(--theme-selection, var(--admin-purple-light)); }
+.global-search-message p { margin: 0; max-width: 340px; font-size: 12px; line-height: 1.5; }
+.global-search-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid color-mix(in srgb, var(--theme-selection, var(--admin-purple)) 20%, transparent);
+  border-top-color: var(--theme-selection, var(--admin-purple));
+  border-radius: 50%;
+  animation: global-search-spin .7s linear infinite;
+}
+@keyframes global-search-spin { to { transform: rotate(360deg); } }
+
+.global-search-result {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 11px;
+  min-height: 58px;
+  padding: 8px 10px;
+  color: var(--theme-text-main, var(--ink-100));
+  border: 1px solid transparent;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+.global-search-result + .global-search-result { margin-top: 3px; }
+.global-search-result:hover,
+.global-search-result.is-keyboard-active {
+  border-color: color-mix(in srgb, var(--theme-selection, var(--admin-purple)) 34%, transparent);
+  background: color-mix(in srgb, var(--theme-selection, var(--admin-purple)) 10%, var(--theme-elevated-bg, var(--surface-2)));
+  transform: translateX(2px);
+}
+
+.global-search-result-media {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--theme-border, var(--border-soft));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--theme-input-bg, var(--surface-2)) 84%, transparent);
+  font-size: 18px;
+}
+.global-search-result-media img { width: 100%; height: 100%; display: block; object-fit: contain; image-rendering: pixelated; }
+.global-search-result-media span { display: none; }
+.global-search-result-media.is-broken img { display: none; }
+.global-search-result-media.is-broken span { display: grid; }
+.global-search-result-media.is-fallback { color: var(--theme-selection, var(--admin-purple-light)); }
+
+.global-search-result-copy { min-width: 0; display: grid; gap: 4px; }
+.global-search-result-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.global-search-result-title em {
+  color: var(--theme-selection, var(--admin-purple-light));
+  font-style: normal;
+  font-weight: 650;
+}
+.global-search-result-title mark {
+  padding: 0;
+  color: inherit;
+  background: color-mix(in srgb, var(--theme-warning, var(--gold)) 34%, transparent);
+  border-radius: 3px;
+}
+.global-search-result-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--theme-text-muted, var(--ink-600));
+  font-size: 9.5px;
+}
+.global-search-result-meta b {
+  flex: 0 0 auto;
+  color: var(--theme-text-secondary, var(--ink-400));
+  font-weight: 650;
+}
+.global-search-result-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.global-search-result-arrow { color: var(--theme-text-muted, var(--ink-600)); font-size: 12px; }
+
+.global-search-mobile { display: none; }
+
+/* Destinos abiertos desde el buscador. */
+.global-search-target {
+  animation: global-search-target 1.9s ease both;
+  scroll-margin: 96px 24px;
+}
+@keyframes global-search-target {
+  0%, 100% { box-shadow: inherit; }
+  18%, 68% {
+    border-color: color-mix(in srgb, var(--theme-selection, var(--admin-purple)) 82%, transparent) !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-selection, var(--admin-purple)) 20%, transparent), 0 0 30px color-mix(in srgb, var(--theme-selection, var(--admin-purple)) 22%, transparent) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .global-search-desktop { display: none; }
+  .global-search-mobile {
+    --search-height: 38px;
+    display: flex;
+    width: var(--search-height);
+    flex: 0 0 var(--search-height);
+    margin-left: auto;
+    transition: width 165ms cubic-bezier(.2,.72,.28,1), flex-basis 165ms cubic-bezier(.2,.72,.28,1);
+  }
+  .global-search-mobile.is-open {
+    width: min(350px, calc(100vw - 154px));
+    flex-basis: min(350px, calc(100vw - 154px));
+  }
+  .global-search-mobile .global-search-toggle {
+    box-shadow: none;
+    border-radius: 11px;
+  }
+  .global-search-mobile .global-search-field { border-radius: 0 11px 11px 0; }
+  .global-search-mobile .global-search-field input { font-size: 12px; padding-left: 9px; }
+  .global-search-mobile .global-search-popover {
+    position: fixed;
+    top: 72px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: calc(100dvh - 82px);
+    transform-origin: top center;
+    border-radius: 16px;
+  }
+  .mobile-admin-indicator { margin-left: 0; flex: 0 0 auto; }
+  body.global-search-mobile-open .mobile-brand-title { display: none; }
+  body.global-search-mobile-open .mobile-brand-mark { display: none; }
+  body.global-search-mobile-open .global-search-mobile {
+    width: min(380px, calc(100vw - 118px));
+    flex-basis: min(380px, calc(100vw - 118px));
+  }
+  .global-search-popover-head { padding: 12px 13px 10px; }
+  .global-search-popover-head small { display: none; }
+  .global-search-results { padding: 6px; }
+}
+
+@media (max-width: 520px) {
+  .mobile-topbar { gap: 8px; padding-inline: 10px; }
+  .global-search-mobile.is-open,
+  body.global-search-mobile-open .global-search-mobile {
+    width: calc(100vw - 106px);
+    flex-basis: calc(100vw - 106px);
+  }
+  body.global-search-mobile-open .mobile-admin-indicator { display: none !important; }
+  .global-search-result { grid-template-columns: 38px minmax(0, 1fr) 14px; gap: 9px; padding: 7px; }
+  .global-search-result-media { width: 38px; height: 38px; }
+  .global-search-result-title { font-size: 11.5px; }
+  .global-search-result-meta { font-size: 8.8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .global-search,
+  .global-search-popover,
+  .global-search-result { transition: none !important; }
+  .global-search-target { animation: none; }
+}
+
+/* El buscador debe quedar por encima del inspector lateral, pero por
+   debajo de los modales administrados por la pila global. */
+.global-search { z-index: 180; }
+@media (max-width: 900px) { .mobile-topbar { z-index: 180; } }
+.about-block-figure { margin: 0; }
+
+
+/* Error de arranque visible: evita una pantalla completamente vacía si
+   una dependencia externa o un módulo opcional falla. */
+.boot-error-panel {
+  position: relative;
+  z-index: 10;
+  max-width: 680px;
+  margin: 48px auto;
+  padding: 24px;
+  border: 1px solid color-mix(in srgb, var(--theme-danger, #ff4d67) 55%, var(--theme-border, #292e4d));
+  border-radius: 18px;
+  background: var(--theme-card-bg, #111528);
+  color: var(--theme-text-main, #f5f3ff);
+  box-shadow: 0 18px 55px rgba(0,0,0,.35);
+}
+.boot-error-panel strong { display:block; margin-bottom:8px; font-size:20px; }
+.boot-error-panel p { margin:0 0 16px; color:var(--theme-text-secondary,#aaa6c5); line-height:1.55; }
+.boot-error-panel button {
+  min-height:42px; padding:0 16px; border:0; border-radius:11px;
+  background:var(--theme-primary,#8b3dff); color:var(--theme-primary-text,#fff);
+  font-weight:700; cursor:pointer;
+}

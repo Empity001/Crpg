@@ -14,6 +14,15 @@ export function debounce(fn, delay) {
   };
 }
 
+export function withTimeout(promise, timeoutMs = 10000, label = 'La operación') {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error(`${label} tardó demasiado.`)), timeoutMs);
+  });
+  return Promise.race([Promise.resolve(promise), timeout])
+    .finally(() => window.clearTimeout(timer));
+}
+
 // ---------------------------------------------------------
 // FLAG: suprime la recarga por Realtime cuando el propio
 // cliente acaba de guardar. Se activa justo antes de la
@@ -28,12 +37,19 @@ export function getOrCreateClientId() {
 
 
 export function showToast(message, type = 'default') {
-  const container = document.getElementById('toast-container');
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body?.appendChild(container);
+  }
+  if (!container) return;
   const toast = document.createElement('div');
   toast.className = `toast ${type === 'error' ? 'toast-error' : type === 'success' ? 'toast-success' : ''}`;
   toast.textContent = message;
   container.appendChild(toast);
-  setTimeout(() => toast.remove(), 4000);
+  window.setTimeout(() => toast.remove(), 4000);
 }
 
 const editorClipboards = new Map();
@@ -58,8 +74,10 @@ export function hasEditorPayload(scope) {
 }
 
 const modalLifecycleCleanups = new Map();
+const modalVisibilityStates = new WeakMap();
 let modalLifecycleObserver = null;
 let modalPortal = null;
+let modalOpenSequence = 0;
 
 function uniqueList(...lists) {
   return [...new Set(lists.flat().filter(Boolean))];
@@ -124,6 +142,46 @@ export function mountModal(modal) {
   return modal;
 }
 
+function visibleModalOverlays() {
+  const portal = ensureModalPortal();
+  return [...portal.querySelectorAll(':scope > .modal-overlay:not(.hidden)')];
+}
+
+function recomputeModalStack() {
+  const visible = visibleModalOverlays()
+    .sort((a, b) => Number(a.dataset.modalOpenSequence || 0) - Number(b.dataset.modalOpenSequence || 0));
+
+  visible.forEach((modal, index) => {
+    const layer = 100 + index * 20;
+    modal.style.setProperty('--modal-stack-z', String(layer));
+    modal.dataset.modalStackDepth = String(index);
+    modal.classList.toggle('is-stacked-modal', index > 0);
+    modal.classList.toggle('is-stack-top', index === visible.length - 1);
+    modal.classList.toggle('is-stack-obscured', index < visible.length - 1);
+  });
+
+  ensureModalPortal().querySelectorAll(':scope > .modal-overlay.hidden').forEach(modal => {
+    modal.style.removeProperty('--modal-stack-z');
+    delete modal.dataset.modalStackDepth;
+    modal.classList.remove('is-stacked-modal', 'is-stack-top', 'is-stack-obscured');
+  });
+}
+
+export function bringModalToFront(modal) {
+  if (!(modal instanceof Element)) return modal;
+  mountModal(modal);
+  if (modal.classList.contains('hidden')) return modal;
+
+  modalOpenSequence += 1;
+  modal.dataset.modalOpenSequence = String(modalOpenSequence);
+  // El orden DOM también sirve como respaldo en navegadores con reglas CSS
+  // antiguas cacheadas. El z-index real se asigna después por profundidad.
+  ensureModalPortal().appendChild(modal);
+  recomputeModalStack();
+  document.dispatchEvent(new CustomEvent('culones:modal-opened', { detail: { modal } }));
+  return modal;
+}
+
 function visibleModalCount() {
   const portal = ensureModalPortal();
   return portal.querySelectorAll('.modal-overlay:not(.hidden)').length;
@@ -171,59 +229,71 @@ export function cleanupModalVisualResources(modal) {
   (config.onCloseCallbacks || []).forEach(callback => callback(modal));
 }
 
-function handleModalLifecycleChange(modal) {
+function handleModalLifecycleChange(modal, { force = false } = {}) {
   if (!(modal instanceof Element)) return;
-  mountModal(modal);
-  const isHidden = modal.classList.contains('hidden');
-  modal.setAttribute('aria-hidden', isHidden ? 'true' : 'false');
-  if (!isHidden) {
-    modal.dataset.visualResourcesCleaned = 'false';
-    syncModalOpenState();
-    return;
-  }
-  if (modal.dataset.visualResourcesCleaned !== 'true') {
-    cleanupModalVisualResources(modal);
-    modal.dataset.visualResourcesCleaned = 'true';
-  }
-  syncModalOpenState();
-}
 
-function collectModalOverlays(node) {
-  if (!(node instanceof Element)) return [];
-  const modals = [];
-  if (node.classList.contains('modal-overlay')) modals.push(node);
-  node.querySelectorAll?.('.modal-overlay').forEach(modal => modals.push(modal));
-  return modals;
+  const isVisible = !modal.classList.contains('hidden');
+  const previous = modalVisibilityStates.get(modal);
+
+  // Las clases internas de la pila (is-stack-top, is-stack-obscured, etc.)
+  // también producen mutaciones. Si la visibilidad real no cambió, no
+  // hacemos nada: esto evita un bucle de MutationObserver y el crecimiento
+  // progresivo de memoria que podía dejar la página en blanco.
+  if (!force && previous === isVisible) return;
+
+  modalVisibilityStates.set(modal, isVisible);
+  modal.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+
+  if (isVisible) {
+    modal.dataset.visualResourcesCleaned = 'false';
+    modalOpenSequence += 1;
+    modal.dataset.modalOpenSequence = String(modalOpenSequence);
+    const portal = ensureModalPortal();
+    if (modal.parentElement !== portal) portal.appendChild(modal);
+    else portal.appendChild(modal); // lo deja como la capa más reciente
+  } else {
+    if (modal.dataset.visualResourcesCleaned !== 'true') {
+      cleanupModalVisualResources(modal);
+      modal.dataset.visualResourcesCleaned = 'true';
+    }
+    delete modal.dataset.modalOpenSequence;
+  }
+
+  recomputeModalStack();
+  syncModalOpenState();
 }
 
 export function setupModalLifecycleObserver() {
   if (modalLifecycleObserver || !document.body) return;
-  ensureModalPortal();
+  const portal = ensureModalPortal();
 
-  // Saca los modales estáticos de los placeholders/footer y los monta en
-  // una única capa fija antes de empezar a observar nuevas interfaces.
-  [...document.querySelectorAll('.modal-overlay')].forEach(modal => mountModal(modal));
+  // Todos los overlays existentes se montan una sola vez antes de observar.
+  [...document.querySelectorAll('.modal-overlay')].forEach(modal => {
+    mountModal(modal);
+    handleModalLifecycleChange(modal, { force: true });
+  });
 
+  // Solo observamos el atributo class de overlays que ya viven dentro del
+  // portal. No observamos todo el body ni cada render dinámico de tarjetas.
   modalLifecycleObserver = new MutationObserver(mutations => {
-    mutations.forEach(mutation => {
+    for (const mutation of mutations) {
       const target = mutation.target;
-      if (mutation.type === 'attributes' && target instanceof Element && target.classList.contains('modal-overlay')) {
+      if (target instanceof Element && target.matches('.modal-overlay')) {
         handleModalLifecycleChange(target);
       }
-      if (mutation.type === 'childList') {
-        mutation.addedNodes.forEach(node => {
-          collectModalOverlays(node).forEach(handleModalLifecycleChange);
-        });
-      }
-    });
+    }
   });
-  modalLifecycleObserver.observe(document.body, {
+  modalLifecycleObserver.observe(portal, {
     attributes: true,
     attributeFilter: ['class'],
-    childList: true,
     subtree: true,
   });
-  document.querySelectorAll('.modal-overlay').forEach(handleModalLifecycleChange);
+
+  window.addEventListener('pagehide', () => {
+    modalLifecycleObserver?.disconnect();
+    modalLifecycleObserver = null;
+  }, { once: true });
+
   syncModalOpenState();
 }
 
@@ -280,6 +350,7 @@ export function confirmAction({
     closeBtn.onclick = () => cleanup(false);
     modal.onclick = (event) => { if (event.target === modal) cleanup(false); };
     modal.classList.remove('hidden');
+    bringModalToFront(modal);
     cancelBtn.focus();
   });
 }

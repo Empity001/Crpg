@@ -11,10 +11,10 @@ import { bootShell } from '../app/shell.js';
 import { initWeaponsRealtime } from '../app/realtime.js';
 import { isAdmin, state } from '../core/state.js';
 import { registerAdminUiRefreshHandler } from '../features/auth.js';
-import { initWeaponModals } from '../features/weapons-admin.js?v=20260710-13';
-import { renderWeaponsGrid } from '../features/weapons-catalog.js?v=20260710-12';
-import { loadWeaponsCatalog } from '../features/weapons-data.js?v=20260710-12';
-import { openWeaponDetail, renderWeaponDetail } from '../features/weapons-detail.js?v=20260710-12';
+import { initWeaponModals } from '../features/weapons-admin.js';
+import { renderWeaponsGrid } from '../features/weapons-catalog.js';
+import { loadWeaponsCatalog } from '../features/weapons-data.js';
+import { openWeaponDetail, renderWeaponDetail } from '../features/weapons-detail.js';
 
 function openLinkedGuideFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -37,9 +37,27 @@ async function init() {
     renderWeaponsGrid();
     if (state.currentWeaponId) renderWeaponDetail();
   });
-  await loadWeaponsCatalog();
-  openLinkedGuideFromUrl();
-  initWeaponsRealtime();
+  const weaponsLoaded = await loadWeaponsCatalog();
+  if (weaponsLoaded) {
+    openLinkedGuideFromUrl();
+    initWeaponsRealtime();
+  }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  init().catch(error => {
+    console.error('[Boot] Error al iniciar la página:', error);
+    const main = document.querySelector('.app-main') || document.body;
+    const existing = document.getElementById('boot-error-panel');
+    if (existing) return;
+    const panel = document.createElement('section');
+    panel.id = 'boot-error-panel';
+    panel.className = 'boot-error-panel';
+    panel.innerHTML = `
+      <strong>No se pudo iniciar esta página</strong>
+      <p>Recarga con Ctrl + F5. Si continúa, revisa la consola del navegador o la conexión con Supabase.</p>
+      <button type="button">Recargar</button>`;
+    panel.querySelector('button')?.addEventListener('click', () => window.location.reload());
+    main.prepend(panel);
+  });
+});

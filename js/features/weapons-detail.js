@@ -157,16 +157,16 @@ function renderWeaponRankBody(weapon, rank, admin) {
       </div>`;
   }
 
-  // ---- Mejora/fabricación ----
+  // ---- Mesas de trabajo ----
   const recipe = rank.upgrade_recipe;
   if (recipe || admin) {
     html += `
       <div class="weapon-section-block">
         <div class="weapon-section-head">
-          <h3 class="weapon-section-title">🔁 Mejora/fabricación</h3>
-          ${admin ? `<div class="weapon-section-admin-actions"><button type="button" class="btn-secondary-admin" data-action="edit-recipe" data-rank-id="${rank.id}">✏️ Editar mejora/fabricación</button></div>` : ''}
+          <h3 class="weapon-section-title">🛠️ Mesas de trabajo</h3>
+          ${admin ? `<div class="weapon-section-admin-actions"><button type="button" class="btn-secondary-admin" data-action="edit-recipe" data-rank-id="${rank.id}">✏️ Editar mesas de trabajo</button></div>` : ''}
         </div>
-        ${recipe ? renderRecipeTrade(recipe) : '<p class="comments-empty">Este rango no tiene receta de mejora configurada.</p>'}
+        ${recipe ? renderRecipeTrade(recipe) : '<p class="comments-empty">Este rango no tiene mesas de trabajo configuradas.</p>'}
       </div>`;
   }
 

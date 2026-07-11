@@ -1071,7 +1071,7 @@ async function submitWeaponRecipe() {
 async function clearWeaponRecipe() {
   if (!(await confirmAction({
     title: 'Quitar receta',
-    message: 'Quitar la receta de mejora de este rango.',
+    message: 'Quitar las mesas de trabajo configuradas para este rango.',
     confirmLabel: 'Quitar receta',
     danger: true,
   }))) return;

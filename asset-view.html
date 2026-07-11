@@ -92,9 +92,10 @@
     <img id="asset-img" alt="Vista completa" style="display:none;" />
   </div>
 
+  <script src="js/vendor/supabase.js?v=20260711-11"></script>
   <script type="module">
     import { supabaseClient } from './js/config.js';
-    import { applyThemeConfig, getLocalThemeOverride, normalizeThemeConfig } from './js/features/theme.js?v=20260711-02';
+    import { applyThemeConfig, getLocalThemeOverride, normalizeThemeConfig } from './js/features/theme.js';
 
     const localTheme = getLocalThemeOverride();
     if (localTheme) {

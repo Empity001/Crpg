@@ -6,12 +6,14 @@
 // incluida su dropzone de imagen dedicada.
 // =========================================================
 
-import { supabaseClient } from '../config.js';
+import { disableQueryRetry, supabaseClient } from '../config.js';
 import { TIER_COLUMNS, isAdmin, state, suppressNextTierlistReload } from '../core/state.js';
 import { initImageUploader, updateAssetPreview, uploadImageToStorage } from '../core/storage.js';
-import { confirmAction, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast } from '../core/utils.js';
+import { confirmAction, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast, withTimeout } from '../core/utils.js';
 import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 import { getGuideLinkFromFields, hydrateGuideLinkSelect, openGuideLink, readGuideLinkSelect, setGuideLinkInFields } from './guide-links.js';
+
+let tierlistLoadPromise = null;
 
 export function syncTierDropzoneState(url) {
   const zone  = document.getElementById('tier-item-dropzone');
@@ -162,23 +164,40 @@ export function initTierItemDropzone() {
 // getOldUrl : función que devuelve la URL actual guardada (para borrado de huérfanos)
 // onChange  : callback(url) llamado tras subir o quitar la imagen
 
-export async function loadTierlist() {
+async function performTierlistLoad() {
   const board = document.getElementById('tierlist-board');
-  const [rowsRes, itemsRes] = await Promise.all([
-    supabaseClient.from('tierlist_rows').select('id,name,color,sort_order').order('sort_order', { ascending: true }),
-    supabaseClient.from('tierlist_items').select('id,row_id,column_key,name,image_url,extra_fields,sort_order').order('sort_order', { ascending: true }),
-  ]);
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 8500);
+  try {
+    let rowsRequest = disableQueryRetry(supabaseClient.from('tierlist_rows').select('id,name,color,sort_order').order('sort_order', { ascending: true }));
+    let itemsRequest = disableQueryRetry(supabaseClient.from('tierlist_items').select('id,row_id,column_key,name,image_url,extra_fields,sort_order').order('sort_order', { ascending: true }));
+    if (typeof rowsRequest?.abortSignal === 'function') rowsRequest = rowsRequest.abortSignal(controller.signal);
+    if (typeof itemsRequest?.abortSignal === 'function') itemsRequest = itemsRequest.abortSignal(controller.signal);
+    const [rowsRes, itemsRes] = await withTimeout(Promise.all([rowsRequest, itemsRequest]), 9000, 'La carga de tierlist');
 
-  if (rowsRes.error || itemsRes.error) {
-    console.error(rowsRes.error || itemsRes.error);
-    if (board) board.innerHTML = `<div class="logs-empty"><p>No se pudo cargar la tierlist.</p></div>`;
-    return;
+    if (rowsRes.error || itemsRes.error) {
+      console.error(rowsRes.error || itemsRes.error);
+      if (board) board.innerHTML = `<div class="logs-empty"><p>No se pudo cargar la tierlist.</p></div>`;
+      return false;
+    }
+
+    state.tierRows = rowsRes.data || [];
+    state.tierItems = itemsRes.data || [];
+    state.tierlistLoaded = true;
+    renderTierlist();
+    return true;
+  } catch (error) {
+    if (error?.name !== 'AbortError') console.error('[Tierlist]', error);
+    if (board) board.innerHTML = `<div class="logs-empty"><p>La carga de la tierlist tardó demasiado. Revisa tu conexión.</p></div>`;
+    return false;
+  } finally {
+    window.clearTimeout(timer);
   }
+}
 
-  state.tierRows = rowsRes.data;
-  state.tierItems = itemsRes.data;
-  state.tierlistLoaded = true;
-  renderTierlist();
+export function loadTierlist() {
+  if (!tierlistLoadPromise) tierlistLoadPromise = performTierlistLoad().finally(() => { tierlistLoadPromise = null; });
+  return tierlistLoadPromise;
 }
 
 

@@ -26,9 +26,12 @@ import { closeAdminLoginModal, logoutAdmin, openAdminLoginModal, prepareAdminLog
 import { loadAppSettings } from '../features/field-config.js';
 import { isAdmin, state } from '../core/state.js';
 import { openAssetFullscreen } from '../core/storage.js';
-import { registerModalLifecycleCleanup, setupModalLifecycleObserver } from '../core/utils.js';
+import { registerModalLifecycleCleanup, setupModalLifecycleObserver, withTimeout } from '../core/utils.js';
 
 let modalVisualCleanupsRegistered = false;
+let shellBootPromise = null;
+let shellListenersController = null;
+let globalSearchModulePromise = null;
 
 const PAGE_HERO_COPY = {
   logs: {
@@ -237,18 +240,99 @@ function wireAssetFullscreenDelegation() {
 // (header/footer inyectados, admin UI actualizada, app_settings
 // cargados). Cada página debe `await`earla antes de cablear lo suyo.
 
-export async function bootShell(pageKey) {
-  state.activeTab = pageKey;
-  await loadSharedShell();
-  prepareAdminLoginModal();
-  registerModalVisualCleanups();
-  setupModalLifecycleObserver();
-  document.body.dataset.page = pageKey;
-  wireHeaderNav(pageKey);
-  ensurePageHero(pageKey);
-  wireMobileSidebar();
-  wireAdminModal();
-  wireAssetFullscreenDelegation();
-  updateAdminUI();
-  await loadAppSettings();
+function loadGlobalSearchModule() {
+  if (!globalSearchModulePromise) {
+    globalSearchModulePromise = import('../features/global-search.js')
+      .then(module => {
+        module.initGlobalSearch();
+        return module;
+      })
+      .catch(error => {
+        globalSearchModulePromise = null;
+        console.error('[GlobalSearch] No se pudo cargar:', error);
+        throw error;
+      });
+  }
+  return globalSearchModulePromise;
+}
+
+function wireLazyGlobalSearch() {
+  if (shellListenersController) return;
+  shellListenersController = new AbortController();
+  const { signal } = shellListenersController;
+
+  // El buscador no se importa al arrancar. Solo se descarga cuando el
+  // usuario pulsa la lupa o usa Ctrl/Cmd + K. Así una consulta pesada o un
+  // fallo del módulo nunca deja la página en blanco.
+  document.addEventListener('click', event => {
+    const trigger = event.target instanceof Element
+      ? event.target.closest('[data-global-search-toggle]')
+      : null;
+    if (!trigger) return;
+    const root = trigger.closest('[data-global-search-root]');
+    if (!root || root.dataset.searchReady === 'true') return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    loadGlobalSearchModule()
+      .then(module => {
+        root.dataset.searchReady = 'true';
+        module.openGlobalSearch(root);
+      })
+      .catch(() => {});
+  }, { capture: true, signal });
+
+  document.addEventListener('keydown', event => {
+    if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k') return;
+    if (document.documentElement.dataset.globalSearchReady === 'true') return;
+    event.preventDefault();
+    loadGlobalSearchModule()
+      .then(module => {
+        document.documentElement.dataset.globalSearchReady = 'true';
+        module.openGlobalSearch();
+      })
+      .catch(() => {});
+  }, { capture: true, signal });
+
+  window.addEventListener('pagehide', () => {
+    shellListenersController?.abort();
+    shellListenersController = null;
+  }, { once: true });
+}
+
+export function bootShell(pageKey) {
+  if (shellBootPromise) return shellBootPromise;
+
+  shellBootPromise = (async () => {
+    state.activeTab = pageKey;
+    // Activa el layout específico desde el primer frame, antes de cualquier red.
+    if (document.body) document.body.dataset.page = pageKey;
+    await withTimeout(loadSharedShell(), 6500, 'La interfaz compartida');
+    prepareAdminLoginModal();
+    registerModalVisualCleanups();
+    setupModalLifecycleObserver();
+    document.body.dataset.page = pageKey;
+    wireHeaderNav(pageKey);
+    ensurePageHero(pageKey);
+    wireMobileSidebar();
+    wireAdminModal();
+    wireAssetFullscreenDelegation();
+    wireLazyGlobalSearch();
+    updateAdminUI();
+
+    // Los valores locales/predeterminados se aplican de forma síncrona al
+    // iniciar loadAppSettings(). La consulta remota continúa en segundo plano:
+    // nunca debe bloquear el header, la navegación ni la carga de la página.
+    void loadAppSettings().catch(error => {
+      console.warn('[Boot] Se usará la configuración visual local:', error);
+    });
+
+    document.documentElement.dataset.shellReady = 'true';
+    window.dispatchEvent(new Event('culones:boot-ready'));
+    return true;
+  })().catch(error => {
+    shellBootPromise = null;
+    throw error;
+  });
+
+  return shellBootPromise;
 }

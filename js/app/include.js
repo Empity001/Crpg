@@ -1,33 +1,40 @@
 // =========================================================
-// include.js
-// =========================================================
-// Carga fragmentos HTML compartidos (partials/header.html,
-// partials/footer.html) e los inyecta en placeholders del documento.
-// Es el mecanismo que permite reutilizar el header, la barra de
-// navegación, el modal de login y los toasts entre TODAS las páginas
-// sin duplicar ese HTML en cada archivo .html del proyecto.
+// include.js — carga robusta de los fragmentos compartidos
 // =========================================================
 
-async function loadPartial(url, targetId) {
-  const el = document.getElementById(targetId);
-  if (!el) return;
+async function fetchTextWithTimeout(url, timeoutMs = 4500) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    el.innerHTML = await res.text();
-  } catch (err) {
-    console.error(`[include] No se pudo cargar ${url}:`, err);
+    const response = await fetch(url, { cache: 'no-cache', signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.text();
+  } finally {
+    window.clearTimeout(timer);
   }
 }
 
-// Carga en paralelo el header y el footer compartidos. Se espera que
-// cada página tenga <div id="shell-header"></div> justo después de
-// <body> y <div id="shell-footer"></div> justo antes de los <script>
-// finales.
+async function loadPartial(url, targetId) {
+  const target = document.getElementById(targetId);
+  if (!target) return false;
+  try {
+    target.innerHTML = await fetchTextWithTimeout(url);
+    return true;
+  } catch (error) {
+    console.error(`[include] No se pudo cargar ${url}:`, error);
+    target.dataset.partialFailed = 'true';
+    return false;
+  }
+}
 
-export async function loadSharedShell() {
-  await Promise.all([
-    loadPartial('partials/header.html?v=20260710-5', 'shell-header'),
-    loadPartial('partials/footer.html?v=20260710-5', 'shell-footer'),
-  ]);
+let sharedShellPromise = null;
+
+export function loadSharedShell() {
+  if (!sharedShellPromise) {
+    sharedShellPromise = Promise.all([
+      loadPartial('partials/header.html?v=20260711-11', 'shell-header'),
+      loadPartial('partials/footer.html?v=20260711-11', 'shell-footer'),
+    ]).then(([headerLoaded, footerLoaded]) => ({ headerLoaded, footerLoaded }));
+  }
+  return sharedShellPromise;
 }

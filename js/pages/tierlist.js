@@ -15,7 +15,20 @@ import { attachMediaPickerButton } from '../features/media-library.js';
 import {
   initTierItemClipboardActions, initTierItemDropzone, loadTierlist, openTierItemModal, openTierRowModal,
   renderTierlist, submitTierItem, submitTierMove, submitTierRow, syncTierDropzoneState,
-} from '../features/tierlist.js?v=20260710-12';
+} from '../features/tierlist.js';
+
+
+function focusLinkedTierItem() {
+  const itemId = new URLSearchParams(window.location.search).get('item');
+  if (!itemId) return;
+  window.requestAnimationFrame(() => {
+    const item = document.querySelector(`.tier-item-chip[data-item-id="${CSS.escape(itemId)}"]`);
+    if (!item) return;
+    item.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    item.classList.add('global-search-target');
+    window.setTimeout(() => item.classList.remove('global-search-target'), 2100);
+  });
+}
 
 function initTierlistModals() {
   document.getElementById('open-new-tier-row-btn').addEventListener('click', () => openTierRowModal(null));
@@ -54,8 +67,27 @@ async function init() {
   await bootShell('tierlist');
   initTierlistModals();
   registerAdminUiRefreshHandler(() => { if (state.tierlistLoaded) renderTierlist(); });
-  await loadTierlist();
-  initTierlistRealtime();
+  const tierlistLoaded = await loadTierlist();
+  if (tierlistLoaded) {
+    focusLinkedTierItem();
+    initTierlistRealtime();
+  }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  init().catch(error => {
+    console.error('[Boot] Error al iniciar la página:', error);
+    const main = document.querySelector('.app-main') || document.body;
+    const existing = document.getElementById('boot-error-panel');
+    if (existing) return;
+    const panel = document.createElement('section');
+    panel.id = 'boot-error-panel';
+    panel.className = 'boot-error-panel';
+    panel.innerHTML = `
+      <strong>No se pudo iniciar esta página</strong>
+      <p>Recarga con Ctrl + F5. Si continúa, revisa la consola del navegador o la conexión con Supabase.</p>
+      <button type="button">Recargar</button>`;
+    panel.querySelector('button')?.addEventListener('click', () => window.location.reload());
+    main.prepend(panel);
+  });
+});

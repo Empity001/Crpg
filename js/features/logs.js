@@ -76,6 +76,7 @@ export function initSortControl() {
 export async function loadLogs() {
   const ok = await loadLogsData();
   if (ok) renderLogs();
+  return ok;
 }
 
 // ---------------------------------------------------------
@@ -131,6 +132,40 @@ function selectLog(logId, { resetTab = true } = {}) {
   if (window.matchMedia('(max-width: 1180px)').matches) {
     document.body.classList.add('logs-inspector-open');
   }
+}
+
+
+export function openLogFromSearch(logId, { tab = 'summary', entryId = null } = {}) {
+  const allowedTabs = new Set(['summary', 'mobs', 'items', 'blocks']);
+  const orderedLogs = sortLogs(state.logs);
+  const logIndex = orderedLogs.findIndex(log => log.id === logId);
+  if (logIndex < 0) return;
+
+  // Un resultado global debe poder abrirse aunque el usuario tuviera
+  // otro filtro activo o el log estuviera después de la primera tanda.
+  state.activeFilter = 'all';
+  state.logsPage = Math.max(state.logsPage, Math.ceil((logIndex + 1) / PAGE_SIZE));
+  document.querySelectorAll('#category-filters .pill').forEach(pill => {
+    pill.classList.toggle('is-active', pill.dataset.filter === 'all');
+  });
+  renderLogs();
+
+  inspectorTab = allowedTabs.has(tab) ? tab : 'summary';
+  selectLog(logId, { resetTab: false });
+
+  const cardInList = document.querySelector(`.log-list-card[data-log-id="${CSS.escape(String(logId))}"]`);
+  cardInList?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  if (!entryId || inspectorTab === 'summary') return;
+  window.requestAnimationFrame(() => {
+    const inspector = document.getElementById('logs-inspector');
+    const card = inspector?.querySelector(`.inspector-entity-card[data-entry-id="${CSS.escape(String(entryId))}"]`);
+    const toggle = card?.querySelector('.inspector-entity-toggle');
+    if (!toggle) return;
+    toggle.click();
+    card.classList.add('global-search-target');
+    window.setTimeout(() => card.classList.remove('global-search-target'), 2100);
+  });
 }
 
 function bindCardEvents(card) {

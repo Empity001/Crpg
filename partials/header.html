@@ -2,6 +2,22 @@
 <div class="crt-overlay" aria-hidden="true"></div>
 <div class="bg-grid" aria-hidden="true"></div>
 
+<!-- ============ BUSCADOR GLOBAL · ESCRITORIO ============ -->
+<div class="global-search global-search-desktop" data-global-search-root data-search-variant="desktop">
+  <button class="global-search-toggle" type="button" data-global-search-toggle aria-label="Buscar en toda la página" aria-expanded="false">
+    <span class="global-search-icon" aria-hidden="true"></span>
+  </button>
+  <div class="global-search-field">
+    <input type="search" data-global-search-input autocomplete="off" spellcheck="false" placeholder="Buscar en Culones-RPG…" aria-label="Buscar en Culones-RPG" />
+    <button type="button" class="global-search-clear" data-global-search-clear aria-label="Limpiar búsqueda">✕</button>
+    <kbd>Ctrl K</kbd>
+  </div>
+  <div class="global-search-popover" aria-label="Resultados de búsqueda">
+    <div class="global-search-popover-head"><span>Buscar en todo el sitio</span><small>Logs · Guías · Tierlist · Kits</small></div>
+    <div class="global-search-results" data-global-search-results role="listbox"></div>
+  </div>
+</div>
+
 <!-- ============ BARRA MÓVIL ============ -->
 <header class="mobile-topbar">
   <button class="mobile-menu-btn" id="sidebar-menu-toggle" type="button" aria-label="Abrir menú" aria-controls="app-sidebar" aria-expanded="false">
@@ -9,6 +25,19 @@
   </button>
   <div class="mobile-brand-mark" aria-hidden="true"><img class="mobile-brand-image js-site-logo-image hidden" alt="" /><span class="mobile-brand-fallback js-site-logo-fallback">⚔</span></div>
   <span class="mobile-brand-title">CULONES<span>-RPG</span></span>
+  <div class="global-search global-search-mobile" data-global-search-root data-search-variant="mobile">
+    <button class="global-search-toggle" type="button" data-global-search-toggle aria-label="Buscar en toda la página" aria-expanded="false">
+      <span class="global-search-icon" aria-hidden="true"></span>
+    </button>
+    <div class="global-search-field">
+      <input type="search" data-global-search-input autocomplete="off" spellcheck="false" placeholder="Buscar…" aria-label="Buscar en Culones-RPG" />
+      <button type="button" class="global-search-clear" data-global-search-clear aria-label="Limpiar búsqueda">✕</button>
+    </div>
+    <div class="global-search-popover" aria-label="Resultados de búsqueda">
+      <div class="global-search-popover-head"><span>Buscar en todo el sitio</span><small>Resultados de todas las secciones</small></div>
+      <div class="global-search-results" data-global-search-results role="listbox"></div>
+    </div>
+  </div>
   <span class="mobile-admin-indicator hidden" id="mobile-admin-indicator">ADMIN</span>
 </header>
 

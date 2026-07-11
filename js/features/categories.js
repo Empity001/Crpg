@@ -5,11 +5,12 @@
 // de gestión admin y alta/baja.
 // =========================================================
 
-import { supabaseClient } from '../config.js';
+import { disableQueryRetry, supabaseClient } from '../config.js';
 import { getCategory, state } from '../core/state.js';
-import { confirmAction, escapeHtml, showToast } from '../core/utils.js';
+import { confirmAction, escapeHtml, showToast, withTimeout } from '../core/utils.js';
 
 let onCategoryFiltersChanged = () => {};
+let categoriesLoadPromise = null;
 
 export function setCategoryFiltersChangedHandler(handler) {
   onCategoryFiltersChanged = typeof handler === 'function' ? handler : () => {};
@@ -17,17 +18,40 @@ export function setCategoryFiltersChangedHandler(handler) {
 
 export async function loadCategories() {
   const ok = await loadCategoriesData();
-  if (!ok) return;
+  if (!ok) return false;
   renderCategoryFilters();
   renderCategorySelectOptions();
   renderCategoryManageList();
+  return true;
 }
 
-export async function loadCategoriesData() {
-  const { data, error } = await supabaseClient.from('categories').select('slug,label,emoji,color,created_at').order('created_at', { ascending: true });
-  if (error) { console.error(error); showToast('No se pudieron cargar las categorías', 'error'); return false; }
-  state.categories = data || [];
-  return true;
+async function performCategoriesLoad() {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 7500);
+  try {
+    let request = supabaseClient.from('categories')
+      .select('slug,label,emoji,color,created_at')
+      .order('created_at', { ascending: true });
+    request = disableQueryRetry(request);
+    if (typeof request?.abortSignal === 'function') request = request.abortSignal(controller.signal);
+    const { data, error } = await withTimeout(request, 8000, 'La carga de categorías');
+    if (error) { console.error(error); showToast('No se pudieron cargar las categorías', 'error'); return false; }
+    state.categories = data || [];
+    return true;
+  } catch (error) {
+    if (error?.name !== 'AbortError') console.error('[Categories]', error);
+    showToast('La carga de categorías tardó demasiado', 'error');
+    return false;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+export function loadCategoriesData() {
+  if (!categoriesLoadPromise) {
+    categoriesLoadPromise = performCategoriesLoad().finally(() => { categoriesLoadPromise = null; });
+  }
+  return categoriesLoadPromise;
 }
 
 

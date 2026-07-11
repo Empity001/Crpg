@@ -1172,3 +1172,9 @@ Objetivo: mejoras de capa superior una vez cerradas auditoría, multimedia y adm
 - `sql/migration_018_log_cover_image.sql`: añade `logs.cover_image_url` y RPCs de create/update con portada.
 - `js/features/logs-data.js`: fallback de lectura si la migración todavía no fue aplicada.
 - La migración 018 es necesaria para guardar portadas en producción.
+
+### Buscador global (julio 2026)
+- `js/features/global-search.js` construye bajo demanda un índice de todas las secciones públicas.
+- El shell lo inicializa después de cargar `app_settings` para poder indexar también Acerca del servidor.
+- Los enlaces profundos usan: `index.html?log=&tab=&entry=`, `weapons.html?weapon=&rank=`, `tierlist.html?item=`, `kits.html?kit=&item=` y `about.html?block=`.
+- No requiere migración SQL nueva.

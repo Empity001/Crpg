@@ -6,21 +6,19 @@
 <title>culones-rpg · Herramientas</title>
 <meta name="description" content="Panel de administración del servidor Minecraft RPG/Gacha culones-rpg" />
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="css/style.css" />
 <link rel="stylesheet" href="css/tierlist.css" />
 <link rel="stylesheet" href="css/kits.css" />
 <link rel="stylesheet" href="css/admin-tools.css" />
 <link rel="stylesheet" href="css/weapons.css" />
 <link rel="stylesheet" href="css/about.css" />
-<link rel="stylesheet" href="css/media.css?v=20260711-03" />
+<link rel="stylesheet" href="css/media.css?v=20260711-11" />
 <!-- SheetJS: generación de archivos Excel nativos (.xlsx) — solo esta
      página usa exportación, así que solo ella carga esta librería. -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="css/rebrand.css?v=20260711-02" />
+<link rel="stylesheet" href="css/rebrand.css?v=20260711-11" />
 </head>
 <body>
 
@@ -433,7 +431,8 @@
 
 <div id="shell-footer"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script type="module" src="js/pages/admin.js?v=20260711-03"></script>
+<script src="js/boot-watchdog.js?v=20260711-11"></script>
+<script src="js/vendor/supabase.js?v=20260711-11"></script>
+<script type="module" src="js/pages/admin.js?v=20260711-11"></script>
 </body>
 </html>

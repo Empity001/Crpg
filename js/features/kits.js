@@ -1,12 +1,13 @@
-import { supabaseClient } from '../config.js';
+import { disableQueryRetry, supabaseClient } from '../config.js';
 import { KIT_COLUMNS, isAdmin, state, suppressNextKitsReload } from '../core/state.js';
-import { cloneData, confirmAction, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast } from '../core/utils.js';
+import { cloneData, confirmAction, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast, withTimeout } from '../core/utils.js';
 import { openMediaPicker } from './media-library.js';
 import { appendActionGrid, appendDisclosure, openContextPanel } from '../core/context-actions.js';
 import { guideLinkUrl, hydrateGuideLinkSelect, parseGuideLinkValue } from './guide-links.js';
 
 let kitsLoadRequestId = 0;
 let kitSubmitInProgress = false;
+let kitsLoadPromise = null;
 
 function emptyKitItems() {
   return { weapon: [], accessory: [], subweapon: [] };
@@ -102,36 +103,49 @@ function renderKitCard(kit) {
   `;
 }
 
-export async function loadKits() {
+async function performKitsLoad() {
   const grid = document.getElementById('kits-grid');
   const requestId = ++kitsLoadRequestId;
-  const { data, error } = await supabaseClient.rpc('list_kits', {
-    input_code: state.adminCode,
-  });
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 8500);
+  try {
+    let request = disableQueryRetry(supabaseClient.rpc('list_kits', { input_code: state.adminCode }));
+    if (typeof request?.abortSignal === 'function') request = request.abortSignal(controller.signal);
+    const { data, error } = await withTimeout(request, 9000, 'La carga de kits');
 
-  if (requestId !== kitsLoadRequestId) return;
-
-  if (error) {
-    console.error(error);
-    if (grid) {
-      grid.innerHTML = `<div class="logs-empty"><p>No se pudieron cargar los kits. Revisa si la migracion 016 ya fue aplicada.</p></div>`;
+    if (requestId !== kitsLoadRequestId) return false;
+    if (error) {
+      console.error(error);
+      if (grid) grid.innerHTML = `<div class="logs-empty"><p>No se pudieron cargar los kits. Revisa si la migración 016 ya fue aplicada.</p></div>`;
+      return false;
     }
-    return;
-  }
 
-  const seen = new Set();
-  const seenContent = new Set();
-  state.kits = (data || []).filter((kit) => {
-    if (!kit?.id) return true;
-    if (seen.has(kit.id)) return false;
-    const signature = kitRenderSignature(kit);
-    if (seenContent.has(signature)) return false;
-    seen.add(kit.id);
-    seenContent.add(signature);
+    const seen = new Set();
+    const seenContent = new Set();
+    state.kits = (data || []).filter((kit) => {
+      if (!kit?.id) return true;
+      if (seen.has(kit.id)) return false;
+      const signature = kitRenderSignature(kit);
+      if (seenContent.has(signature)) return false;
+      seen.add(kit.id);
+      seenContent.add(signature);
+      return true;
+    });
+    state.kitsLoaded = true;
+    renderKits();
     return true;
-  });
-  state.kitsLoaded = true;
-  renderKits();
+  } catch (error) {
+    if (error?.name !== 'AbortError') console.error('[Kits]', error);
+    if (grid) grid.innerHTML = `<div class="logs-empty"><p>La carga de kits tardó demasiado. Revisa tu conexión.</p></div>`;
+    return false;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+export function loadKits() {
+  if (!kitsLoadPromise) kitsLoadPromise = performKitsLoad().finally(() => { kitsLoadPromise = null; });
+  return kitsLoadPromise;
 }
 
 export function renderKits() {

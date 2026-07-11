@@ -12,6 +12,7 @@ import { showToast } from '../core/utils.js';
 
 const adminUiRefreshHandlers = new Set();
 let adminLoginSequenceTimers = [];
+let adminLoginSequenceGeneration = 0;
 let adminSubmitting = false;
 let adminLoginSequenceActive = false;
 let adminTerminalPrepared = false;
@@ -52,15 +53,23 @@ function unmountAdminTerminalLines() {
 
 
 function clearAdminLoginSequence() {
-  adminLoginSequenceTimers.forEach(timer => clearTimeout(timer));
+  adminLoginSequenceGeneration += 1;
+  adminLoginSequenceTimers.forEach(entry => {
+    clearTimeout(entry.timer);
+    entry.resolve(false);
+  });
   adminLoginSequenceTimers = [];
   adminLoginSequenceActive = false;
 }
 
-function waitAdminTerminal(ms) {
+function waitAdminTerminal(ms, generation) {
   return new Promise(resolve => {
-    const timer = setTimeout(resolve, ms);
-    adminLoginSequenceTimers.push(timer);
+    const entry = { timer: null, resolve };
+    entry.timer = setTimeout(() => {
+      adminLoginSequenceTimers = adminLoginSequenceTimers.filter(item => item !== entry);
+      resolve(generation === adminLoginSequenceGeneration);
+    }, ms);
+    adminLoginSequenceTimers.push(entry);
   });
 }
 
@@ -75,15 +84,16 @@ function shouldUseCompactAdminTerminal() {
   return window.matchMedia('(max-width: 720px)').matches;
 }
 
-async function typeAdminTerminalLine(line) {
+async function typeAdminTerminalLine(line, generation) {
   const text = line.dataset.terminalText || '';
   const { chunk, delay, pause } = getTerminalTypingProfile(line);
   line.classList.add('is-visible');
   for (let idx = 0; idx < text.length; idx += chunk) {
+    if (generation !== adminLoginSequenceGeneration) return false;
     line.textContent = text.slice(0, idx + chunk);
-    await waitAdminTerminal(delay);
+    if (!(await waitAdminTerminal(delay, generation))) return false;
   }
-  await waitAdminTerminal(pause);
+  return waitAdminTerminal(pause, generation);
 }
 
 function revealAdminLoginPrompt() {
@@ -183,6 +193,7 @@ export function updateAdminUI() {
   }
 
   adminUiRefreshHandlers.forEach(handler => handler(admin));
+  document.dispatchEvent(new CustomEvent('culones:admin-state-changed', { detail: { admin } }));
 }
 
 
@@ -193,6 +204,7 @@ export function openAdminLoginModal() {
   if (!modal) return;
   mountAdminTerminalLines();
   clearAdminLoginSequence();
+  const sequenceGeneration = adminLoginSequenceGeneration;
   resetAdminAccessState();
   if (input) input.value = '';
   form?.classList.add('hidden');
@@ -210,10 +222,11 @@ export function openAdminLoginModal() {
   adminLoginSequenceActive = true;
 
   (async () => {
-    await waitAdminTerminal(80);
+    if (!(await waitAdminTerminal(80, sequenceGeneration))) return;
     for (const line of visibleTerminalLines) {
-      await typeAdminTerminalLine(line);
+      if (!(await typeAdminTerminalLine(line, sequenceGeneration))) return;
     }
+    if (sequenceGeneration !== adminLoginSequenceGeneration) return;
     adminLoginSequenceActive = false;
     revealAdminLoginPrompt();
   })();

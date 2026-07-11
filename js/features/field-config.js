@@ -6,22 +6,23 @@
 // app_settings (about, fondo, favicon) porque comparten la misma tabla.
 // =========================================================
 
-import { supabaseClient } from '../config.js';
+import { disableQueryRetry, supabaseClient } from '../config.js';
 import { renderAboutContent } from './about.js';
 import { applyCustomBackground, normalizeBackgroundOpacity, normalizeBackgroundPresentation, populateBackgroundForm } from './background.js';
 import { applyFavicon, applySiteLogo, populateFaviconForm } from './favicon.js';
 import { applyHeroBanner, normalizeHeroBannerConfig, populateHeroBannerForm } from './hero-banners.js';
-import { applyThemeConfig, getLocalThemeOverride, normalizeThemeConfig, populateThemeForm } from './theme.js?v=20260711-02';
+import { applyThemeConfig, getLocalThemeOverride, normalizeThemeConfig, populateThemeForm } from './theme.js';
 import { DEFAULT_ITEM_FIELDS, DEFAULT_MOB_FIELDS, state } from '../core/state.js';
-import { escapeHtml, showToast } from '../core/utils.js';
+import { escapeHtml, showToast, withTimeout } from '../core/utils.js';
 
 let onFieldConfigSaved = () => {};
+let appSettingsLoadPromise = null;
 
 export function setFieldConfigSavedHandler(handler) {
   onFieldConfigSaved = typeof handler === 'function' ? handler : () => {};
 }
 
-export async function loadAppSettings() {
+function applyDefaultAppSettings() {
   state.fieldConfig = { mob: DEFAULT_MOB_FIELDS, item: DEFAULT_ITEM_FIELDS };
   state.aboutBlocks = null;
   state.backgroundConfig = { image_url: '', mode: 'fixed', tabs: [], presentation: null, opacity: 1 };
@@ -32,13 +33,38 @@ export async function loadAppSettings() {
   state.localThemeConfig = getLocalThemeOverride();
   state.themeConfig = state.localThemeConfig || state.serverThemeConfig;
 
-  const { data, error } = await supabaseClient.from('app_settings').select('key,value');
+  // La paleta local se aplica antes de tocar la red. La interfaz nunca debe
+  // permanecer vacía esperando a Supabase.
+  applyThemeConfig(state.themeConfig);
+  populateThemeForm(state.themeConfig);
+}
+
+async function fetchAppSettings() {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 7500);
+  try {
+    let request = disableQueryRetry(supabaseClient.from('app_settings').select('key,value'));
+    if (typeof request?.abortSignal === 'function') request = request.abortSignal(controller.signal);
+    return await withTimeout(request, 8000, 'La configuración del sitio');
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+async function performLoadAppSettings() {
+  applyDefaultAppSettings();
+
+  let data = null;
+  let error = null;
+  try {
+    ({ data, error } = await fetchAppSettings());
+  } catch (loadError) {
+    error = loadError;
+  }
+
   if (error || !data) {
-    state.localThemeConfig = getLocalThemeOverride();
-    state.themeConfig = state.localThemeConfig || state.serverThemeConfig;
-    applyThemeConfig(state.themeConfig);
-    populateThemeForm(state.themeConfig);
-    return;
+    if (error?.name !== 'AbortError') console.warn('[AppSettings] Se usarán valores locales:', error);
+    return false;
   }
 
   const mobRow   = data.find(r => r.key === 'mob_fields');
@@ -52,10 +78,7 @@ export async function loadAppSettings() {
 
   if (mobRow  && Array.isArray(mobRow.value)  && mobRow.value.length  > 0) state.fieldConfig.mob  = mobRow.value;
   if (itemRow && Array.isArray(itemRow.value) && itemRow.value.length > 0) state.fieldConfig.item = itemRow.value;
-
-  if (aboutRow && Array.isArray(aboutRow.value)) {
-    state.aboutBlocks = aboutRow.value;
-  }
+  if (aboutRow && Array.isArray(aboutRow.value)) state.aboutBlocks = aboutRow.value;
 
   if (bgRow && bgRow.value && typeof bgRow.value === 'object') {
     state.backgroundConfig = {
@@ -66,25 +89,14 @@ export async function loadAppSettings() {
       opacity: normalizeBackgroundOpacity(bgRow.value.opacity ?? 1),
     };
   }
-
-  if (heroRow && heroRow.value && typeof heroRow.value === 'object') {
-    state.heroBannerConfig = normalizeHeroBannerConfig(heroRow.value);
-  }
-
+  if (heroRow && heroRow.value && typeof heroRow.value === 'object') state.heroBannerConfig = normalizeHeroBannerConfig(heroRow.value);
   if (logoRow && typeof logoRow.value === 'string') state.siteLogoUrl = logoRow.value;
   else if (logoRow && logoRow.value && typeof logoRow.value === 'object') state.siteLogoUrl = logoRow.value.url || '';
-
-  if (themeRow && themeRow.value && typeof themeRow.value === 'object') {
-    state.serverThemeConfig = normalizeThemeConfig(themeRow.value);
-  }
+  if (themeRow && themeRow.value && typeof themeRow.value === 'object') state.serverThemeConfig = normalizeThemeConfig(themeRow.value);
   state.localThemeConfig = getLocalThemeOverride();
   state.themeConfig = state.localThemeConfig || state.serverThemeConfig;
-
-  if (faviRow && typeof faviRow.value === 'string') {
-    state.faviconUrl = faviRow.value;
-  } else if (faviRow && faviRow.value && typeof faviRow.value === 'object') {
-    state.faviconUrl = faviRow.value.url || '';
-  }
+  if (faviRow && typeof faviRow.value === 'string') state.faviconUrl = faviRow.value;
+  else if (faviRow && faviRow.value && typeof faviRow.value === 'object') state.faviconUrl = faviRow.value.url || '';
 
   renderAboutContent();
   populateBackgroundForm();
@@ -96,6 +108,18 @@ export async function loadAppSettings() {
   applyFavicon(state.faviconUrl);
   applySiteLogo(state.siteLogoUrl);
   populateFaviconForm();
+  return true;
+}
+
+export function loadAppSettings() {
+  if (!appSettingsLoadPromise) {
+    appSettingsLoadPromise = performLoadAppSettings().finally(() => {
+      // El resultado queda aplicado en state; una llamada futura puede volver
+      // a consultar, pero varias llamadas simultáneas comparten la misma red.
+      window.setTimeout(() => { appSettingsLoadPromise = null; }, 1000);
+    });
+  }
+  return appSettingsLoadPromise;
 }
 
 

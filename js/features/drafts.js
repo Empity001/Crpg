@@ -15,6 +15,7 @@ import { deleteLocalDraft, deleteRemoteDraft, getRemoteDraft, loadLocalDraft, sa
 const DRAFT_AUTOSAVE_INTERVAL = 30000; // 30 segundos
 
 let _draftAutosaveTimer = null;
+let beforeUnloadBound = false;
 
 let _draftHasUnsaved = false;
 
@@ -165,10 +166,12 @@ function updateDraftAutosaveStatus(state, savedAt = null) {
 /** Aviso antes de cerrar la página si hay cambios sin guardar */
 
 export function initBeforeUnload() {
-  window.addEventListener('beforeunload', (e) => {
+  if (beforeUnloadBound) return;
+  beforeUnloadBound = true;
+  window.addEventListener('beforeunload', () => {
     if (_draftHasUnsaved && document.getElementById('log-modal') && !document.getElementById('log-modal').classList.contains('hidden')) {
-      // Guardar automáticamente al cerrar
       saveDraft(state.editingLogId || 'new');
     }
   });
+  window.addEventListener('pagehide', stopDraftAutosave, { once: true });
 }

@@ -207,3 +207,9 @@ export function appendDisclosure(root, { title, open = false, className = '', bu
   build?.(content, details);
   return details;
 }
+
+// Un menú contextual nunca debe quedar flotando por encima de una
+// confirmación, biblioteca o editor secundario que acaba de abrirse.
+document.addEventListener('culones:modal-opened', () => {
+  if (activePanel) closeContextPanel();
+});

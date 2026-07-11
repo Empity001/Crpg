@@ -57,7 +57,7 @@ Se corrigió el sistema de overlays sin modificar el CRUD ni la integración con
 - Se eliminan duplicados y se descarga por completo la cuadrícula al cerrar el selector.
 - Las miniaturas vuelven a mostrarse de forma estable en Brave; los recursos dañados enseñan un estado de error en vez de una tarjeta vacía.
 - La cuadrícula tiene altura fija y desplazamiento interno, por lo que nunca aumenta el alto de la página.
-- El editor de mejora/fabricación usa un modal ancho con desplazamiento propio.
+- El editor de mesas de trabajo usa un modal ancho con desplazamiento propio.
 - Los nueve slots de crafteo conservan tres columnas en escritorio, dos en tablet y una en móvil.
 - Los selectores de enlaces a Guías permanecen dentro de cada slot.
 
@@ -116,7 +116,7 @@ Se corrigió el sistema de overlays sin modificar el CRUD ni la integración con
 - Los kits completos y sus elementos internos tienen portapapeles independiente, duplicado y pegado sin alterar la estructura guardada.
 - Los elementos de tierlist pueden editarse, moverse, copiarse, pegarse, duplicarse y eliminarse, conservando el arrastre existente.
 - Las armas pueden copiarse o duplicarse como nuevas entradas y las habilidades conservan sus acciones administrativas en el mismo sistema.
-- El editor de fabricación/mejora usa slots cuadrados. Al pulsar un slot se abre un panel con Nombre, vista previa, Subir imagen, Biblioteca, Propiedades y Acciones.
+- El editor de mesas de trabajo usa slots cuadrados. Al pulsar un slot se abre un panel con Nombre, vista previa, Subir imagen, Biblioteca, Propiedades y Acciones.
 - Propiedades contiene cantidad y enlace con Guías; Acciones contiene copiar, pegar, duplicar y eliminar/vaciar.
 - Los modales generales son más amplios, pero el crafteo de 3×3 conserva exactamente sus nueve espacios y sigue adaptándose a móvil.
 - El portapapeles es temporal y separado por tipo de contenido, por lo que pegar un kit no puede sobrescribir accidentalmente una ficha de log o un material de receta.
@@ -198,3 +198,21 @@ Ejecuta una vez `sql/migration_018_log_cover_image.sql` en Supabase. La página 
 ### SQL obligatorio
 
 Ejecuta una vez `sql/migration_019_replace_media_asset.sql` en Supabase antes de usar esta función.
+
+
+## Corrección de pila de modales
+- Los popups se ordenan por el momento real de apertura.
+- Confirmaciones, biblioteca y editores secundarios siempre aparecen sobre la ventana que los abrió.
+- Los menús contextuales se cierran al abrir un modal real para evitar capas cruzadas.
+
+## Buscador global
+- Se añadió una lupa compartida en todas las páginas principales.
+- En escritorio aparece compacta en la esquina superior derecha y se expande al activarla.
+- En móvil aparece junto al indicador ADMIN; la lupa queda a la izquierda y el campo se despliega hacia la derecha.
+- El índice se carga solo al buscar e incluye Logs, fichas internas, Guías, rangos, habilidades, materiales de mesas de trabajo, Tierlist, Kits y bloques de Acerca del servidor.
+- Los nombres repetidos se conservan como resultados independientes con su sección correspondiente.
+- Los resultados profundos abren el log, rango, elemento de tierlist, kit o bloque de Acerca correspondiente.
+- Atajo disponible: Ctrl+K / Cmd+K.
+
+## Guías
+- El apartado antes llamado “Mejora/fabricación” ahora se llama “🛠️ Mesas de trabajo”.

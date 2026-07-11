@@ -17,7 +17,7 @@ import { cancelReply, deleteCommentAction, startReplyTo, submitComment, toggleCo
 import { initBeforeUnload, restoreDraft, saveDraft, stopDraftAutosave } from '../features/drafts.js';
 import { loadDraftByKey } from '../features/drafts-store.js';
 import { openFieldConfigModal, saveFieldConfig, setFieldConfigSavedHandler } from '../features/field-config.js';
-import { initSortControl, loadLogs, openEditLogModal, openNewLogModal, renderLogs, submitLog, updateLogCoverPreview } from '../features/logs.js';
+import { initSortControl, loadLogs, openEditLogModal, openLogFromSearch, openNewLogModal, renderLogs, submitLog, updateLogCoverPreview } from '../features/logs.js';
 import { attachMediaPickerButton, openMediaPicker } from '../features/media-library.js';
 import { state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
@@ -154,6 +154,16 @@ function initLogsModals() {
 // ?draftKey=...&logId=... (ver drafts.js), abrimos el modal
 // correspondiente y restauramos el borrador automáticamente.
 
+function openLinkedLogFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const logId = params.get('log');
+  if (!logId) return;
+  openLogFromSearch(logId, {
+    tab: params.get('tab') || 'summary',
+    entryId: params.get('entry') || null,
+  });
+}
+
 async function checkIncomingDraftLink() {
   const params = new URLSearchParams(window.location.search);
   const draftKey = params.get('draftKey');
@@ -174,10 +184,36 @@ async function init() {
   setCategoryFiltersChangedHandler(renderLogs);
   setFieldConfigSavedHandler(renderLogs);
   initBeforeUnload();
-  await loadCategories();
-  await loadLogs();
-  initLogsRealtime();
+  // Categorías y registros son consultas independientes. Ejecutarlas en
+  // paralelo evita encadenar hasta 20–30 s de espera cuando la red está lenta.
+  const [categoriesLoaded, logsLoaded] = await Promise.all([
+    loadCategories(),
+    loadLogs(),
+  ]);
+  // Si los logs se dibujaron antes de recibir las categorías, actualizamos una
+  // sola vez sus etiquetas y colores con la metadata definitiva.
+  if (logsLoaded && categoriesLoaded) renderLogs();
+  if (logsLoaded) {
+    openLinkedLogFromUrl();
+    initLogsRealtime();
+  }
   await checkIncomingDraftLink();
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  init().catch(error => {
+    console.error('[Boot] Error al iniciar la página:', error);
+    const main = document.querySelector('.app-main') || document.body;
+    const existing = document.getElementById('boot-error-panel');
+    if (existing) return;
+    const panel = document.createElement('section');
+    panel.id = 'boot-error-panel';
+    panel.className = 'boot-error-panel';
+    panel.innerHTML = `
+      <strong>No se pudo iniciar esta página</strong>
+      <p>Recarga con Ctrl + F5. Si continúa, revisa la consola del navegador o la conexión con Supabase.</p>
+      <button type="button">Recargar</button>`;
+    panel.querySelector('button')?.addEventListener('click', () => window.location.reload());
+    main.prepend(panel);
+  });
+});

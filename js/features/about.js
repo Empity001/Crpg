@@ -41,17 +41,17 @@ export function renderAboutContent() {
       </div>`;
     return;
   }
-  container.innerHTML = blocks.map(block => {
+  container.innerHTML = blocks.map((block, blockIndex) => {
     switch (block.kind) {
-      case 'heading':   return `<h2 class="about-block-heading">${escapeHtml(block.content || '')}</h2>`;
-      case 'text':      return `<p class="about-block-text">${escapeHtml(block.content || '')}</p>`;
-      case 'highlight': return `<div class="about-block-highlight">${escapeHtml(block.content || '')}</div>`;
-      case 'divider':   return `<hr class="about-block-divider" />`;
+      case 'heading':   return `<h2 class="about-block-heading" data-about-block-index="${blockIndex}">${escapeHtml(block.content || '')}</h2>`;
+      case 'text':      return `<p class="about-block-text" data-about-block-index="${blockIndex}">${escapeHtml(block.content || '')}</p>`;
+      case 'highlight': return `<div class="about-block-highlight" data-about-block-index="${blockIndex}">${escapeHtml(block.content || '')}</div>`;
+      case 'divider':   return `<hr class="about-block-divider" data-about-block-index="${blockIndex}" />`;
       case 'image': {
         const safe = (block.url || '').replace(/['"\\]/g, '');
         if (!safe) return '';
-        return `<img class="about-block-image" src="${escapeHtml(safe)}" alt="${escapeHtml(block.caption || '')}" loading="lazy" />` +
-               (block.caption ? `<p class="about-block-image-caption">${escapeHtml(block.caption)}</p>` : '');
+        return `<figure class="about-block-figure" data-about-block-index="${blockIndex}"><img class="about-block-image" src="${escapeHtml(safe)}" alt="${escapeHtml(block.caption || '')}" loading="lazy" />` +
+               (block.caption ? `<figcaption class="about-block-image-caption">${escapeHtml(block.caption)}</figcaption>` : '') + `</figure>`;
       }
       default: return '';
     }
