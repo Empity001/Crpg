@@ -9,7 +9,9 @@
 import { supabaseClient } from '../config.js';
 import { renderAboutContent } from './about.js';
 import { applyCustomBackground, normalizeBackgroundOpacity, normalizeBackgroundPresentation, populateBackgroundForm } from './background.js';
-import { applyFavicon, populateFaviconForm } from './favicon.js';
+import { applyFavicon, applySiteLogo, populateFaviconForm } from './favicon.js';
+import { applyHeroBanner, normalizeHeroBannerConfig, populateHeroBannerForm } from './hero-banners.js';
+import { applyThemeConfig, getLocalThemeOverride, normalizeThemeConfig, populateThemeForm } from './theme.js';
 import { DEFAULT_ITEM_FIELDS, DEFAULT_MOB_FIELDS, state } from '../core/state.js';
 import { escapeHtml, showToast } from '../core/utils.js';
 
@@ -23,16 +25,30 @@ export async function loadAppSettings() {
   state.fieldConfig = { mob: DEFAULT_MOB_FIELDS, item: DEFAULT_ITEM_FIELDS };
   state.aboutBlocks = null;
   state.backgroundConfig = { image_url: '', mode: 'fixed', tabs: [], presentation: null, opacity: 1 };
+  state.heroBannerConfig = normalizeHeroBannerConfig({});
   state.faviconUrl = '';
+  state.siteLogoUrl = '';
+  state.serverThemeConfig = normalizeThemeConfig({});
+  state.localThemeConfig = getLocalThemeOverride();
+  state.themeConfig = state.localThemeConfig || state.serverThemeConfig;
 
   const { data, error } = await supabaseClient.from('app_settings').select('key,value');
-  if (error || !data) return;
+  if (error || !data) {
+    state.localThemeConfig = getLocalThemeOverride();
+    state.themeConfig = state.localThemeConfig || state.serverThemeConfig;
+    applyThemeConfig(state.themeConfig);
+    populateThemeForm(state.themeConfig);
+    return;
+  }
 
   const mobRow   = data.find(r => r.key === 'mob_fields');
   const itemRow  = data.find(r => r.key === 'item_fields');
   const aboutRow = data.find(r => r.key === 'about_blocks');
   const bgRow    = data.find(r => r.key === 'background_config');
   const faviRow  = data.find(r => r.key === 'favicon_url');
+  const heroRow  = data.find(r => r.key === 'hero_banner_config');
+  const logoRow  = data.find(r => r.key === 'site_logo_url');
+  const themeRow = data.find(r => r.key === 'theme_config');
 
   if (mobRow  && Array.isArray(mobRow.value)  && mobRow.value.length  > 0) state.fieldConfig.mob  = mobRow.value;
   if (itemRow && Array.isArray(itemRow.value) && itemRow.value.length > 0) state.fieldConfig.item = itemRow.value;
@@ -51,6 +67,19 @@ export async function loadAppSettings() {
     };
   }
 
+  if (heroRow && heroRow.value && typeof heroRow.value === 'object') {
+    state.heroBannerConfig = normalizeHeroBannerConfig(heroRow.value);
+  }
+
+  if (logoRow && typeof logoRow.value === 'string') state.siteLogoUrl = logoRow.value;
+  else if (logoRow && logoRow.value && typeof logoRow.value === 'object') state.siteLogoUrl = logoRow.value.url || '';
+
+  if (themeRow && themeRow.value && typeof themeRow.value === 'object') {
+    state.serverThemeConfig = normalizeThemeConfig(themeRow.value);
+  }
+  state.localThemeConfig = getLocalThemeOverride();
+  state.themeConfig = state.localThemeConfig || state.serverThemeConfig;
+
   if (faviRow && typeof faviRow.value === 'string') {
     state.faviconUrl = faviRow.value;
   } else if (faviRow && faviRow.value && typeof faviRow.value === 'object') {
@@ -60,7 +89,12 @@ export async function loadAppSettings() {
   renderAboutContent();
   populateBackgroundForm();
   applyCustomBackground();
+  applyThemeConfig(state.themeConfig);
+  populateThemeForm(state.themeConfig);
+  applyHeroBanner();
+  populateHeroBannerForm();
   applyFavicon(state.faviconUrl);
+  applySiteLogo(state.siteLogoUrl);
   populateFaviconForm();
 }
 

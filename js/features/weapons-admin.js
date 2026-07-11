@@ -9,9 +9,10 @@
 import { supabaseClient } from '../config.js';
 import { renderExtraFieldsEditor } from './blocks-editor.js';
 import { state, suppressNextWeaponsReload } from '../core/state.js';
-import { initImageUploader, updateAssetPreview, uploadImageToStorage } from '../core/storage.js';
-import { asArray, cloneData, confirmAction, copyEditorPayload, debounce, escapeHtml, getEditorPayload, hasEditorPayload, showToast } from '../core/utils.js';
+import { initImageUploader, updateAssetPreview } from '../core/storage.js';
+import { asArray, cloneData, confirmAction, copyEditorPayload, debounce, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast } from '../core/utils.js';
 import { attachMediaPickerButton, openMediaPicker } from './media-library.js';
+import { appendActionGrid, appendDisclosure, closeContextPanel, openContextPanel } from '../core/context-actions.js';
 import { hydrateGuideLinkSelect, normalizeGuideLink, parseGuideLinkValue } from './guide-links.js';
 import { renderWeaponsGrid } from './weapons-catalog.js';
 import { openWeaponCategoryModal, openWeaponTypeModal, renderWeaponCategorySelectOptions, renderWeaponTypeSelectOptions, submitWeaponCategory, submitWeaponType } from './weapons-catalog-admin.js';
@@ -23,11 +24,9 @@ import { getWeaponRanks } from './weapons-state.js';
 let weaponRankInfoVisualsDraft = [];
 
 function editorActionButtons(scope, idx) {
-  return `
-    <button type="button" class="editor-mini-btn" data-editor-action="duplicate" data-scope="${scope}" data-idx="${idx}" title="Duplicar">⧉</button>
-    <button type="button" class="editor-mini-btn" data-editor-action="copy" data-scope="${scope}" data-idx="${idx}" title="Copiar">📋</button>
-    <button type="button" class="editor-mini-btn" data-editor-action="paste" data-scope="${scope}" data-idx="${idx}" title="Pegar" ${hasEditorPayload(scope) ? '' : 'disabled'}>📥</button>
-  `;
+  return `<button type="button" class="editor-mini-btn context-menu-trigger editor-row-context-trigger"
+    data-editor-context="true" data-scope="${scope}" data-idx="${idx}"
+    aria-label="Abrir acciones" title="Acciones">⋯</button>`;
 }
 
 export function openWeaponModal(weaponId = null) {
@@ -156,7 +155,6 @@ function renderRankInfoVisualsEditor() {
         <input type="text" class="modal-input" id="weapon-info-visual-${index}-image" data-visual-field="image_url" value="${escapeHtml(item.image_url || '')}" placeholder="URL de imagen" />
         <button type="button" class="btn-media-picker" data-action="pick-info-visual" data-index="${index}">Biblioteca</button>
         <div class="editor-row-actions">${editorActionButtons('weapon-info-visual', index)}</div>
-        <button type="button" class="btn-secondary-admin danger" data-action="remove-info-visual" data-index="${index}">✕</button>
       </div>
       <select class="modal-select" id="weapon-info-visual-${index}-guide" data-visual-field="guide_link"></select>
     </div>
@@ -185,24 +183,44 @@ function renderRankInfoVisualsEditor() {
       renderRankInfoVisualsEditor();
     });
   });
-  container.querySelectorAll('[data-editor-action][data-scope="weapon-info-visual"]').forEach(btn => {
+  container.querySelectorAll('[data-editor-context][data-scope="weapon-info-visual"]').forEach(btn => {
     btn.addEventListener('click', () => {
       syncRankInfoVisualsDraftFromDom();
       const index = Number(btn.dataset.idx);
-      if (btn.dataset.editorAction === 'duplicate') {
-        weaponRankInfoVisualsDraft.splice(index + 1, 0, cloneData(weaponRankInfoVisualsDraft[index]));
-      } else if (btn.dataset.editorAction === 'copy') {
-        copyEditorPayload('weapon-info-visual', weaponRankInfoVisualsDraft[index]);
-      } else if (btn.dataset.editorAction === 'paste') {
-        const payload = getEditorPayload('weapon-info-visual');
-        if (!payload) return;
-        weaponRankInfoVisualsDraft[index] = {
-          name: String(payload?.name || ''),
-          image_url: String(payload?.image_url || ''),
-          guide_link: normalizeGuideLink(payload?.guide_link),
-        };
-      }
-      renderRankInfoVisualsEditor();
+      const item = weaponRankInfoVisualsDraft[index];
+      if (!item) return;
+      openContextPanel({
+        anchor: btn,
+        title: 'Acciones del recurso',
+        subtitle: item.name || `Recurso ${index + 1}`,
+        width: 330,
+        build(root, close) {
+          appendActionGrid(root, [
+            { label: 'Copiar', icon: '⎘', onClick: () => copyEditorPayload('weapon-info-visual', item) },
+            { label: 'Pegar', icon: '↧', disabled: !hasEditorPayload('weapon-info-visual'), onClick: () => {
+              const payload = getEditorPayload('weapon-info-visual');
+              if (!payload) return;
+              weaponRankInfoVisualsDraft[index] = {
+                name: String(payload?.name || ''),
+                image_url: String(payload?.image_url || ''),
+                guide_link: normalizeGuideLink(payload?.guide_link),
+              };
+              close();
+              renderRankInfoVisualsEditor();
+            } },
+            { label: 'Duplicar', icon: '⧉', onClick: () => {
+              weaponRankInfoVisualsDraft.splice(index + 1, 0, cloneData(item));
+              close();
+              renderRankInfoVisualsEditor();
+            } },
+            { label: 'Eliminar', icon: '🗑', tone: 'danger', onClick: () => {
+              weaponRankInfoVisualsDraft.splice(index, 1);
+              close();
+              renderRankInfoVisualsEditor();
+            } },
+          ]);
+        },
+      });
     });
   });
   weaponRankInfoVisualsDraft.forEach((item, index) => {
@@ -277,6 +295,60 @@ async function submitWeaponRank() {
   else await reloadWeaponData();
 }
 
+function normalizedWeaponRankPayload(payload = {}) {
+  return {
+    name: String(payload.name || 'Rango').trim() || 'Rango',
+    description: String(payload.description || ''),
+    image_url: String(payload.image_url || ''),
+    stats: cloneData(asArray(payload.stats)),
+    abilities: cloneData(asArray(payload.abilities)),
+    extra_sections: cloneData(asArray(payload.extra_sections)),
+    upgrade_recipe: cloneData(payload.upgrade_recipe || null),
+  };
+}
+
+export async function createWeaponRankFromPayload(payload, { addCopySuffix = false } = {}) {
+  if (!state.currentWeaponId || !state.adminCode) {
+    showToast('La sesión de administrador expiró', 'error');
+    return null;
+  }
+  const rank = normalizedWeaponRankPayload(payload);
+  if (addCopySuffix) rank.name = `${rank.name} (copia)`;
+  const { data, error } = await supabaseClient.rpc('upsert_weapon_rank', {
+    input_code: state.adminCode,
+    input_id: null,
+    input_weapon_id: state.currentWeaponId,
+    input_name: rank.name,
+    input_description: rank.description,
+    input_image_url: rank.image_url,
+    input_stats: rank.stats,
+    input_abilities: rank.abilities,
+    input_extra_sections: rank.extra_sections,
+    input_upgrade_recipe: rank.upgrade_recipe,
+  });
+  if (error) {
+    showToast(`No se pudo crear el rango: ${error.message}`, 'error');
+    return null;
+  }
+  suppressNextWeaponsReload();
+  await reloadWeaponData();
+  if (data?.id) {
+    state.currentWeaponRankId = data.id;
+    renderWeaponDetail();
+  }
+  showToast(addCopySuffix ? 'Rango duplicado' : 'Rango pegado como nuevo', 'success');
+  return data || null;
+}
+
+export async function duplicateWeaponRank(rankId) {
+  const rank = getWeaponRanks(state.currentWeaponId).find(entry => entry.id === rankId);
+  if (!rank) {
+    showToast('Ese rango ya no existe', 'error');
+    return null;
+  }
+  return createWeaponRankFromPayload(rank, { addCopySuffix: true });
+}
+
 
 export async function deleteWeaponRank(rankId) {
   const ranks = getWeaponRanks(state.currentWeaponId);
@@ -326,16 +398,17 @@ async function submitWeaponStats() {
 // ADMIN — habilidades
 // ---------------------------------------------------------
 
-export function openWeaponAbilityModal(rankId, abilityIdx) {
+export function openWeaponAbilityModal(rankId, abilityIdx, seed = null) {
   state.editingWeaponRankId = rankId;
   state.editingAbilityIndex = abilityIdx;
   const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
   if (!rank) return;
   const abilities = asArray(rank.abilities);
   const titleEl = document.getElementById('weapon-ability-modal-title');
-  if (abilityIdx != null) {
-    const ab = abilities[abilityIdx] || {};
-    titleEl.textContent = '✏️ EDITAR HABILIDAD';
+  const source = abilityIdx != null ? (abilities[abilityIdx] || {}) : (seed || null);
+  if (source) {
+    const ab = source;
+    titleEl.textContent = abilityIdx != null ? '✏️ EDITAR HABILIDAD' : '✨ NUEVA HABILIDAD';
     document.getElementById('weapon-ability-name-input').value = ab.name || '';
     document.getElementById('weapon-ability-tag-input').value = ab.tag || '';
     document.getElementById('weapon-ability-desc-input').value = ab.description || '';
@@ -449,6 +522,7 @@ function normalizeRecipeMethod(method = {}) {
     result: {
       name: String(method.result?.name || '').trim(),
       image_url: String(method.result?.image_url || '').trim(),
+      qty: Math.max(1, Number(method.result?.qty) || 1),
       guide_link: normalizeGuideLink(method.result?.guide_link),
     },
   };
@@ -520,6 +594,7 @@ function syncCurrentRecipeMethodFromForm() {
   method.result = {
     name: document.getElementById('weapon-recipe-result-name-input')?.value.trim() || '',
     image_url: document.getElementById('weapon-recipe-result-image-input')?.value.trim() || '',
+    qty: Math.max(1, Number(document.getElementById('weapon-recipe-result-qty-input')?.value) || 1),
     guide_link: parseGuideLinkValue(document.getElementById('weapon-recipe-result-guide-input')?.value || ''),
   };
   const normalized = state.weaponRecipeMaterialsDraft.map(normalizeRecipeSlot);
@@ -547,8 +622,6 @@ function renderRecipeMethodSelector() {
   `).join('');
   select.value = String(state.editingWeaponRecipeMethodIndex);
   document.getElementById('weapon-recipe-remove-method-btn')?.classList.toggle('hidden', state.weaponRecipeMethodsDraft.length <= 1);
-  const actions = document.getElementById('weapon-recipe-method-copy-actions');
-  if (actions) actions.innerHTML = editorActionButtons('weapon-recipe-method', state.editingWeaponRecipeMethodIndex);
 }
 
 function loadRecipeMethodIntoForm(index = 0) {
@@ -559,17 +632,323 @@ function loadRecipeMethodIntoForm(index = 0) {
   document.getElementById('weapon-recipe-furnace-type-input').value = method.furnace_type || 'furnace';
   document.getElementById('weapon-recipe-result-name-input').value = method.result?.name || '';
   document.getElementById('weapon-recipe-result-image-input').value = method.result?.image_url || '';
+  document.getElementById('weapon-recipe-result-qty-input').value = String(Math.max(1, Number(method.result?.qty) || 1));
   hydrateGuideLinkSelect('weapon-recipe-result-guide-input', method.result?.guide_link || null);
   state.weaponRecipeMaterialsDraft = JSON.parse(JSON.stringify(normalizeRecipeDraftForMode(method.mode || 'trade', method)));
   renderRecipeMethodSelector();
   renderRecipeMaterialsEditor();
+  paintRecipeResultPreview();
+}
+
+function recipeSlotLabel(mode, index) {
+  if (mode === 'crafting') return `Slot ${index + 1}`;
+  if (mode === 'smithing') return ['Plantilla', 'Equipo', 'Material'][index] || `Slot ${index + 1}`;
+  if (mode === 'furnace') return index === 0 ? 'Ingrediente' : 'Combustible';
+  return `Material ${index + 1}`;
+}
+
+function recipeSlotInner(slot, index, mode) {
+  const image = safeUrl(slot?.image_url);
+  const label = recipeSlotLabel(mode, index);
+  const name = String(slot?.name || '').trim();
+  return `
+    <span class="recipe-editor-slot-label">${escapeHtml(label)}</span>
+    ${slot?.guide_link ? '<span class="recipe-editor-slot-link" title="Enlazado con Guías">↗</span>' : ''}
+    ${image
+      ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name || label)}" loading="lazy" />`
+      : `<span class="recipe-editor-slot-icon">${name ? '◈' : '+'}</span>`}
+    <span class="recipe-editor-slot-name">${escapeHtml(name || 'Vacío')}</span>
+    ${name || image ? `<span class="recipe-editor-slot-qty">×${Math.max(1, Number(slot?.qty) || 1)}</span>` : ''}
+  `;
+}
+
+function currentRecipeResultFromForm() {
+  return {
+    name: document.getElementById('weapon-recipe-result-name-input')?.value.trim() || '',
+    image_url: document.getElementById('weapon-recipe-result-image-input')?.value.trim() || '',
+    qty: Math.max(1, Number(document.getElementById('weapon-recipe-result-qty-input')?.value) || 1),
+    guide_link: parseGuideLinkValue(document.getElementById('weapon-recipe-result-guide-input')?.value || ''),
+  };
+}
+
+function paintRecipeResultPreview() {
+  const slot = document.getElementById('weapon-recipe-result-slot');
+  const preview = document.getElementById('weapon-recipe-result-preview');
+  const nameEl = document.getElementById('weapon-recipe-result-preview-name');
+  const qtyEl = document.getElementById('weapon-recipe-result-preview-qty');
+  if (!slot || !preview || !nameEl) return;
+  const result = currentRecipeResultFromForm();
+  const image = safeUrl(result.image_url);
+  const name = result.name || 'Vacío';
+  const hasContent = !!(result.name || result.image_url || result.guide_link);
+  preview.innerHTML = image
+    ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(name)}" />`
+    : '<span class="recipe-editor-slot-icon">+</span>';
+  nameEl.textContent = name;
+  if (qtyEl) {
+    qtyEl.textContent = `×${Math.max(1, Number(result.qty) || 1)}`;
+    qtyEl.classList.toggle('hidden', !hasContent);
+  }
+  slot.classList.toggle('is-empty', !hasContent);
+  slot.classList.toggle('has-image', !!image);
+}
+
+function setRecipeResultForm(result = {}, { hydrateGuide = true } = {}) {
+  const normalized = {
+    name: String(result.name || ''),
+    image_url: String(result.image_url || ''),
+    qty: Math.max(1, Number(result.qty) || 1),
+    guide_link: normalizeGuideLink(result.guide_link),
+  };
+  const nameInput = document.getElementById('weapon-recipe-result-name-input');
+  const imageInput = document.getElementById('weapon-recipe-result-image-input');
+  const qtyInput = document.getElementById('weapon-recipe-result-qty-input');
+  if (nameInput) nameInput.value = normalized.name;
+  if (imageInput) imageInput.value = normalized.image_url;
+  if (qtyInput) qtyInput.value = String(normalized.qty);
+  if (hydrateGuide) hydrateGuideLinkSelect('weapon-recipe-result-guide-input', normalized.guide_link || null);
+  paintRecipeResultPreview();
+}
+
+function openRecipeResultContext(anchor) {
+  const result = currentRecipeResultFromForm();
+  openContextPanel({
+    anchor,
+    title: 'Resultado',
+    subtitle: result.name || 'Configura el resultado de la receta',
+    width: 390,
+    className: 'recipe-slot-context recipe-result-context',
+    build(root, close) {
+      const nameField = document.createElement('label');
+      nameField.className = 'context-field';
+      nameField.innerHTML = `<span>Nombre</span><input class="modal-input" type="text" maxlength="80" value="${escapeHtml(result.name)}" placeholder="Nombre del resultado" />`;
+      nameField.querySelector('input').addEventListener('input', (event) => {
+        result.name = event.target.value;
+        setRecipeResultForm(result, { hydrateGuide: false });
+      });
+      root.appendChild(nameField);
+
+      const preview = document.createElement('div');
+      preview.className = 'context-image-preview';
+      const renderPreview = () => {
+        const image = safeUrl(result.image_url);
+        preview.innerHTML = image
+          ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(result.name || 'Resultado')}" />`
+          : '<span>Sin imagen</span>';
+      };
+      renderPreview();
+      root.appendChild(preview);
+
+      appendActionGrid(root, [
+        { label: 'Biblioteca', icon: '▦', onClick: () => openMediaPicker({
+          title: 'Seleccionar imagen de resultado',
+          allowedKinds: ['image'],
+          currentUrl: result.image_url || '',
+          onSelect: ({ url }) => {
+            result.image_url = url;
+            setRecipeResultForm(result, { hydrateGuide: false });
+            renderPreview();
+          },
+        }) },
+      ]);
+
+      appendDisclosure(root, {
+        title: 'Propiedades',
+        open: true,
+        build(content) {
+          const qtyField = document.createElement('label');
+          qtyField.className = 'context-field';
+          qtyField.innerHTML = `<span>Cantidad obtenida</span><input class="modal-input" type="number" min="1" step="1" value="${Math.max(1, Number(result.qty) || 1)}" />`;
+          qtyField.querySelector('input').addEventListener('input', (event) => {
+            result.qty = Math.max(1, Number(event.target.value) || 1);
+            setRecipeResultForm(result, { hydrateGuide: false });
+          });
+          content.appendChild(qtyField);
+
+          const guideField = document.createElement('label');
+          guideField.className = 'context-field';
+          const selectId = `recipe-result-guide-${crypto.randomUUID()}`;
+          guideField.innerHTML = `<span>Enlazar con Guías</span><select class="modal-select" id="${selectId}"></select>`;
+          content.appendChild(guideField);
+          hydrateGuideLinkSelect(selectId, result.guide_link || null);
+          guideField.querySelector('select').addEventListener('change', (event) => {
+            result.guide_link = parseGuideLinkValue(event.target.value || '');
+            setRecipeResultForm(result);
+          });
+        },
+      });
+
+      appendDisclosure(root, {
+        title: 'Acciones',
+        build(content) {
+          appendActionGrid(content, [
+            { label: 'Copiar', icon: '⎘', onClick: () => {
+              copyEditorPayload('weapon-recipe-result', cloneData(result));
+              showToast('Resultado copiado', 'success');
+            } },
+            { label: 'Pegar', icon: '↧', disabled: !hasEditorPayload('weapon-recipe-result'), onClick: () => {
+              const payload = getEditorPayload('weapon-recipe-result');
+              if (!payload) return;
+              Object.assign(result, {
+                name: String(payload.name || ''),
+                image_url: String(payload.image_url || ''),
+                qty: Math.max(1, Number(payload.qty) || 1),
+                guide_link: normalizeGuideLink(payload.guide_link),
+              });
+              setRecipeResultForm(result);
+              close();
+            } },
+            { label: 'Vaciar', icon: '🗑', tone: 'danger', onClick: () => {
+              setRecipeResultForm({});
+              close();
+            } },
+          ]);
+        },
+      });
+    },
+  });
+}
+
+function refreshRecipeSlotAnchor(anchor, slot, index, mode) {
+  if (!anchor?.isConnected) return;
+  anchor.classList.toggle('is-empty', !(slot?.name || slot?.image_url || slot?.guide_link));
+  anchor.innerHTML = recipeSlotInner(slot, index, mode);
+}
+
+function duplicateRecipeSlot(index, mode) {
+  const list = state.weaponRecipeMaterialsDraft;
+  const clone = normalizeRecipeSlot(cloneData(list[index] || EMPTY_RECIPE_SLOT));
+  if (mode === 'trade') {
+    list.splice(index + 1, 0, clone);
+    return index + 1;
+  }
+  const emptyIndex = list.findIndex((slot, idx) => idx !== index && !(slot.name || slot.image_url || slot.guide_link));
+  if (emptyIndex === -1) {
+    showToast('No hay un slot vacío para duplicarlo', 'error');
+    return index;
+  }
+  list[emptyIndex] = clone;
+  return emptyIndex;
+}
+
+function openRecipeSlotContext(anchor, index) {
+  const list = state.weaponRecipeMaterialsDraft;
+  const mode = getCurrentRecipeMode();
+  const slot = list[index] || (list[index] = { ...EMPTY_RECIPE_SLOT });
+  openContextPanel({
+    anchor,
+    title: recipeSlotLabel(mode, index),
+    subtitle: slot.name || 'Configura este espacio',
+    width: 390,
+    className: 'recipe-slot-context',
+    build(root, close) {
+      const nameField = document.createElement('label');
+      nameField.className = 'context-field';
+      nameField.innerHTML = `<span>Nombre</span><input class="modal-input" type="text" maxlength="80" value="${escapeHtml(slot.name || '')}" placeholder="Nombre del material" />`;
+      const nameInput = nameField.querySelector('input');
+      nameInput.addEventListener('input', () => {
+        slot.name = nameInput.value;
+        refreshRecipeSlotAnchor(anchor, slot, index, mode);
+      });
+      root.appendChild(nameField);
+
+      const preview = document.createElement('div');
+      preview.className = 'context-image-preview';
+      const paintPreview = () => {
+        const image = safeUrl(slot.image_url);
+        preview.innerHTML = image ? `<img src="${escapeHtml(image)}" alt="Vista previa" />` : '<span>Sin imagen</span>';
+      };
+      paintPreview();
+      root.appendChild(preview);
+
+      appendActionGrid(root, [
+        {
+          label: 'Biblioteca', icon: '▦', onClick: () => openMediaPicker({
+            title: 'Seleccionar imagen de material',
+            allowedKinds: ['image'],
+            currentUrl: slot.image_url || '',
+            onSelect: ({ url }) => {
+              slot.image_url = url;
+              paintPreview();
+              refreshRecipeSlotAnchor(anchor, slot, index, mode);
+            },
+          }),
+        },
+      ]);
+
+      appendDisclosure(root, {
+        title: 'Propiedades',
+        open: true,
+        build(content) {
+          const qtyField = document.createElement('label');
+          qtyField.className = 'context-field';
+          qtyField.innerHTML = `<span>Cantidad</span><input class="modal-input" type="number" min="1" value="${Math.max(1, Number(slot.qty) || 1)}" />`;
+          qtyField.querySelector('input').addEventListener('input', (event) => {
+            slot.qty = Math.max(1, Number(event.target.value) || 1);
+            refreshRecipeSlotAnchor(anchor, slot, index, mode);
+          });
+          content.appendChild(qtyField);
+
+          const guideField = document.createElement('label');
+          guideField.className = 'context-field';
+          const selectId = `recipe-context-guide-${crypto.randomUUID()}`;
+          guideField.innerHTML = `<span>Enlazar con Guías</span><select class="modal-select" id="${selectId}"></select>`;
+          content.appendChild(guideField);
+          hydrateGuideLinkSelect(selectId, slot.guide_link || null);
+          guideField.querySelector('select').addEventListener('change', (event) => {
+            slot.guide_link = parseGuideLinkValue(event.target.value || '');
+            refreshRecipeSlotAnchor(anchor, slot, index, mode);
+          });
+        },
+      });
+
+      appendDisclosure(root, {
+        title: 'Acciones',
+        build(content) {
+          appendActionGrid(content, [
+            {
+              label: 'Copiar', icon: '⎘', onClick: () => copyEditorPayload('weapon-recipe-material', normalizeRecipeSlot(slot)),
+            },
+            {
+              label: 'Pegar', icon: '↧', disabled: !hasEditorPayload('weapon-recipe-material'), onClick: () => {
+                const payload = getEditorPayload('weapon-recipe-material');
+                if (!payload) return;
+                list[index] = normalizeRecipeSlot(payload);
+                renderRecipeMaterialsEditor();
+                close();
+                showToast('Material pegado', 'success');
+              },
+            },
+            {
+              label: 'Duplicar', icon: '⧉', onClick: () => {
+                duplicateRecipeSlot(index, mode);
+                renderRecipeMaterialsEditor();
+                close();
+              },
+            },
+            {
+              label: mode === 'trade' ? 'Eliminar' : 'Vaciar', icon: '🗑', tone: 'danger', onClick: () => {
+                if (mode === 'trade') list.splice(index, 1);
+                else list[index] = { ...EMPTY_RECIPE_SLOT };
+                renderRecipeMaterialsEditor();
+                close();
+              },
+            },
+          ]);
+        },
+      });
+    },
+  });
 }
 
 function renderRecipeMaterialsEditor() {
   const container = document.getElementById('weapon-recipe-materials-list');
   const mode = getCurrentRecipeMode();
+  const workbench = document.getElementById('weapon-recipe-workbench');
   setRecipeModeUI(mode);
   container.dataset.recipeMode = mode;
+  if (workbench) workbench.dataset.recipeMode = mode;
+  container.classList.add('recipe-square-editor');
 
   if (mode === 'crafting' && state.weaponRecipeMaterialsDraft.length !== 9) {
     state.weaponRecipeMaterialsDraft = emptyRecipeSlots(9).map((slot, index) => normalizeRecipeSlot(state.weaponRecipeMaterialsDraft[index] || slot));
@@ -583,100 +962,75 @@ function renderRecipeMaterialsEditor() {
 
   const list = state.weaponRecipeMaterialsDraft;
   if (list.length === 0) {
-    container.innerHTML = `<p class="equip-empty-hint">Sin materiales. Usa "+ Material" para agregar (cualquier cantidad).</p>`;
+    container.innerHTML = `<button type="button" class="recipe-editor-slot is-empty" data-idx="0"><span class="recipe-editor-slot-icon">+</span><span class="recipe-editor-slot-name">Agregar material</span></button>`;
+    container.querySelector('button')?.addEventListener('click', (event) => {
+      list.push({ ...EMPTY_RECIPE_SLOT });
+      renderRecipeMaterialsEditor();
+      requestAnimationFrame(() => document.querySelector('#weapon-recipe-materials-list [data-idx="0"]')?.click());
+    });
     return;
   }
-  container.innerHTML = list.map((m, idx) => `
-    <div class="weapon-material-row" data-idx="${idx}">
-      ${mode !== 'trade' ? `<span class="weapon-material-slot-label">${mode === 'crafting' ? `Slot ${idx + 1}` : mode === 'smithing' ? ['Plantilla', 'Equipo', 'Material'][idx] : (idx === 0 ? 'Ingrediente' : 'Combustible')}</span>` : ''}
-      <input type="text" class="modal-input wm-name" data-idx="${idx}" data-f="name" value="${escapeHtml(m.name || '')}" placeholder="${mode === 'furnace' && idx === 1 ? 'Combustible' : mode === 'smithing' ? ['Plantilla', 'Equipo base', 'Material'][idx] : 'Nombre del material'}" maxlength="60" />
-      <button type="button" class="btn-upload-zone btn-upload-zone-sm wm-img-btn" data-idx="${idx}">${m.image_url ? '✅ Imagen' : '📁 Imagen'}</button>
-      <button type="button" class="btn-media-picker wm-media-btn" data-idx="${idx}">Biblioteca</button>
-      <input type="file" class="hidden wm-img-file" data-idx="${idx}" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
-      <select class="modal-select wm-guide-link" id="weapon-recipe-material-${idx}-guide" data-idx="${idx}" data-f="guide_link"></select>
-      <input type="number" class="modal-input wm-qty" data-idx="${idx}" data-f="qty" value="${m.qty ?? 1}" min="1" />
-      <div class="editor-row-actions">${editorActionButtons('weapon-recipe-material', idx)}</div>
-      ${mode === 'trade' ? `<button type="button" class="enchant-remove" data-idx="${idx}">🗑</button>` : `<button type="button" class="enchant-remove" data-idx="${idx}" title="Vaciar slot">✕</button>`}
-    </div>`).join('');
-  list.forEach((m, idx) => hydrateGuideLinkSelect(`weapon-recipe-material-${idx}-guide`, m.guide_link || null));
-  container.querySelectorAll('input[data-f]').forEach(el => {
-    el.addEventListener('input', () => {
-      const idx = Number(el.dataset.idx);
-      const field = el.dataset.f;
-      list[idx][field] = field === 'qty' ? (Number(el.value) || 1) : el.value;
-    });
+
+  const slotsHtml = list.map((slot, index) => `
+    <button type="button" class="recipe-editor-slot ${slot.name || slot.image_url || slot.guide_link ? '' : 'is-empty'}" data-idx="${index}">
+      ${recipeSlotInner(slot, index, mode)}
+    </button>
+  `);
+  if (mode === 'furnace' && slotsHtml.length >= 2) {
+    container.innerHTML = `${slotsHtml[0]}<span class="recipe-editor-furnace-flame" aria-hidden="true">♨</span>${slotsHtml[1]}`;
+  } else {
+    container.innerHTML = slotsHtml.join('');
+  }
+  container.querySelectorAll('.recipe-editor-slot').forEach((button) => {
+    button.addEventListener('click', () => openRecipeSlotContext(button, Number(button.dataset.idx)));
   });
-  container.querySelectorAll('select[data-f="guide_link"]').forEach(el => {
-    el.addEventListener('change', () => {
-      const idx = Number(el.dataset.idx);
-      if (!list[idx]) return;
-      list[idx].guide_link = parseGuideLinkValue(el.value || '');
-    });
-  });
-  // Botones de subir imagen de cada material
-  container.querySelectorAll('.wm-img-btn').forEach(btn => {
-    const idx = Number(btn.dataset.idx);
-    const fileInput = container.querySelectorAll('.wm-img-file')[idx];
-    if (!fileInput) return;
-    btn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', async () => {
-      const file = fileInput.files[0];
-      if (!file) return;
-      fileInput.value = '';
-      btn.textContent = '…';
-      try {
-        syncRecipeMaterialsDraftFromDom();
-        const oldUrl = list[idx].image_url || '';
-        const publicUrl = await uploadImageToStorage(file, 'recipes', oldUrl);
-        list[idx].image_url = publicUrl;
-        btn.textContent = '✅ Imagen';
-        showToast('Imagen del material subida', 'success');
-      } catch (err) {
-        btn.textContent = list[idx].image_url ? '✅ Imagen' : '📁 Imagen';
-        showToast(err.message, 'error');
-      }
-    });
-  });
-  container.querySelectorAll('.wm-media-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = Number(btn.dataset.idx);
-      openMediaPicker({
-        title: 'Seleccionar imagen de material',
-        allowedKinds: ['image'],
-        currentUrl: list[idx]?.image_url || '',
-        onSelect: ({ url }) => {
-          syncRecipeMaterialsDraftFromDom();
-          list[idx].image_url = url;
-          renderRecipeMaterialsEditor();
+}
+
+
+function openRecipeMethodActions(anchor) {
+  syncCurrentRecipeMethodFromForm();
+  const index = state.editingWeaponRecipeMethodIndex;
+  const method = state.weaponRecipeMethodsDraft[index];
+  if (!method) return;
+  openContextPanel({
+    anchor,
+    title: 'Acciones del método',
+    subtitle: method.title || `Método ${index + 1}`,
+    width: 330,
+    build(root, close) {
+      appendActionGrid(root, [
+        {
+          label: 'Copiar', icon: '⎘', onClick: () => {
+            copyEditorPayload('weapon-recipe-method', normalizeRecipeMethod(method));
+            showToast('Método copiado', 'success');
+          },
         },
-      });
-    });
-  });
-  container.querySelectorAll('.enchant-remove').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = Number(btn.dataset.idx);
-      if (mode === 'trade') list.splice(idx, 1);
-      else list[idx] = { ...EMPTY_RECIPE_SLOT };
-      renderRecipeMaterialsEditor();
-    });
-  });
-  container.querySelectorAll('[data-editor-action][data-scope="weapon-recipe-material"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      syncRecipeMaterialsDraftFromDom();
-      const idx = Number(btn.dataset.idx);
-      if (!list[idx]) return;
-      if (btn.dataset.editorAction === 'duplicate') {
-        if (mode === 'trade') list.splice(idx + 1, 0, cloneData(list[idx]));
-        else list[idx] = cloneData(list[idx]);
-      } else if (btn.dataset.editorAction === 'copy') {
-        copyEditorPayload('weapon-recipe-material', list[idx]);
-      } else if (btn.dataset.editorAction === 'paste') {
-        const payload = getEditorPayload('weapon-recipe-material');
-        if (!payload) return;
-        list[idx] = normalizeRecipeSlot(payload);
-      }
-      renderRecipeMaterialsEditor();
-    });
+        {
+          label: 'Pegar', icon: '↧', disabled: !hasEditorPayload('weapon-recipe-method'), onClick: () => {
+            const payload = getEditorPayload('weapon-recipe-method');
+            if (!payload) return;
+            state.weaponRecipeMethodsDraft[index] = normalizeRecipeMethod(payload);
+            loadRecipeMethodIntoForm(index);
+            close();
+          },
+        },
+        {
+          label: 'Duplicar', icon: '⧉', onClick: () => {
+            state.weaponRecipeMethodsDraft.splice(index + 1, 0, normalizeRecipeMethod(cloneData(method)));
+            loadRecipeMethodIntoForm(index + 1);
+            close();
+          },
+        },
+        {
+          label: 'Eliminar', icon: '🗑', tone: 'danger', disabled: state.weaponRecipeMethodsDraft.length <= 1, onClick: () => {
+            if (state.weaponRecipeMethodsDraft.length <= 1) return;
+            state.weaponRecipeMethodsDraft.splice(index, 1);
+            loadRecipeMethodIntoForm(Math.max(0, index - 1));
+            close();
+          },
+        },
+      ]);
+    },
   });
 }
 
@@ -900,23 +1254,8 @@ export function initWeaponModals() {
     state.weaponRecipeMethodsDraft.splice(state.editingWeaponRecipeMethodIndex, 1);
     loadRecipeMethodIntoForm(Math.max(0, state.editingWeaponRecipeMethodIndex - 1));
   });
-  document.getElementById('weapon-recipe-method-copy-actions')?.addEventListener('click', (event) => {
-    const btn = event.target.closest('[data-editor-action][data-scope="weapon-recipe-method"]');
-    if (!btn) return;
-    syncCurrentRecipeMethodFromForm();
-    const idx = state.editingWeaponRecipeMethodIndex;
-    if (btn.dataset.editorAction === 'duplicate') {
-      state.weaponRecipeMethodsDraft.splice(idx + 1, 0, normalizeRecipeMethod(cloneData(state.weaponRecipeMethodsDraft[idx])));
-      loadRecipeMethodIntoForm(idx + 1);
-    } else if (btn.dataset.editorAction === 'copy') {
-      copyEditorPayload('weapon-recipe-method', normalizeRecipeMethod(state.weaponRecipeMethodsDraft[idx]));
-      renderRecipeMethodSelector();
-    } else if (btn.dataset.editorAction === 'paste') {
-      const payload = getEditorPayload('weapon-recipe-method');
-      if (!payload) return;
-      state.weaponRecipeMethodsDraft[idx] = normalizeRecipeMethod(payload);
-      loadRecipeMethodIntoForm(idx);
-    }
+  document.getElementById('weapon-recipe-method-actions-btn')?.addEventListener('click', (event) => {
+    openRecipeMethodActions(event.currentTarget);
   });
   document.getElementById('weapon-recipe-mode-input').addEventListener('change', () => {
     syncRecipeMaterialsDraftFromDom();
@@ -934,47 +1273,11 @@ export function initWeaponModals() {
     state.weaponRecipeMaterialsDraft.push({ ...EMPTY_RECIPE_SLOT });
     renderRecipeMaterialsEditor();
   });
+  document.getElementById('weapon-recipe-result-slot')?.addEventListener('click', (event) => {
+    openRecipeResultContext(event.currentTarget);
+  });
   document.getElementById('submit-weapon-recipe-btn').addEventListener('click', submitWeaponRecipe);
   document.getElementById('clear-weapon-recipe-btn').addEventListener('click', clearWeaponRecipe);
-
-  // Uploader de imagen para el RESULTADO de receta (el único que no tenía file input antes)
-  const recipeResultUploadBtn = document.getElementById('weapon-recipe-result-image-upload-btn');
-  const recipeResultFileInput = document.getElementById('weapon-recipe-result-image-file');
-  const recipeResultHidden    = document.getElementById('weapon-recipe-result-image-input');
-  const recipeResultImgName   = document.getElementById('weapon-recipe-result-img-name');
-  if (recipeResultUploadBtn && recipeResultFileInput) {
-    recipeResultUploadBtn.addEventListener('click', () => recipeResultFileInput.click());
-    recipeResultFileInput.addEventListener('change', async () => {
-      const file = recipeResultFileInput.files[0];
-      if (!file) return;
-      recipeResultFileInput.value = '';
-      recipeResultUploadBtn.textContent = '…';
-      try {
-        const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === state.editingWeaponRankId);
-        const oldUrl = rank?.upgrade_recipe?.result?.image_url || '';
-        const publicUrl = await uploadImageToStorage(file, 'recipes', oldUrl);
-        recipeResultHidden.value = publicUrl;
-        if (recipeResultImgName) { recipeResultImgName.textContent = '✅ Imagen lista'; recipeResultImgName.classList.remove('hidden'); }
-        showToast('Imagen del resultado subida', 'success');
-      } catch (err) {
-        showToast(err.message, 'error');
-      } finally {
-        recipeResultUploadBtn.textContent = '📁 Imagen del resultado';
-      }
-    });
-  }
-  attachMediaPickerButton({
-    targetInputId: 'weapon-recipe-result-image-input',
-    insertAfterId: 'weapon-recipe-result-image-upload-btn',
-    title: 'Seleccionar imagen de resultado',
-    onSelect: ({ url }) => {
-      recipeResultHidden.value = url;
-      if (recipeResultImgName) {
-        recipeResultImgName.textContent = '✅ Imagen lista';
-        recipeResultImgName.classList.remove('hidden');
-      }
-    },
-  });
 
   document.getElementById('close-weapon-section-modal').addEventListener('click', () => document.getElementById('weapon-section-modal').classList.add('hidden'));
   document.getElementById('weapon-section-kind-input').addEventListener('change', toggleWeaponSectionKindUI);

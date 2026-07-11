@@ -105,7 +105,12 @@ export const state = {
   aboutBlocks: null,
   aboutEditorBlocks: [],
   backgroundConfig: { image_url: '', mode: 'fixed', tabs: [], presentation: null, opacity: 1 },
+  heroBannerConfig: {},
   faviconUrl: '',
+  siteLogoUrl: '',
+  serverThemeConfig: {},
+  localThemeConfig: null,
+  themeConfig: {},
   // Comentarios: cache plano del log abierto + likes + respuesta activa
   commentsFlat: [],
   likedCommentIds: new Set(JSON.parse(localStorage.getItem('culones_liked_comments') || '[]')),

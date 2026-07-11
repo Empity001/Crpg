@@ -12,74 +12,147 @@ import { state } from '../core/state.js';
 import { updateAssetPreview } from '../core/storage.js';
 import { asArray, cloneData, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, tempId } from '../core/utils.js';
 import { getGuideLinkFromFields, hydrateGuideLinkSelect, readGuideLinkSelect, setGuideLinkInFields, visibleExtraFields } from './guide-links.js';
+import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 
 function editorActionButtons(scope, idx, { remove = true } = {}) {
-  return `
-    <button type="button" class="editor-mini-btn" data-editor-action="duplicate" data-scope="${scope}" data-idx="${idx}" title="Duplicar">⧉</button>
-    <button type="button" class="editor-mini-btn" data-editor-action="copy" data-scope="${scope}" data-idx="${idx}" title="Copiar">📋</button>
-    <button type="button" class="editor-mini-btn" data-editor-action="paste" data-scope="${scope}" data-idx="${idx}" title="Pegar" ${hasEditorPayload(scope) ? '' : 'disabled'}>📥</button>
-    ${remove ? `<button type="button" class="enchant-remove" data-editor-action="remove" data-scope="${scope}" data-idx="${idx}" title="Quitar">✕</button>` : ''}
-  `;
+  return `<button type="button" class="editor-mini-btn context-menu-trigger editor-row-context-trigger"
+    data-editor-context="true" data-scope="${scope}" data-idx="${idx}" data-editor-remove="${remove ? 'true' : 'false'}"
+    aria-label="Abrir acciones" title="Acciones">⋯</button>`;
 }
 
-function bindListClipboardActions(container, { scope, getList, render, normalize = value => value, sync = null }) {
-  container.querySelectorAll(`[data-editor-action][data-scope="${scope}"]`).forEach(btn => {
+function openEditorRowActions({ anchor, scope, list, idx, render, normalize = value => value, remove = true, title = 'Acciones' }) {
+  if (!list?.[idx]) return;
+  openContextPanel({
+    anchor,
+    title,
+    subtitle: list[idx]?.name || list[idx]?.key || `Elemento ${idx + 1}`,
+    width: 320,
+    build(root, close) {
+      const actions = [
+        { label: 'Copiar', icon: '⎘', onClick: () => copyEditorPayload(scope, list[idx]) },
+        { label: 'Pegar', icon: '↧', disabled: !hasEditorPayload(scope), onClick: () => {
+          const payload = getEditorPayload(scope);
+          if (!payload) return;
+          list[idx] = normalize(payload);
+          close();
+          render();
+        } },
+        { label: 'Duplicar', icon: '⧉', onClick: () => {
+          list.splice(idx + 1, 0, cloneData(list[idx]));
+          close();
+          render();
+        } },
+      ];
+      if (remove) actions.push({
+        label: 'Eliminar', icon: '🗑', tone: 'danger', onClick: () => {
+          list.splice(idx, 1);
+          close();
+          render();
+        },
+      });
+      appendActionGrid(root, actions);
+    },
+  });
+}
+
+function bindListClipboardActions(container, { scope, getList, render, normalize = value => value, sync = null, title = 'Acciones' }) {
+  container.querySelectorAll(`[data-editor-context][data-scope="${scope}"]`).forEach(btn => {
     btn.addEventListener('click', () => {
+      sync?.();
       const list = getList();
       const idx = Number(btn.dataset.idx);
-      if (!list[idx] && btn.dataset.editorAction !== 'paste') return;
+      openEditorRowActions({
+        anchor: btn,
+        scope,
+        list,
+        idx,
+        render,
+        normalize,
+        remove: btn.dataset.editorRemove !== 'false',
+        title,
+      });
+    });
+  });
+}
+
+function bindNestedClipboardActions(container, { scope, getList, render, normalize = value => value, sync = null, title = 'Acciones' }) {
+  container.querySelectorAll(`[data-editor-context][data-scope="${scope}"]`).forEach(btn => {
+    btn.addEventListener('click', () => {
       sync?.();
-      if (btn.dataset.editorAction === 'duplicate') {
-        list.splice(idx + 1, 0, cloneData(list[idx]));
-      } else if (btn.dataset.editorAction === 'copy') {
-        copyEditorPayload(scope, list[idx]);
-      } else if (btn.dataset.editorAction === 'paste') {
-        const payload = getEditorPayload(scope);
-        if (!payload) return;
-        list[idx] = normalize(payload);
-      } else if (btn.dataset.editorAction === 'remove') {
-        list.splice(idx, 1);
-      }
-      render();
+      const list = getList(btn);
+      const idx = Number(btn.dataset.idx);
+      openEditorRowActions({
+        anchor: btn,
+        scope,
+        list,
+        idx,
+        render,
+        normalize,
+        remove: btn.dataset.editorRemove !== 'false',
+        title,
+      });
     });
   });
 }
 
 export function renderDraftBlocksList() {
   const container = document.getElementById('draft-blocks-list');
-  const mobChips = state.draftMobs.map((mob, idx) => `
-    <div class="draft-block-chip">
-      <span class="draft-block-label" data-kind="mob" data-idx="${idx}">👾 ${escapeHtml(mob.name)}</span>
-      <button type="button" class="draft-block-remove" data-kind="mob" data-idx="${idx}" aria-label="Quitar">✕</button>
-    </div>`);
-  const itemChips = state.draftItems.map((item, idx) => `
-    <div class="draft-block-chip">
-      <span class="draft-block-label" data-kind="item" data-idx="${idx}">🗡 ${escapeHtml(item.name)}</span>
-      <button type="button" class="draft-block-remove" data-kind="item" data-idx="${idx}" aria-label="Quitar">✕</button>
-    </div>`);
-  const libreChips = state.draftLibres.map((lib, idx) => `
-    <div class="draft-block-chip">
-      <span class="draft-block-label" data-kind="libre" data-idx="${idx}">📋 ${escapeHtml(lib.name)}</span>
-      <button type="button" class="draft-block-remove" data-kind="libre" data-idx="${idx}" aria-label="Quitar">✕</button>
-    </div>`);
+  if (!container) return;
+  const definitions = [
+    { kind: 'mob', icon: '👾', list: state.draftMobs, label: 'Mob' },
+    { kind: 'item', icon: '🗡', list: state.draftItems, label: 'Item' },
+    { kind: 'libre', icon: '📋', list: state.draftLibres, label: 'Bloque libre' },
+  ];
+  container.innerHTML = definitions.flatMap(def => def.list.map((entry, idx) => `
+    <button type="button" class="draft-block-chip draft-block-context-trigger" data-kind="${def.kind}" data-idx="${idx}">
+      <span class="draft-block-label">${def.icon} ${escapeHtml(entry.name || def.label)}</span>
+      <span class="draft-block-more" aria-hidden="true">⋯</span>
+    </button>`)).join('');
 
-  container.innerHTML = [...mobChips, ...itemChips, ...libreChips].join('');
+  const openEditor = (kind, idx) => {
+    if (kind === 'mob') openMobModal(idx);
+    else if (kind === 'item') openItemModal(idx);
+    else openLibreModal(idx);
+  };
 
-  container.querySelectorAll('.draft-block-label').forEach(el => {
-    el.addEventListener('click', () => {
-      const idx = Number(el.dataset.idx);
-      if (el.dataset.kind === 'mob') openMobModal(idx);
-      else if (el.dataset.kind === 'item') openItemModal(idx);
-      else openLibreModal(idx);
-    });
-  });
-  container.querySelectorAll('.draft-block-remove').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = Number(btn.dataset.idx);
-      if (btn.dataset.kind === 'mob') state.draftMobs.splice(idx, 1);
-      else if (btn.dataset.kind === 'item') state.draftItems.splice(idx, 1);
-      else state.draftLibres.splice(idx, 1);
-      renderDraftBlocksList();
+  container.querySelectorAll('.draft-block-context-trigger').forEach(trigger => {
+    trigger.addEventListener('click', () => {
+      const kind = trigger.dataset.kind;
+      const idx = Number(trigger.dataset.idx);
+      const def = definitions.find(item => item.kind === kind);
+      const list = def?.list;
+      const entry = list?.[idx];
+      if (!entry) return;
+      const scope = `log-block-${kind}`;
+      openContextPanel({
+        anchor: trigger,
+        title: `${def.icon} ${def.label}`,
+        subtitle: entry.name || '',
+        width: 330,
+        build(root, close) {
+          appendActionGrid(root, [
+            { label: 'Editar', icon: '✏', onClick: () => { close(); openEditor(kind, idx); } },
+            { label: 'Copiar', icon: '⎘', onClick: () => copyEditorPayload(scope, entry) },
+            { label: 'Duplicar', icon: '⧉', onClick: () => {
+              list.splice(idx + 1, 0, cloneData(entry));
+              close();
+              renderDraftBlocksList();
+            } },
+            { label: 'Pegar aquí', icon: '↧', disabled: !hasEditorPayload(scope), onClick: () => {
+              const payload = getEditorPayload(scope);
+              if (!payload) return;
+              list[idx] = cloneData(payload);
+              close();
+              renderDraftBlocksList();
+            } },
+            { label: 'Eliminar', icon: '🗑', tone: 'danger', onClick: () => {
+              list.splice(idx, 1);
+              close();
+              renderDraftBlocksList();
+            } },
+          ]);
+        },
+      });
     });
   });
 }
@@ -103,8 +176,7 @@ export function renderExtraFieldsEditor(containerId, getArr) {
       <div class="libre-field-head">
         <input type="text" class="modal-input extra-key-input" data-f="${fIdx}" value="${escapeHtml(field.key || '')}" placeholder="Campo (ej: Rareza)" maxlength="60" />
         <input type="text" class="modal-input extra-val-input" data-f="${fIdx}" value="${escapeHtml(field.value || '')}" placeholder="Valor" maxlength="200" />
-        <div class="editor-row-actions">${editorActionButtons(containerId, fIdx, { remove: false })}</div>
-        <button type="button" class="enchant-remove extra-remove-field" data-f="${fIdx}">🗑</button>
+        <div class="editor-row-actions">${editorActionButtons(containerId, fIdx)}</div>
       </div>
     </div>`).join('');
 
@@ -177,8 +249,7 @@ function renderMobEquipmentEditor() {
         <span class="enchant-icon">✨</span>
         <input type="text" class="modal-input enchant-input" value="${escapeHtml(en.name)}"
           data-eq="${eqIdx}" data-en="${enIdx}" placeholder="Ej: Filo V" maxlength="60" />
-        <div class="editor-row-actions">${editorActionButtons('mob-enchant', enIdx, { remove: false }).replaceAll(`data-idx="${enIdx}"`, `data-idx="${enIdx}" data-eq="${eqIdx}"`)}</div>
-        <button type="button" class="enchant-remove" data-eq="${eqIdx}" data-en="${enIdx}">✕</button>
+        <div class="editor-row-actions">${editorActionButtons('mob-enchant', enIdx).replaceAll(`data-idx="${enIdx}"`, `data-idx="${enIdx}" data-eq="${eqIdx}"`)}</div>
       </div>`).join('');
     return `
       <div class="equip-editor-item">
@@ -186,9 +257,8 @@ function renderMobEquipmentEditor() {
           <span class="equip-bullet">⚙</span>
           <input type="text" class="modal-input equip-name-input" value="${escapeHtml(eq.name)}"
             data-eq="${eqIdx}" placeholder="Ej: Casco de diamante" maxlength="80" />
-          <div class="editor-row-actions">${editorActionButtons('mob-equipment', eqIdx, { remove: false })}</div>
+          <div class="editor-row-actions">${editorActionButtons('mob-equipment', eqIdx)}</div>
           <button type="button" class="equip-add-enchant" data-eq="${eqIdx}">+ Encantamiento</button>
-          <button type="button" class="equip-remove-piece" data-eq="${eqIdx}">🗑</button>
         </div>
         <div class="enchant-rows">${enchHtml}</div>
         <button type="button" class="link-btn enchant-add-btn" data-eq="${eqIdx}">✨ + Encantamiento</button>
@@ -241,24 +311,17 @@ function renderMobEquipmentEditor() {
       });
     },
   });
-  container.querySelectorAll('[data-editor-action][data-scope="mob-enchant"]').forEach(btn => {
-    btn.addEventListener('click', () => {
+  bindNestedClipboardActions(container, {
+    scope: 'mob-enchant',
+    getList: btn => state.mobEquipmentDraft[Number(btn.dataset.eq)]?.enchantments,
+    render: renderMobEquipmentEditor,
+    normalize: item => ({ name: String(item?.name || '') }),
+    sync: () => {
       container.querySelectorAll('.enchant-input').forEach(input => {
         state.mobEquipmentDraft[Number(input.dataset.eq)].enchantments[Number(input.dataset.en)].name = input.value;
       });
-      const eqIdx = Number(btn.dataset.eq);
-      const enIdx = Number(btn.dataset.idx);
-      const list = state.mobEquipmentDraft[eqIdx]?.enchantments;
-      if (!list) return;
-      if (btn.dataset.editorAction === 'duplicate') list.splice(enIdx + 1, 0, cloneData(list[enIdx]));
-      else if (btn.dataset.editorAction === 'copy') copyEditorPayload('mob-enchant', list[enIdx]);
-      else if (btn.dataset.editorAction === 'paste') {
-        const payload = getEditorPayload('mob-enchant');
-        if (!payload) return;
-        list[enIdx] = { name: String(payload?.name || '') };
-      }
-      renderMobEquipmentEditor();
-    });
+    },
+    title: 'Acciones del encantamiento',
   });
 }
 
@@ -330,8 +393,7 @@ function renderItemEnchantEditor() {
     <div class="enchant-row">
       <span class="enchant-icon">✨</span>
       <input type="text" class="modal-input enchant-input" data-idx="${idx}" value="${escapeHtml(en.name)}" placeholder="Ej: Filo V" maxlength="60" />
-      <div class="editor-row-actions">${editorActionButtons('item-enchant', idx, { remove: false })}</div>
-      <button type="button" class="enchant-remove" data-idx="${idx}">✕</button>
+      <div class="editor-row-actions">${editorActionButtons('item-enchant', idx)}</div>
     </div>`).join('');
   container.querySelectorAll('.enchant-input').forEach(el => {
     el.addEventListener('input', () => { state.itemEnchantDraft[Number(el.dataset.idx)].name = el.value; });
@@ -460,8 +522,7 @@ function renderLibreFieldsEditor() {
           data-f="${fIdx}" data-s="${sIdx}" placeholder="Sub-campo" maxlength="60" />
         <input type="text" class="modal-input libre-subval" value="${escapeHtml(sf.value || '')}"
           data-f="${fIdx}" data-s="${sIdx}" placeholder="Valor" maxlength="200" />
-        <div class="editor-row-actions">${editorActionButtons('libre-subfield', sIdx, { remove: false }).replaceAll(`data-idx="${sIdx}"`, `data-idx="${sIdx}" data-f="${fIdx}"`)}</div>
-        <button type="button" class="enchant-remove" data-f="${fIdx}" data-s="${sIdx}">✕</button>
+        <div class="editor-row-actions">${editorActionButtons('libre-subfield', sIdx).replaceAll(`data-idx="${sIdx}"`, `data-idx="${sIdx}" data-f="${fIdx}"`)}</div>
       </div>`).join('');
     return `
       <div class="libre-field-item">
@@ -470,8 +531,7 @@ function renderLibreFieldsEditor() {
             data-f="${fIdx}" placeholder="Campo (ej: Tipo)" maxlength="60" />
           <input type="text" class="modal-input libre-val-input" value="${escapeHtml(field.value || '')}"
             data-f="${fIdx}" placeholder="Valor (opcional si tiene sub-campos)" maxlength="200" />
-          <div class="editor-row-actions">${editorActionButtons('libre-field', fIdx, { remove: false })}</div>
-          <button type="button" class="enchant-remove" data-f="${fIdx}">🗑</button>
+          <div class="editor-row-actions">${editorActionButtons('libre-field', fIdx)}</div>
         </div>
         <div class="libre-subfields-editor">${subHtml}</div>
         <button type="button" class="link-btn libre-add-sub" data-f="${fIdx}">↳ + Sub-campo</button>
@@ -519,22 +579,13 @@ function renderLibreFieldsEditor() {
     }),
     sync: () => syncLibreFieldsFromDom(container),
   });
-  container.querySelectorAll('[data-editor-action][data-scope="libre-subfield"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      syncLibreFieldsFromDom(container);
-      const field = getLibreFields()[Number(btn.dataset.f)];
-      const list = field?.subfields;
-      const idx = Number(btn.dataset.idx);
-      if (!list) return;
-      if (btn.dataset.editorAction === 'duplicate') list.splice(idx + 1, 0, cloneData(list[idx]));
-      else if (btn.dataset.editorAction === 'copy') copyEditorPayload('libre-subfield', list[idx]);
-      else if (btn.dataset.editorAction === 'paste') {
-        const payload = getEditorPayload('libre-subfield');
-        if (!payload) return;
-        list[idx] = { key: String(payload?.key || ''), value: String(payload?.value || '') };
-      }
-      renderLibreFieldsEditor();
-    });
+  bindNestedClipboardActions(container, {
+    scope: 'libre-subfield',
+    getList: btn => getLibreFields()[Number(btn.dataset.f)]?.subfields,
+    render: renderLibreFieldsEditor,
+    normalize: item => ({ key: String(item?.key || ''), value: String(item?.value || '') }),
+    sync: () => syncLibreFieldsFromDom(container),
+    title: 'Acciones del subcampo',
   });
 }
 

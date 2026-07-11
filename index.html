@@ -16,7 +16,8 @@
 <link rel="stylesheet" href="css/admin-tools.css" />
 <link rel="stylesheet" href="css/weapons.css" />
 <link rel="stylesheet" href="css/about.css" />
-<link rel="stylesheet" href="css/media.css" />
+<link rel="stylesheet" href="css/media.css?v=20260710-12" />
+<link rel="stylesheet" href="css/rebrand.css?v=20260711-01" />
 </head>
 <body>
 
@@ -25,41 +26,63 @@
      en cada página. -->
 <div id="shell-header"></div>
 
-<main class="app-main">
+<main class="app-main logs-page-main">
   <section class="tab-panel is-active" id="panel-logs">
+    <div class="logs-workspace">
+      <section class="logs-master-column" aria-label="Listado de logs">
+        <header class="logs-section-header">
+          <div class="logs-section-title-wrap">
+            <span class="logs-section-icon" aria-hidden="true">📖</span>
+            <div>
+              <span class="logs-section-eyebrow">Registro del servidor</span>
+              <h1>Logs</h1>
+              <p>Explora eventos, cambios y mecánicas sin perder de vista el detalle.</p>
+            </div>
+          </div>
+          <button class="btn-new-log hidden" id="open-new-log-btn" type="button">
+            + Nuevo Log
+          </button>
+        </header>
 
-    <div class="logs-toolbar">
-      <div class="filter-pills" id="category-filters">
-        <button class="pill is-active" data-filter="all">Todos</button>
-        <!-- Las categorías dinámicas se renderizan desde js/pages/logs.js -->
-      </div>
+        <div class="logs-toolbar logs-toolbar-master">
+          <div class="filter-pills" id="category-filters">
+            <button class="pill is-active" data-filter="all">Todos</button>
+            <!-- Las categorías dinámicas se renderizan desde js/pages/logs.js -->
+          </div>
 
-      <div class="toolbar-right">
-        <div class="sort-control">
-          <label for="sort-select" class="sort-label">Ordenar por</label>
-          <select id="sort-select" class="modal-select sort-select">
-            <option value="date_desc">Fecha (recientes primero)</option>
-            <option value="date_asc">Fecha (antiguos primero)</option>
-            <option value="relevance_desc">Relevancia (mayor primero)</option>
-            <option value="relevance_asc">Relevancia (menor primero)</option>
-          </select>
+          <div class="toolbar-right">
+            <div class="sort-control">
+              <label for="sort-select" class="sort-label">Ordenar por</label>
+              <select id="sort-select" class="modal-select sort-select">
+                <option value="date_desc">Fecha (recientes primero)</option>
+                <option value="date_asc">Fecha (antiguos primero)</option>
+                <option value="relevance_desc">Relevancia (mayor primero)</option>
+                <option value="relevance_asc">Relevancia (menor primero)</option>
+              </select>
+            </div>
+
+            <button class="btn-secondary-admin hidden" id="open-field-config-btn" type="button">
+              ⚙ Configurar fichas
+            </button>
+          </div>
         </div>
 
-        <button class="btn-secondary-admin hidden" id="open-field-config-btn" type="button">
-          ⚙ Configurar fichas
-        </button>
-        <button class="btn-new-log hidden" id="open-new-log-btn" type="button">
-          + Nuevo Log
-        </button>
-      </div>
-    </div>
+        <div class="logs-grid logs-list" id="logs-grid">
+          <!-- Las filas de logs se renderizan desde js/features/logs.js -->
+          <div class="logs-empty" id="logs-empty">
+            <div class="spinner"></div>
+            <p>Cargando registros del servidor...</p>
+          </div>
+        </div>
+      </section>
 
-    <div class="logs-grid" id="logs-grid">
-      <!-- Las tarjetas de logs se renderizan desde js/pages/logs.js -->
-      <div class="logs-empty" id="logs-empty">
-        <div class="spinner"></div>
-        <p>Cargando registros del servidor...</p>
-      </div>
+      <aside class="logs-inspector" id="logs-inspector" aria-live="polite" aria-label="Detalle del log seleccionado">
+        <div class="logs-inspector-empty">
+          <span class="logs-inspector-empty-icon" aria-hidden="true">✦</span>
+          <h2>Selecciona un log</h2>
+          <p>El resumen, las fichas y las acciones aparecerán aquí sin abrir otra ventana.</p>
+        </div>
+      </aside>
     </div>
   </section>
 </main>
@@ -96,6 +119,26 @@
 
     <label class="field-label">Descripción</label>
     <textarea id="log-desc-input" class="modal-textarea" maxlength="1000" rows="5" placeholder="Detalla qué cambió, cómo afecta a los jugadores..."></textarea>
+
+    <section class="log-cover-field" aria-labelledby="log-cover-label">
+      <div class="log-cover-field-head">
+        <div>
+          <label class="field-label" id="log-cover-label">Imagen de portada <span class="optional-tag">(opcional)</span></label>
+          <p class="field-hint">Se muestra únicamente en la lista de logs. Si no eliges una imagen, se usará el icono de la categoría.</p>
+        </div>
+        <button type="button" class="btn-secondary-admin" id="log-cover-image-picker-btn">▦ Biblioteca</button>
+      </div>
+      <input type="hidden" id="log-cover-image-input" />
+      <div class="log-cover-image-preview" id="log-cover-image-preview-wrap">
+        <img id="log-cover-image-preview" class="hidden" alt="Vista previa de la portada del log" />
+        <div class="log-cover-image-empty" id="log-cover-image-empty">
+          <span aria-hidden="true">▧</span>
+          <strong>Sin imagen personalizada</strong>
+          <small>Se mostrará el icono de la categoría.</small>
+        </div>
+      </div>
+      <button type="button" class="link-btn hidden" id="log-cover-image-clear-btn">✕ Quitar imagen</button>
+    </section>
 
     <div class="blocks-section">
       <div class="blocks-toolbar">
@@ -356,6 +399,6 @@
 <div id="shell-footer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script type="module" src="js/pages/logs.js"></script>
+<script type="module" src="js/pages/logs.js?v=20260711-01"></script>
 </body>
 </html>

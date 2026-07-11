@@ -9,7 +9,8 @@
 import { supabaseClient } from '../config.js';
 import { renderKeyValueRows } from './blocks-display.js';
 import { isAdmin, state } from '../core/state.js';
-import { asArray, escapeHtml, safeUrl } from '../core/utils.js';
+import { asArray, cloneData, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast } from '../core/utils.js';
+import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 import { guideLinkUrl } from './guide-links.js';
 import { getInfoVisuals, visibleRankSections } from './weapons-rank-extras.js';
 import { getCurrentWeapon, getWeaponCategory, getWeaponRanks, getWeaponType, replaceWeaponRank } from './weapons-state.js';
@@ -70,9 +71,7 @@ export function renderWeaponDetail() {
       </div>
       ${admin ? `
         <div class="weapon-detail-admin-actions">
-          <button type="button" class="btn-secondary-admin" data-action="edit-weapon-info">✏️ Editar info</button>
-          <button type="button" class="btn-secondary-admin" data-action="toggle-weapon-published">${weapon.published ? '🙈 Despublicar' : '👁 Publicar'}</button>
-          <button type="button" class="btn-secondary-admin danger" data-action="delete-weapon">🗑 Borrar arma</button>
+          <button type="button" class="context-menu-trigger" data-action="weapon-actions">⋯ Acciones</button>
         </div>` : ''}
     </div>`;
 
@@ -81,7 +80,7 @@ export function renderWeaponDetail() {
       ${ranks.map(r => `
         <div class="weapon-rank-pill-wrap">
           <button type="button" class="pill ${rank && r.id === rank.id ? 'is-active' : ''}" data-action="select-rank" data-rank-id="${r.id}">${escapeHtml(r.name)}</button>
-          ${admin ? `<button type="button" class="weapon-rank-admin-mini danger" data-action="delete-rank" data-rank-id="${r.id}" title="Borrar rango">✕</button>` : ''}
+          ${admin ? `<button type="button" class="weapon-rank-admin-mini context-menu-trigger" data-action="rank-actions" data-rank-id="${r.id}" title="Acciones del rango" aria-label="Acciones del rango ${escapeHtml(r.name)}">⋯</button>` : ''}
         </div>`).join('')}
       ${admin ? `<button type="button" class="pill" data-action="add-rank">+ Rango</button>` : ''}
     </div>`;
@@ -209,8 +208,7 @@ function renderAbilityCard(ab, idx, rankId, admin) {
         <p class="weapon-ability-name">${escapeHtml(ab.name || 'Habilidad')}</p>
         ${ab.tag ? `<span class="weapon-ability-tag">${escapeHtml(ab.tag)}</span>` : ''}
         ${admin ? `<div class="weapon-ability-admin-actions">
-          <button type="button" class="btn-secondary-admin" data-action="edit-ability" data-rank-id="${rankId}" data-ability-idx="${idx}">✏️</button>
-          <button type="button" class="btn-secondary-admin danger" data-action="delete-ability" data-rank-id="${rankId}" data-ability-idx="${idx}">🗑</button>
+          <button type="button" class="context-menu-trigger" data-action="ability-actions" data-rank-id="${rankId}" data-ability-idx="${idx}">⋯</button>
         </div>` : ''}
       </div>
       ${ab.description ? `<p class="weapon-ability-desc">${escapeHtml(ab.description)}</p>` : ''}
@@ -249,8 +247,9 @@ function renderRecipeMethod(recipe) {
 function renderRecipeSlot(item = {}, { result = false, empty = false } = {}) {
   const safe = safeUrl(item.image_url);
   const name = item.name || (empty ? 'Slot vacío' : 'Recurso sin nombre');
-  const qty = Number(item.qty) || 1;
+  const qty = Math.max(1, Number(item.qty) || 1);
   const link = guideLinkUrl(item.guide_link);
+  const hasContent = !!(item.name || item.image_url || item.guide_link);
   const slotHtml = `
     <div class="weapon-recipe-slot ${result ? 'is-result' : ''} ${safe ? 'has-image' : ''}"
          tabindex="0"
@@ -258,7 +257,7 @@ function renderRecipeSlot(item = {}, { result = false, empty = false } = {}) {
          aria-label="${escapeHtml(name)}">
       ${safe ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(name)}" class="pixel-art" loading="lazy" />` : ''}
       ${!safe && !empty ? `<span class="tier-chip-initials">${escapeHtml((name || '?').slice(0, 2).toUpperCase())}</span>` : ''}
-      ${qty > 1 ? `<span class="weapon-recipe-material-qty">×${escapeHtml(String(qty))}</span>` : ''}
+      ${hasContent && !empty ? `<span class="weapon-recipe-material-qty">×${escapeHtml(String(qty))}</span>` : ''}
     </div>`;
   if (!link) return slotHtml;
   return `<a class="weapon-recipe-slot-link" href="${escapeHtml(link)}" aria-label="Ver ${escapeHtml(name)} en Guías">${slotHtml}</a>`;
@@ -338,6 +337,178 @@ function renderSmithingRecipe(recipe) {
 }
 
 
+function weaponBasicPayload(weapon) {
+  return {
+    name: weapon?.name || '',
+    image_url: weapon?.image_url || '',
+    category_id: weapon?.category_id || '',
+    type_id: weapon?.type_id || '',
+  };
+}
+
+async function openWeaponAsNew(payload) {
+  const adminActions = await loadWeaponAdminActions();
+  adminActions.openWeaponModal(null);
+  const name = document.getElementById('weapon-name-input');
+  const image = document.getElementById('weapon-image-input');
+  const category = document.getElementById('weapon-category-input');
+  const type = document.getElementById('weapon-type-input');
+  if (name) name.value = payload?.name || '';
+  if (image) {
+    image.value = payload?.image_url || '';
+    image.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  if (category && payload?.category_id) category.value = payload.category_id;
+  if (type && payload?.type_id) type.value = payload.type_id;
+}
+
+function openWeaponActions(anchor, weapon) {
+  openContextPanel({
+    anchor,
+    title: 'Acciones del arma',
+    subtitle: weapon.name || '',
+    width: 350,
+    build(root, close) {
+      appendActionGrid(root, [
+        { label: 'Editar información', icon: '✏', onClick: async () => {
+          close();
+          const adminActions = await loadWeaponAdminActions();
+          adminActions.openWeaponModal(weapon.id);
+        } },
+        { label: 'Copiar', icon: '⎘', onClick: () => copyEditorPayload('weapon-basic', weaponBasicPayload(weapon)) },
+        { label: 'Duplicar', icon: '⧉', onClick: async () => {
+          const payload = weaponBasicPayload(weapon);
+          payload.name = `${payload.name} (copia)`;
+          close();
+          await openWeaponAsNew(payload);
+        } },
+        { label: 'Pegar como nueva', icon: '↧', disabled: !hasEditorPayload('weapon-basic'), onClick: async () => {
+          const payload = getEditorPayload('weapon-basic');
+          if (!payload) return;
+          close();
+          await openWeaponAsNew(payload);
+        } },
+        { label: weapon.published ? 'Despublicar' : 'Publicar', icon: weapon.published ? '🙈' : '👁', onClick: async () => {
+          close();
+          const adminActions = await loadWeaponAdminActions();
+          adminActions.toggleWeaponPublished(weapon.id);
+        } },
+        { label: 'Borrar arma', icon: '🗑', tone: 'danger', onClick: async () => {
+          close();
+          const adminActions = await loadWeaponAdminActions();
+          adminActions.deleteWeaponAction(weapon.id);
+        } },
+      ]);
+    },
+  });
+}
+
+function openAbilityActions(anchor, rankId, abilityIdx) {
+  const weapon = getCurrentWeapon();
+  const rank = getWeaponRanks(weapon?.id).find(entry => entry.id === rankId);
+  const ability = asArray(rank?.abilities)[abilityIdx];
+  if (!ability) return;
+  openContextPanel({
+    anchor,
+    title: 'Acciones de la habilidad',
+    subtitle: ability.name || `Habilidad ${abilityIdx + 1}`,
+    width: 330,
+    build(root, close) {
+      appendActionGrid(root, [
+        { label: 'Editar', icon: '✏', onClick: async () => {
+          close();
+          const adminActions = await loadWeaponAdminActions();
+          adminActions.openWeaponAbilityModal(rankId, abilityIdx);
+        } },
+        { label: 'Copiar', icon: '⎘', onClick: () => copyEditorPayload('weapon-ability', ability) },
+        { label: 'Duplicar', icon: '⧉', onClick: async () => {
+          const payload = cloneData(ability);
+          payload.name = `${payload.name || 'Habilidad'} (copia)`;
+          close();
+          const adminActions = await loadWeaponAdminActions();
+          adminActions.openWeaponAbilityModal(rankId, null, payload);
+        } },
+        { label: 'Pegar como nueva', icon: '↧', disabled: !hasEditorPayload('weapon-ability'), onClick: async () => {
+          const payload = getEditorPayload('weapon-ability');
+          if (!payload) return;
+          close();
+          const adminActions = await loadWeaponAdminActions();
+          adminActions.openWeaponAbilityModal(rankId, null, payload);
+        } },
+        { label: 'Eliminar', icon: '🗑', tone: 'danger', onClick: async () => {
+          close();
+          const adminActions = await loadWeaponAdminActions();
+          adminActions.deleteAbility(rankId, abilityIdx);
+        } },
+      ]);
+    },
+  });
+}
+
+function weaponRankPayload(rank) {
+  return {
+    name: rank?.name || '',
+    description: rank?.description || '',
+    image_url: rank?.image_url || '',
+    stats: cloneData(asArray(rank?.stats)),
+    abilities: cloneData(asArray(rank?.abilities)),
+    extra_sections: cloneData(asArray(rank?.extra_sections)),
+    upgrade_recipe: cloneData(rank?.upgrade_recipe || null),
+  };
+}
+
+function openRankActions(anchor, rankId) {
+  const rank = getWeaponRanks(state.currentWeaponId).find(entry => entry.id === rankId);
+  if (!rank) return;
+  openContextPanel({
+    anchor,
+    title: 'Acciones del rango',
+    subtitle: rank.name || '',
+    width: 350,
+    build(root, close) {
+      appendActionGrid(root, [
+        {
+          label: 'Editar rango', icon: '✏', onClick: async () => {
+            close();
+            const adminActions = await loadWeaponAdminActions();
+            adminActions.openWeaponRankModal(rank.id);
+          },
+        },
+        {
+          label: 'Copiar', icon: '⎘', onClick: () => {
+            copyEditorPayload('weapon-rank', weaponRankPayload(rank));
+            showToast('Rango copiado', 'success');
+          },
+        },
+        {
+          label: 'Duplicar', icon: '⧉', onClick: async () => {
+            close();
+            const adminActions = await loadWeaponAdminActions();
+            await adminActions.duplicateWeaponRank(rank.id);
+          },
+        },
+        {
+          label: 'Pegar como nuevo', icon: '↧', disabled: !hasEditorPayload('weapon-rank'), onClick: async () => {
+            const payload = getEditorPayload('weapon-rank');
+            if (!payload) return;
+            close();
+            const adminActions = await loadWeaponAdminActions();
+            await adminActions.createWeaponRankFromPayload(payload, { addCopySuffix: false });
+          },
+        },
+        {
+          label: 'Eliminar rango', icon: '🗑', tone: 'danger', onClick: async () => {
+            close();
+            const adminActions = await loadWeaponAdminActions();
+            await adminActions.deleteWeaponRank(rank.id);
+          },
+        },
+      ]);
+    },
+  });
+}
+
+
 function bindWeaponDetailEvents(container) {
   if (container.dataset.weaponDetailActionsBound === 'true') return;
   container.dataset.weaponDetailActionsBound = 'true';
@@ -350,6 +521,19 @@ function bindWeaponDetailEvents(container) {
     if (action === 'select-rank') {
       state.currentWeaponRankId = rankId;
       renderWeaponDetail();
+      return;
+    }
+
+    if (action === 'weapon-actions') {
+      openWeaponActions(btn, getCurrentWeapon());
+      return;
+    }
+    if (action === 'ability-actions') {
+      openAbilityActions(btn, rankId, Number(abilityIdx));
+      return;
+    }
+    if (action === 'rank-actions') {
+      openRankActions(btn, rankId);
       return;
     }
 

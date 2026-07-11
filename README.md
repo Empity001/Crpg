@@ -200,3 +200,13 @@ Los logs, sus mobs/items, los comentarios y el catálogo de la Guía de Armas se
 ## 🖼 Visor de imágenes a pantalla completa
 
 Cuando una ficha tiene imagen de referencia, "Ver en pantalla completa" la abre en una página dedicada (`asset-view.html`) en una pestaña nueva, mostrando la imagen a tamaño grande sobre fondo oscuro, con su propio título y un botón de "← Volver".
+
+## Migración 018: portada de Logs
+
+Esta versión añade una imagen de portada opcional e independiente para cada log. Antes de publicar o editar logs con portada, ejecuta en Supabase:
+
+```sql
+sql/migration_018_log_cover_image.sql
+```
+
+La migración añade `logs.cover_image_url` y nuevas variantes compatibles de los RPC `create_log` y `update_log`.

@@ -16,10 +16,11 @@
 <link rel="stylesheet" href="css/admin-tools.css" />
 <link rel="stylesheet" href="css/weapons.css" />
 <link rel="stylesheet" href="css/about.css" />
-<link rel="stylesheet" href="css/media.css" />
+<link rel="stylesheet" href="css/media.css?v=20260710-12" />
 <!-- SheetJS: generación de archivos Excel nativos (.xlsx) — solo esta
      página usa exportación, así que solo ella carga esta librería. -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="css/rebrand.css?v=20260711-01" />
 </head>
 <body>
 
@@ -197,31 +198,176 @@
       <button class="btn-primary" id="bg-save-btn" style="margin-top:14px;">Guardar fondo</button>
     </div>
 
-    <!-- Icono de la página (favicon) -->
-    <div class="admin-section">
+    <!-- Banners de cabecera -->
+    <div class="admin-section hero-banner-admin-section">
       <div class="admin-section-head">
-        <h2 class="admin-section-title">🖼 Icono de la página (favicon)</h2>
+        <h2 class="admin-section-title">🌙 Banners de cabecera</h2>
+        <button type="button" class="btn-secondary-admin" id="hero-banner-clear-btn">Quitar banner de esta sección</button>
       </div>
-      <p class="admin-section-hint">El ícono que aparece en la pestaña del navegador y al guardar la página como favorito. Subí una imagen cuadrada (idealmente PNG de 32×32 o 64×64 px).</p>
-      <div class="favicon-row">
-        <div class="favicon-preview" id="favicon-preview">?</div>
-        <div style="flex:1;">
+      <p class="admin-section-hint">
+        Personaliza el banner superior que aparece detrás del título de cada pestaña. La imagen ideal es
+        <strong>1600 × 420 px</strong> (relación aproximada 4:1). Usa <strong>WEBP</strong> para menor peso,
+        <strong>PNG</strong> si necesitas transparencia o <strong>JPG</strong> para imágenes fotográficas.
+        Máximo 8 MB. Mantén los detalles importantes en la zona central para que no se pierdan en móvil.
+      </p>
+
+      <div class="hero-banner-config-grid">
+        <label class="hero-banner-field">
+          <span>Sección que vas a editar</span>
+          <select id="hero-banner-page-select" class="media-input">
+            <option value="logs">Logs</option>
+            <option value="weapons">Guías</option>
+            <option value="tierlist">Tierlist</option>
+            <option value="kits">Kits</option>
+            <option value="about">Acerca del servidor</option>
+            <option value="admin">Herramientas</option>
+          </select>
+        </label>
+
+        <label class="hero-banner-field">
+          <span>Posición de la imagen</span>
+          <select id="hero-banner-position" class="media-input">
+            <option value="center center">Centro</option>
+            <option value="center top">Centro arriba</option>
+            <option value="center bottom">Centro abajo</option>
+            <option value="left center">Izquierda</option>
+            <option value="right center">Derecha</option>
+          </select>
+        </label>
+
+        <label class="hero-banner-field hero-banner-opacity-field">
+          <span>Opacidad <strong id="hero-banner-opacity-value">100%</strong></span>
+          <input id="hero-banner-opacity" type="range" min="0.1" max="1" step="0.05" value="1" />
+        </label>
+      </div>
+
+      <label class="hero-banner-hide-option">
+        <input type="checkbox" id="hero-banner-hide-art" checked />
+        <span>Ocultar la luna y el castillo predeterminados cuando haya una imagen personalizada.</span>
+      </label>
+
+      <label class="field-label" style="margin-top:14px;">Imagen del banner</label>
+      <div class="tier-img-dropzone" id="hero-banner-dropzone">
+        <input type="file" id="hero-banner-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
+        <input type="hidden" id="hero-banner-image-input" />
+        <div class="tier-img-dropzone-icon" id="hero-banner-dropzone-icon">🌄</div>
+        <p class="tier-img-dropzone-label" id="hero-banner-dropzone-label">Arrastra un banner aquí o haz clic para elegir</p>
+        <p class="tier-img-dropzone-hint">Ideal: 1600 × 420 px · WEBP, PNG o JPG · máximo 8 MB</p>
+        <div class="tier-img-uploading hidden" id="hero-banner-upload-progress">
+          <span class="tier-img-spinner"></span> Subiendo…
+        </div>
+      </div>
+
+      <div class="asset-preview hidden" id="hero-banner-image-preview-wrap">
+        <img id="hero-banner-image-preview" alt="Vista previa del banner" />
+        <div class="asset-preview-actions">
+          <button type="button" class="link-btn js-open-asset" id="hero-banner-image-fullscreen-btn">Ver en pantalla completa</button>
+          <button type="button" class="link-btn" id="hero-banner-image-clear-btn">Quitar imagen</button>
+        </div>
+      </div>
+
+      <div class="hero-banner-live-preview" id="hero-banner-live-preview">
+        <div>
+          <small>Vista previa</small>
+          <strong>Nombre de la sección</strong>
+          <span>Así se verá el banner detrás del título.</span>
+        </div>
+      </div>
+
+      <div class="modal-error hidden" id="hero-banner-error"></div>
+      <button class="btn-primary" id="hero-banner-save-btn" style="margin-top:14px;">Guardar banner</button>
+    </div>
+
+    <!-- Iconos del sitio -->
+    <div class="admin-section identity-section">
+      <div class="admin-section-head"><h2 class="admin-section-title">🖼 Iconos del sitio</h2></div>
+      <p class="admin-section-hint">Cambia el icono de la pestaña y el símbolo que aparece junto a <strong>CULONES-RPG</strong> en el menú. Los dos se editan aquí mismo.</p>
+      <div class="identity-icons-grid">
+        <div class="identity-icon-editor">
+          <div class="identity-icon-heading"><div class="favicon-preview" id="favicon-preview">?</div><div><h3>Icono de la pestaña</h3><p>PNG o WEBP cuadrado de 64×64 px recomendado.</p></div></div>
           <div class="tier-img-dropzone favicon-dropzone" id="favicon-dropzone">
             <input type="file" id="favicon-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
             <input type="hidden" id="favicon-image-input" />
             <div class="tier-img-dropzone-icon" id="favicon-dropzone-icon">🖼</div>
-            <p class="tier-img-dropzone-label" id="favicon-dropzone-label">Arrastrá una imagen aquí o hacé click para elegir</p>
-            <p class="tier-img-dropzone-hint">PNG, JPG, WEBP, GIF, SVG o APNG cuadrado · máx. 8 MB</p>
-            <div class="tier-img-uploading hidden" id="favicon-upload-progress">
-              <span class="tier-img-spinner"></span> Subiendo…
-            </div>
+            <p class="tier-img-dropzone-label" id="favicon-dropzone-label">Arrastra una imagen o haz clic para elegir</p>
+            <p class="tier-img-dropzone-hint">PNG, WEBP, JPG, GIF, SVG o APNG · máximo 8 MB</p>
+            <div class="tier-img-uploading hidden" id="favicon-upload-progress"><span class="tier-img-spinner"></span> Subiendo…</div>
           </div>
-          <button type="button" class="link-btn" id="favicon-clear-btn" style="margin-top:6px;">✕ Quitar icono</button>
-          <p class="field-hint" style="margin-top:5px;">Se aplica al instante en tu pestaña y para todos los visitantes que carguen la página después de guardar.</p>
+          <button type="button" class="link-btn identity-clear-btn" id="favicon-clear-btn">✕ Quitar favicon</button>
+        </div>
+        <div class="identity-icon-editor">
+          <div class="identity-icon-heading"><div class="site-logo-preview" id="site-logo-preview">⚔</div><div><h3>Icono junto al nombre</h3><p>PNG o WEBP transparente de 256×256 px recomendado.</p></div></div>
+          <div class="tier-img-dropzone favicon-dropzone" id="site-logo-dropzone">
+            <input type="file" id="site-logo-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
+            <input type="hidden" id="site-logo-image-input" />
+            <div class="tier-img-dropzone-icon" id="site-logo-dropzone-icon">⚔</div>
+            <p class="tier-img-dropzone-label" id="site-logo-dropzone-label">Arrastra el icono del menú o haz clic</p>
+            <p class="tier-img-dropzone-hint">Fondo transparente recomendado · máximo 8 MB</p>
+            <div class="tier-img-uploading hidden" id="site-logo-upload-progress"><span class="tier-img-spinner"></span> Subiendo…</div>
+          </div>
+          <button type="button" class="link-btn identity-clear-btn" id="site-logo-clear-btn">✕ Volver a las espadas</button>
         </div>
       </div>
+      <p class="field-hint identity-save-hint">La vista previa cambia al instante. Pulsa guardar para publicarlo.</p>
       <div class="modal-error hidden" id="favicon-config-error"></div>
-      <button class="btn-primary" id="favicon-save-btn" style="margin-top:12px;">Guardar icono</button>
+      <button class="btn-primary" id="favicon-save-btn">Guardar iconos</button>
+    </div>
+
+    <!-- Colores generales -->
+    <div class="admin-section theme-editor-section">
+      <div class="admin-section-head theme-editor-head">
+        <div>
+          <div class="theme-title-row">
+            <h2 class="admin-section-title">🎨 Colores generales de la página</h2>
+            <span class="theme-source-badge" id="theme-source-badge">Usando paleta del servidor</span>
+          </div>
+          <p class="admin-section-hint">Edita fondos, textos, selección, confirmaciones, advertencias y demás colores. Primero elige si los cambios serán personales o públicos.</p>
+        </div>
+        <div class="theme-editor-actions-top">
+          <button type="button" class="btn-secondary-admin" id="theme-revert-btn">Deshacer cambios</button>
+          <button type="button" class="btn-secondary-admin" id="theme-reset-btn">Paleta original</button>
+        </div>
+      </div>
+
+      <div class="theme-scope-panel">
+        <div class="theme-scope-heading">
+          <div>
+            <strong>¿Dónde se guardarán estos colores?</strong>
+            <small>La vista previa cambia al instante, pero solo se guarda al pulsar el botón final.</small>
+          </div>
+          <button type="button" class="btn-secondary-admin hidden" id="theme-clear-local-btn">Usar colores del servidor en este navegador</button>
+        </div>
+
+        <div class="theme-scope-options" role="radiogroup" aria-label="Alcance de la paleta">
+          <label class="theme-scope-card" data-theme-scope-card="local">
+            <input type="radio" name="theme-save-scope" value="local">
+            <span class="theme-scope-icon">💻</span>
+            <span class="theme-scope-copy">
+              <strong>Solo este navegador</strong>
+              <small>Personalización privada guardada en este dispositivo. No cambia el diseño para nadie más.</small>
+            </span>
+          </label>
+
+          <label class="theme-scope-card" data-theme-scope-card="server">
+            <input type="radio" name="theme-save-scope" value="server">
+            <span class="theme-scope-icon">🌐</span>
+            <span class="theme-scope-copy">
+              <strong>Todo el servidor</strong>
+              <small>Publica la paleta en Supabase para todos los visitantes que no tengan colores locales.</small>
+            </span>
+          </label>
+        </div>
+
+        <p class="theme-scope-note" id="theme-scope-note"></p>
+      </div>
+
+      <div class="theme-preview-card" aria-hidden="true">
+        <div class="theme-preview-sidebar"><span class="theme-preview-logo">◆</span><span class="theme-preview-nav is-active">Selección activa</span><span class="theme-preview-nav">Opción normal</span></div>
+        <div class="theme-preview-content"><strong>Vista previa general</strong><p>Texto principal, texto secundario y superficies.</p><div class="theme-preview-buttons"><span class="theme-preview-btn primary">Acción principal</span><span class="theme-preview-btn confirm">Confirmar</span><span class="theme-preview-btn danger">Eliminar</span></div></div>
+      </div>
+      <div class="theme-color-groups" id="theme-color-grid"></div>
+      <div class="modal-error hidden" id="theme-config-error"></div>
+      <button class="btn-primary" id="theme-save-btn">Guardar colores</button>
     </div>
 
   </section>
@@ -270,6 +416,6 @@
 <div id="shell-footer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script type="module" src="js/pages/admin.js"></script>
+<script type="module" src="js/pages/admin.js?v=20260710-13"></script>
 </body>
 </html>

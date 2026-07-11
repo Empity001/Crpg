@@ -1,8 +1,8 @@
 // =========================================================
 // background.js
 // =========================================================
-// Fondo de página configurable por el admin (imagen + modo) y su
-// aplicación en tiempo real al cambiar de pestaña.
+// Fondo de página configurable por el admin. Usa una capa dedicada en
+// vez de apilar fondos sobre <body>, evitando recortes, saltos y lag.
 // =========================================================
 
 import { supabaseClient } from '../config.js';
@@ -11,8 +11,6 @@ import { DEFAULT_MEDIA_PRESENTATION } from '../core/media.js';
 import { initGenericImageDropzone, syncGenericDropzoneState, updateAssetPreview } from '../core/storage.js';
 import { confirmAction, showToast } from '../core/utils.js';
 import { attachMediaPickerButton } from './media-library.js';
-
-const BACKGROUND_BASE_RGB = '12, 10, 20';
 
 export function normalizeBackgroundOpacity(value) {
   const n = Number(value);
@@ -23,17 +21,44 @@ export function normalizeBackgroundOpacity(value) {
 export function normalizeBackgroundPresentation(presentation = {}, legacyOpacity = 1) {
   const p = { ...DEFAULT_MEDIA_PRESENTATION, ...(presentation || {}) };
   const opacity = p.opacity ?? legacyOpacity;
-  const positionMap = { 'top center': 'center top', 'bottom center': 'center bottom', 'center left': 'left center', 'center right': 'right center' };
+  const positionMap = {
+    'top center': 'center top',
+    'bottom center': 'center bottom',
+    'center left': 'left center',
+    'center right': 'right center',
+  };
   const mappedPosition = positionMap[p.position] || p.position || DEFAULT_MEDIA_PRESENTATION.position;
   const position = ['center center', 'center top', 'center bottom', 'left center', 'right center'].includes(mappedPosition)
     ? mappedPosition
     : DEFAULT_MEDIA_PRESENTATION.position;
+
   return {
     fit: ['contain', 'cover', 'fill', 'none', 'scale-down'].includes(p.fit) ? p.fit : DEFAULT_MEDIA_PRESENTATION.fit,
     position,
     repeat: ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'].includes(p.repeat) ? p.repeat : DEFAULT_MEDIA_PRESENTATION.repeat,
     opacity: normalizeBackgroundOpacity(opacity),
   };
+}
+
+function ensureBackgroundLayer() {
+  let layer = document.getElementById('custom-background-layer');
+  if (layer) return layer;
+
+  layer = document.createElement('div');
+  layer.id = 'custom-background-layer';
+  layer.className = 'custom-background-layer';
+  layer.setAttribute('aria-hidden', 'true');
+  layer.innerHTML = `
+    <div class="custom-background-backdrop"></div>
+    <div class="custom-background-image"></div>
+    <div class="custom-background-veil"></div>`;
+  document.body.prepend(layer);
+  return layer;
+}
+
+function clearLegacyBodyBackground() {
+  ['backgroundImage', 'backgroundAttachment', 'backgroundSize', 'backgroundPosition', 'backgroundRepeat']
+    .forEach(prop => { document.body.style[prop] = ''; });
 }
 
 function setBackgroundFormPresentation(presentation) {
@@ -44,7 +69,11 @@ function setBackgroundFormPresentation(presentation) {
 function readBackgroundFormPresentation() {
   const urlInput = document.getElementById('bg-image-input');
   if (urlInput?.dataset.bgPresentation) {
-    try { return normalizeBackgroundPresentation(JSON.parse(urlInput.dataset.bgPresentation)); } catch(e) {}
+    try {
+      return normalizeBackgroundPresentation(JSON.parse(urlInput.dataset.bgPresentation));
+    } catch (_) {
+      // Usa la configuración actual si el dataset quedó incompleto.
+    }
   }
   return normalizeBackgroundPresentation(state.backgroundConfig.presentation, state.backgroundConfig.opacity ?? 1);
 }
@@ -53,15 +82,19 @@ export function populateBackgroundForm() {
   const cfg = state.backgroundConfig;
   const urlInput = document.getElementById('bg-image-input');
   if (!urlInput) return;
+
   urlInput.value = cfg.image_url || '';
   setBackgroundFormPresentation(cfg.presentation || { opacity: cfg.opacity ?? 1 });
   updateAssetPreview('bg', cfg.image_url || '');
   syncGenericDropzoneState('bg', cfg.image_url || '');
-  const r = document.querySelector(`input[name="bg-mode"][value="${cfg.mode||'fixed'}"]`);
-  if (r) r.checked = true;
-  document.querySelectorAll('#bg-tabs-options input[type="checkbox"]').forEach(cb => { cb.checked = Array.isArray(cfg.tabs) && cfg.tabs.includes(cb.value); });
-}
 
+  const selectedMode = document.querySelector(`input[name="bg-mode"][value="${cfg.mode || 'fixed'}"]`);
+  if (selectedMode) selectedMode.checked = true;
+
+  document.querySelectorAll('#bg-tabs-options input[type="checkbox"]').forEach((checkbox) => {
+    checkbox.checked = Array.isArray(cfg.tabs) && cfg.tabs.includes(checkbox.value);
+  });
+}
 
 function readBackgroundForm() {
   const presentation = readBackgroundFormPresentation();
@@ -74,52 +107,59 @@ function readBackgroundForm() {
   };
 }
 
-function backgroundSizeForModeAndPresentation(mode, presentation) {
-  if (presentation) {
-    const fit = presentation.fit;
-    if (fit === 'fill') return '100% 100%';
-    if (fit === 'none') return 'auto';
-    if (fit === 'scale-down') return 'contain';
-    return fit;
-  }
-  if (mode === 'continuous') return '100% auto';
-  if (mode === 'contain') return 'contain';
-  return 'cover';
-}
-
 export function applyCustomBackground(config) {
   const cfg = config || state.backgroundConfig;
   const valid = !!cfg.image_url && /^https?:\/\//i.test(cfg.image_url);
-  const show  = valid && Array.isArray(cfg.tabs) && cfg.tabs.includes(state.activeTab || 'logs');
-  if (!show) { ['backgroundImage','backgroundAttachment','backgroundSize','backgroundPosition','backgroundRepeat'].forEach(p => document.body.style[p] = ''); return; }
-  const u = cfg.image_url.replace(/["\\]/g, '');
-  const hasPresentation = !!cfg.presentation;
-  const presentation = normalizeBackgroundPresentation(cfg.presentation, cfg.opacity ?? 1);
-  const veilOpacity = 1 - presentation.opacity;
-  const imageSize = backgroundSizeForModeAndPresentation(cfg.mode, hasPresentation ? presentation : null);
-  const imagePosition = hasPresentation ? presentation.position : 'center center';
-  const imageRepeat = hasPresentation ? presentation.repeat : 'no-repeat';
-  const imageAttachment = cfg.mode === 'continuous' ? 'scroll' : 'fixed';
-  document.body.style.backgroundImage = `linear-gradient(rgba(${BACKGROUND_BASE_RGB}, ${veilOpacity}), rgba(${BACKGROUND_BASE_RGB}, ${veilOpacity})), url("${u}")`;
-  document.body.style.backgroundPosition = `center center, ${imagePosition}`;
-  document.body.style.backgroundRepeat = `no-repeat, ${imageRepeat}`;
-  document.body.style.backgroundSize = `cover, ${imageSize}`;
-  document.body.style.backgroundAttachment = `${imageAttachment}, ${imageAttachment}`;
-}
+  const show = valid && Array.isArray(cfg.tabs) && cfg.tabs.includes(state.activeTab || 'logs');
+  const layer = ensureBackgroundLayer();
 
+  clearLegacyBodyBackground();
+
+  if (!show) {
+    layer.className = 'custom-background-layer';
+    layer.style.removeProperty('--custom-bg-url');
+    return;
+  }
+
+  const safeUrl = cfg.image_url.replace(/["\\]/g, '');
+  const presentation = normalizeBackgroundPresentation(cfg.presentation, cfg.opacity ?? 1);
+  const mode = ['fixed', 'continuous', 'contain'].includes(cfg.mode) ? cfg.mode : 'fixed';
+
+  layer.className = `custom-background-layer is-visible mode-${mode}`;
+  layer.style.setProperty('--custom-bg-url', `url("${safeUrl}")`);
+  layer.style.setProperty('--custom-bg-position', presentation.position);
+  layer.style.setProperty('--custom-bg-repeat', presentation.repeat);
+  layer.style.setProperty('--custom-bg-opacity', String(presentation.opacity));
+  layer.style.setProperty('--custom-bg-veil', String(Math.max(0.12, 0.72 - (presentation.opacity * 0.52))));
+}
 
 async function saveBackgroundConfig() {
   const errorBox = document.getElementById('bg-config-error');
   errorBox.classList.add('hidden');
   const value = readBackgroundForm();
-  if (!state.adminCode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
-  const { error } = await supabaseClient.rpc('update_app_setting', { input_code: state.adminCode, input_key: 'background_config', input_value: value });
-  if (error) { errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
+
+  if (!state.adminCode) {
+    errorBox.textContent = 'Tu sesión de administrador expiró.';
+    errorBox.classList.remove('hidden');
+    return;
+  }
+
+  const { error } = await supabaseClient.rpc('update_app_setting', {
+    input_code: state.adminCode,
+    input_key: 'background_config',
+    input_value: value,
+  });
+
+  if (error) {
+    errorBox.textContent = `Error: ${error.message}`;
+    errorBox.classList.remove('hidden');
+    return;
+  }
+
   state.backgroundConfig = value;
   applyCustomBackground();
   showToast(value.image_url ? 'Fondo guardado para todos' : 'Fondo de página quitado', 'success');
 }
-
 
 async function clearBackgroundConfig() {
   if (!(await confirmAction({
@@ -128,33 +168,38 @@ async function clearBackgroundConfig() {
     confirmLabel: 'Quitar fondo',
     danger: true,
   }))) return;
-  const i = document.getElementById('bg-image-input'); if (i) i.value = '';
+
+  const input = document.getElementById('bg-image-input');
+  if (input) input.value = '';
   setBackgroundFormPresentation(DEFAULT_MEDIA_PRESENTATION);
   updateAssetPreview('bg', '');
   syncGenericDropzoneState('bg', '');
   await saveBackgroundConfig();
 }
 
-
 export function initBackgroundTool() {
-  const u = document.getElementById('bg-image-input'); if (!u) return;
+  const input = document.getElementById('bg-image-input');
+  if (!input) return;
+
   const preview = () => applyCustomBackground(readBackgroundForm());
-  document.querySelectorAll('input[name="bg-mode"]').forEach(r => r.addEventListener('change', preview));
-  document.querySelectorAll('#bg-tabs-options input[type="checkbox"]').forEach(cb => cb.addEventListener('change', preview));
+  document.querySelectorAll('input[name="bg-mode"]').forEach(radio => radio.addEventListener('change', preview));
+  document.querySelectorAll('#bg-tabs-options input[type="checkbox"]').forEach(checkbox => checkbox.addEventListener('change', preview));
   document.getElementById('bg-save-btn')?.addEventListener('click', saveBackgroundConfig);
   document.getElementById('bg-clear-btn')?.addEventListener('click', clearBackgroundConfig);
   document.getElementById('bg-image-clear-btn')?.addEventListener('click', () => {
-    u.value = '';
+    input.value = '';
     setBackgroundFormPresentation(DEFAULT_MEDIA_PRESENTATION);
     updateAssetPreview('bg', '');
     syncGenericDropzoneState('bg', '');
     preview();
   });
+
   initGenericImageDropzone('bg', 'backgrounds', () => state.backgroundConfig.image_url || '', (url) => {
     setBackgroundFormPresentation(state.backgroundConfig.presentation || { opacity: state.backgroundConfig.opacity ?? 1 });
     updateAssetPreview('bg', url);
     preview();
   });
+
   attachMediaPickerButton({
     targetInputId: 'bg-image-input',
     insertAfterId: 'bg-dropzone',

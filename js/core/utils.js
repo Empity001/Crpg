@@ -59,6 +59,7 @@ export function hasEditorPayload(scope) {
 
 const modalLifecycleCleanups = new Map();
 let modalLifecycleObserver = null;
+let modalPortal = null;
 
 function uniqueList(...lists) {
   return [...new Set(lists.flat().filter(Boolean))];
@@ -99,6 +100,42 @@ function clearAssetPreview(prefix) {
   wrap?.classList.add('hidden');
 }
 
+/**
+ * Todos los overlays viven en un portal fijo, fuera del flujo de la página.
+ * Esto evita que un selector creado al final del <body> aumente la altura del
+ * documento o termine visualmente "debajo" de otras interfaces.
+ */
+export function ensureModalPortal() {
+  if (modalPortal?.isConnected) return modalPortal;
+  modalPortal = document.getElementById('modal-portal');
+  if (!modalPortal) {
+    modalPortal = document.createElement('div');
+    modalPortal.id = 'modal-portal';
+    modalPortal.setAttribute('aria-live', 'off');
+    document.body.appendChild(modalPortal);
+  }
+  return modalPortal;
+}
+
+export function mountModal(modal) {
+  if (!(modal instanceof Element)) return modal;
+  const portal = ensureModalPortal();
+  if (modal.parentElement !== portal) portal.appendChild(modal);
+  return modal;
+}
+
+function visibleModalCount() {
+  const portal = ensureModalPortal();
+  return portal.querySelectorAll('.modal-overlay:not(.hidden)').length;
+}
+
+function syncModalOpenState() {
+  if (!document.body) return;
+  const hasOpenModal = visibleModalCount() > 0;
+  document.body.classList.toggle('modal-open', hasOpenModal);
+  document.documentElement.classList.toggle('modal-open', hasOpenModal);
+}
+
 export function registerModalLifecycleCleanup(modalId, config = {}) {
   if (!modalId) return;
   const current = modalLifecycleCleanups.get(modalId) || {};
@@ -135,18 +172,38 @@ export function cleanupModalVisualResources(modal) {
 }
 
 function handleModalLifecycleChange(modal) {
+  if (!(modal instanceof Element)) return;
+  mountModal(modal);
   const isHidden = modal.classList.contains('hidden');
+  modal.setAttribute('aria-hidden', isHidden ? 'true' : 'false');
   if (!isHidden) {
     modal.dataset.visualResourcesCleaned = 'false';
+    syncModalOpenState();
     return;
   }
-  if (modal.dataset.visualResourcesCleaned === 'true') return;
-  cleanupModalVisualResources(modal);
-  modal.dataset.visualResourcesCleaned = 'true';
+  if (modal.dataset.visualResourcesCleaned !== 'true') {
+    cleanupModalVisualResources(modal);
+    modal.dataset.visualResourcesCleaned = 'true';
+  }
+  syncModalOpenState();
+}
+
+function collectModalOverlays(node) {
+  if (!(node instanceof Element)) return [];
+  const modals = [];
+  if (node.classList.contains('modal-overlay')) modals.push(node);
+  node.querySelectorAll?.('.modal-overlay').forEach(modal => modals.push(modal));
+  return modals;
 }
 
 export function setupModalLifecycleObserver() {
   if (modalLifecycleObserver || !document.body) return;
+  ensureModalPortal();
+
+  // Saca los modales estáticos de los placeholders/footer y los monta en
+  // una única capa fija antes de empezar a observar nuevas interfaces.
+  [...document.querySelectorAll('.modal-overlay')].forEach(modal => mountModal(modal));
+
   modalLifecycleObserver = new MutationObserver(mutations => {
     mutations.forEach(mutation => {
       const target = mutation.target;
@@ -155,9 +212,7 @@ export function setupModalLifecycleObserver() {
       }
       if (mutation.type === 'childList') {
         mutation.addedNodes.forEach(node => {
-          if (!(node instanceof Element)) return;
-          if (node.classList.contains('modal-overlay')) handleModalLifecycleChange(node);
-          node.querySelectorAll?.('.modal-overlay').forEach(handleModalLifecycleChange);
+          collectModalOverlays(node).forEach(handleModalLifecycleChange);
         });
       }
     });
@@ -169,6 +224,7 @@ export function setupModalLifecycleObserver() {
     subtree: true,
   });
   document.querySelectorAll('.modal-overlay').forEach(handleModalLifecycleChange);
+  syncModalOpenState();
 }
 
 function ensureConfirmModal() {
@@ -188,7 +244,7 @@ function ensureConfirmModal() {
         <button type="button" class="btn-secondary-admin danger" id="app-confirm-accept"></button>
       </div>
     </div>`;
-  document.body.appendChild(modal);
+  mountModal(modal);
   return modal;
 }
 

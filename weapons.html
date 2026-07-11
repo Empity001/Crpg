@@ -16,7 +16,8 @@
 <link rel="stylesheet" href="css/admin-tools.css" />
 <link rel="stylesheet" href="css/weapons.css" />
 <link rel="stylesheet" href="css/about.css" />
-<link rel="stylesheet" href="css/media.css" />
+<link rel="stylesheet" href="css/media.css?v=20260710-12" />
+<link rel="stylesheet" href="css/rebrand.css?v=20260711-01" />
 </head>
 <body>
 
@@ -119,7 +120,10 @@
     <input type="color" id="weapon-category-color-input" class="modal-color-input" value="#4dd4e8" />
 
     <div class="modal-error hidden" id="weapon-category-modal-error"></div>
-    <button class="btn-primary" id="submit-weapon-category-btn">Crear categoría</button>
+    <div class="manage-editor-actions">
+      <button class="btn-primary" id="submit-weapon-category-btn">Crear categoría</button>
+      <button class="btn-secondary-admin hidden" id="cancel-weapon-category-edit-btn" type="button">Cancelar edición</button>
+    </div>
 
     <hr class="modal-divider" />
     <h4 class="manage-list-heading">Categorías existentes</h4>
@@ -138,7 +142,10 @@
     <input type="text" id="weapon-type-label-input" class="modal-input" maxlength="40" placeholder="Ej: Arma, Accesorio, Reliquia..." />
 
     <div class="modal-error hidden" id="weapon-type-modal-error"></div>
-    <button class="btn-primary" id="submit-weapon-type-btn">Crear tipo</button>
+    <div class="manage-editor-actions">
+      <button class="btn-primary" id="submit-weapon-type-btn">Crear tipo</button>
+      <button class="btn-secondary-admin hidden" id="cancel-weapon-type-edit-btn" type="button">Cancelar edición</button>
+    </div>
 
     <hr class="modal-divider" />
     <h4 class="manage-list-heading">Tipos existentes</h4>
@@ -229,7 +236,7 @@
 </div>
 
 <div class="modal-overlay hidden" id="weapon-recipe-modal">
-  <div class="modal-box modal-box-wide">
+  <div class="modal-box modal-box-wide weapon-recipe-modal-box">
     <button class="modal-close" id="close-weapon-recipe-modal" aria-label="Cerrar">✕</button>
     <h3 class="modal-title">🔁 MEJORA/FABRICACIÓN</h3>
     <p class="modal-hint">Configura cómo se obtiene este rango: intercambio, mesa de crafteo u horno.</p>
@@ -242,7 +249,7 @@
       <div class="field-col recipe-method-actions">
         <button type="button" class="btn-secondary-admin" id="weapon-recipe-add-method-btn">+ Método</button>
         <button type="button" class="btn-secondary-admin danger" id="weapon-recipe-remove-method-btn">Quitar</button>
-        <span class="editor-row-actions" id="weapon-recipe-method-copy-actions"></span>
+        <button type="button" class="context-menu-trigger" id="weapon-recipe-method-actions-btn">⋯ Acciones</button>
       </div>
     </div>
 
@@ -269,25 +276,29 @@
       </div>
     </div>
 
-    <label class="field-label" id="weapon-recipe-materials-label">Materiales</label>
-    <div id="weapon-recipe-materials-list" class="equip-editor-list"></div>
-    <button type="button" class="link-btn" id="weapon-recipe-add-material-btn">+ Material</button>
-
-    <hr class="modal-divider" />
-    <label class="field-label">Resultado de la mejora</label>
-    <div class="field-row">
-      <div class="field-col">
-        <input type="text" id="weapon-recipe-result-name-input" class="modal-input" maxlength="80" placeholder="Ej: MK2" />
+    <div class="recipe-editor-workbench" id="weapon-recipe-workbench">
+      <div class="recipe-editor-machine-wrap">
+        <label class="field-label" id="weapon-recipe-materials-label">Materiales</label>
+        <div id="weapon-recipe-materials-list" class="equip-editor-list"></div>
+        <button type="button" class="link-btn" id="weapon-recipe-add-material-btn">+ Material</button>
       </div>
-      <div class="field-col">
-        <input type="hidden" id="weapon-recipe-result-image-input" />
-        <input type="file" id="weapon-recipe-result-image-file" class="hidden" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng" />
-        <button type="button" class="btn-upload-zone btn-upload-zone-sm" id="weapon-recipe-result-image-upload-btn">📁 Imagen del resultado</button>
-        <span class="recipe-result-img-name hidden" id="weapon-recipe-result-img-name"></span>
-      </div>
+      <span class="recipe-editor-arrow" aria-hidden="true">→</span>
+      <button type="button" class="recipe-editor-result-slot is-empty" id="weapon-recipe-result-slot" aria-label="Editar resultado">
+        <span class="recipe-editor-slot-label">Resultado</span>
+        <span class="recipe-editor-result-preview" id="weapon-recipe-result-preview"><span class="recipe-editor-slot-icon">+</span></span>
+        <span class="recipe-editor-slot-name" id="weapon-recipe-result-preview-name">Vacío</span>
+        <span class="recipe-editor-slot-qty hidden" id="weapon-recipe-result-preview-qty">×1</span>
+      </button>
     </div>
-    <label class="field-label">Enlazar resultado con Guías <span class="optional-tag">(opcional)</span></label>
-    <select id="weapon-recipe-result-guide-input" class="modal-select"></select>
+
+    <!-- Estado interno del resultado. La edición visible se hace desde el
+         cuadro de resultado, igual que con cualquier otro slot. -->
+    <div class="hidden" id="weapon-recipe-result-state" aria-hidden="true">
+      <input type="hidden" id="weapon-recipe-result-name-input" />
+      <input type="hidden" id="weapon-recipe-result-image-input" />
+      <input type="hidden" id="weapon-recipe-result-qty-input" value="1" />
+      <select id="weapon-recipe-result-guide-input" tabindex="-1"></select>
+    </div>
 
     <div class="modal-error hidden" id="weapon-recipe-modal-error"></div>
     <div class="field-row" style="margin-top:14px;">
@@ -332,6 +343,6 @@
 <div id="shell-footer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script type="module" src="js/pages/weapons.js?v=20260710-2"></script>
+<script type="module" src="js/pages/weapons.js?v=20260710-14"></script>
 </body>
 </html>

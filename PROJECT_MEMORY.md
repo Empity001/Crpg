@@ -1164,3 +1164,11 @@ Objetivo: mejoras de capa superior una vez cerradas auditoría, multimedia y adm
 - No se toco nada de lo que ya funcionaba: el selector por slot, la hidratacion (`hydrateGuideLinkSelect`), el guardado normal, la proteccion contra que subir imagen/usar biblioteca borre el enlace recien elegido, y el estilo visual — todo eso ya estaba bien y se dejo intacto.
 - Validado: sintaxis JS de `weapons-admin.js` y `weapons-detail.js` (`node --check`), sin tocar CSS ni HTML en esta sesion.
 - Pendiente real: probar visualmente en el navegador (crear una receta con un material solo-enlace, cambiar de modo y guardar, confirmar que no desaparece) — no se corrio un servidor local en esta sesion.
+
+### 2026-07-11 — Logs master/detail, portada independiente
+
+- `js/features/logs.js`: selección inicial vacía, fichas del inspector desplegables, acciones corregidas y portada independiente.
+- `js/features/blocks-display.js`: exporta el render detallado reutilizable de Mob/Item/Bloque.
+- `sql/migration_018_log_cover_image.sql`: añade `logs.cover_image_url` y RPCs de create/update con portada.
+- `js/features/logs-data.js`: fallback de lectura si la migración todavía no fue aplicada.
+- La migración 018 es necesaria para guardar portadas en producción.

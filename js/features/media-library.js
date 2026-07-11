@@ -26,7 +26,8 @@ import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { localAuditTime, mediaAuditLabel, recordAdminAction } from '../core/audit.js';
 import { uploadMediaToStorage } from '../core/storage.js';
-import { asArray, debounce, escapeHtml, registerModalLifecycleCleanup, safeUrl, showToast } from '../core/utils.js';
+import { asArray, debounce, escapeHtml, mountModal, registerModalLifecycleCleanup, safeUrl, showToast } from '../core/utils.js';
+import { closeContextPanel } from '../core/context-actions.js';
 import {
   assetFileName,
   assetMatchesFilters,
@@ -40,6 +41,7 @@ import {
 } from './media-library-helpers.js';
 
 const MEDIA_PANEL_PAGE_SIZE = 60;
+const MEDIA_PANEL_MOBILE_PAGE_SIZE = 24;
 const MEDIA_PICKER_PAGE_SIZE = 32;
 const MEDIA_CACHE_TTL_MS = 60000;
 
@@ -55,6 +57,8 @@ let pickerOpenToken = 0;
 let pickerAssetsLoadedAt = 0;
 let pickerAssetsQueryKey = '';
 let pickerHasMore = false;
+let pickerBufferedAssets = [];
+let pickerRemoteHasMore = false;
 let pickerLoading = false;
 let pickerLoadToken = 0;
 let externalPreviewToken = 0;
@@ -63,7 +67,9 @@ const gridRenderState = new WeakMap();
 const panelState = {
   view: 'active',
   minimized: false,
-  visibleLimit: MEDIA_PANEL_PAGE_SIZE,
+  visibleLimit: typeof window !== 'undefined' && window.matchMedia?.('(max-width: 720px)').matches
+    ? MEDIA_PANEL_MOBILE_PAGE_SIZE
+    : MEDIA_PANEL_PAGE_SIZE,
   scrollY: 0,
 };
 
@@ -81,8 +87,14 @@ const pickerFilters = {
   sort: 'recent',
 };
 
+function panelPageSize() {
+  return typeof window !== 'undefined' && window.matchMedia?.('(max-width: 720px)').matches
+    ? MEDIA_PANEL_MOBILE_PAGE_SIZE
+    : MEDIA_PANEL_PAGE_SIZE;
+}
+
 function pageSizeForMode(mode) {
-  return mode === 'picker' ? MEDIA_PICKER_PAGE_SIZE : MEDIA_PANEL_PAGE_SIZE;
+  return mode === 'picker' ? MEDIA_PICKER_PAGE_SIZE : panelPageSize();
 }
 
 function currentPanelAssets() {
@@ -138,11 +150,19 @@ function scheduleClosedPickerGridCleanup(token) {
 }
 
 function cleanupPickerLifecycle() {
-  document.getElementById('media-picker-grid')?.classList.remove('is-opening');
+  const grid = document.getElementById('media-picker-grid');
+  grid?.classList.remove('is-opening');
+  grid?.replaceChildren();
   pickerOpenToken++;
   pickerLoadToken++;
   pickerLoading = false;
   pickerState = null;
+  pickerAssets = [];
+  pickerBufferedAssets = [];
+  pickerRemoteHasMore = false;
+  pickerHasMore = false;
+  pickerAssetsLoadedAt = 0;
+  pickerAssetsQueryKey = '';
   setPickerStatus('');
 }
 
@@ -181,23 +201,29 @@ function addUsage(map, url, label) {
 async function buildMediaUsageIndex() {
   const usage = new Map();
 
+  let logsResult = await supabaseClient.from('logs').select('id,title,cover_image_url');
+  if (logsResult.error && /cover_image_url/i.test(`${logsResult.error.message || ''} ${logsResult.error.details || ''}`)) {
+    logsResult = await supabaseClient.from('logs').select('id,title');
+    if (!logsResult.error) logsResult.data = (logsResult.data || []).map(log => ({ ...log, cover_image_url: null }));
+  }
+
   const [
-    { data: logs = [] },
     { data: mobs = [] },
     { data: logItems = [] },
     { data: tierItems = [] },
     { data: weapons = [] },
     { data: ranks = [] },
   ] = await Promise.all([
-    supabaseClient.from('logs').select('id,title'),
     supabaseClient.from('log_mobs').select('log_id,name,image_url'),
     supabaseClient.from('log_items').select('log_id,name,item_type,image_url'),
     supabaseClient.from('tierlist_items').select('name,image_url'),
     supabaseClient.from('weapons').select('id,name,image_url'),
     supabaseClient.from('weapon_ranks').select('id,weapon_id,name,image_url,upgrade_recipe'),
   ]);
+  const logs = logsResult.data || [];
 
   const logById = new Map(logs.map(log => [log.id, log]));
+  logs.forEach(log => addUsage(usage, log.cover_image_url, `Log: ${log.title} > Portada`));
   mobs.forEach(mob => {
     const logTitle = logById.get(mob.log_id)?.title || 'Log';
     addUsage(usage, mob.image_url, `Log: ${logTitle} > Mob: ${mob.name}`);
@@ -233,7 +259,11 @@ async function buildMediaUsageIndex() {
   });
 
   addUsage(usage, state.backgroundConfig?.image_url, 'Fondo de página');
+  Object.entries(state.heroBannerConfig || {}).forEach(([pageKey, entry]) => {
+    addUsage(usage, entry?.image_url, `Banner de cabecera: ${pageKey}`);
+  });
   addUsage(usage, state.faviconUrl, 'Favicon');
+  addUsage(usage, state.siteLogoUrl, 'Logo del sitio');
   asArray(state.aboutBlocks).forEach((block, idx) => {
     if (block.kind === 'image') addUsage(usage, block.url, `Acerca del Server: imagen ${idx + 1}`);
   });
@@ -266,12 +296,13 @@ function renderMediaCard(asset, mode = 'panel') {
       <article class="media-card media-card-picker${isCurrent ? ' is-current' : ''}" data-media-id="${asset.id}">
         <button type="button" class="media-picker-card-button" data-media-pick="${asset.id}" aria-label="Usar ${escapeHtml(title)}">
           <div class="media-thumb">
-            ${renderMediaPreview(asset)}
+            ${renderMediaPreview(asset, 'media-thumb-preview', { loading: 'eager' })}
             <span class="media-kind-badge">${escapeHtml(kindLabel(asset.media_kind))}</span>
           </div>
           <div class="media-card-body">
             <h4 class="media-card-title">${escapeHtml(title)}</h4>
             <p class="media-card-meta">${escapeHtml(sourceLabel(asset))} &middot; ${escapeHtml(formatFileSize(asset.file_size))}</p>
+            <span class="media-picker-select-hint">Usar imagen</span>
           </div>
         </button>
       </article>`;
@@ -307,6 +338,27 @@ function renderMediaCard(asset, mode = 'panel') {
     </article>`;
 }
 
+async function commitPickerSelection(asset, trigger = null) {
+  if (!asset || !pickerState) return;
+  const activeState = pickerState;
+  const presentation = readPickerPresentation();
+
+  trigger?.classList.add('is-selecting');
+  trigger?.setAttribute('aria-busy', 'true');
+  const hint = trigger?.querySelector?.('.media-picker-select-hint');
+  if (hint) hint.textContent = 'Seleccionando…';
+
+  try {
+    await Promise.resolve(activeState.onSelect?.({ url: asset.url, asset, presentation }));
+    closeMediaPicker();
+  } catch (error) {
+    trigger?.classList.remove('is-selecting');
+    trigger?.removeAttribute('aria-busy');
+    if (hint) hint.textContent = 'Usar imagen';
+    showToast(error?.message || 'No se pudo seleccionar el recurso', 'error');
+  }
+}
+
 function bindMediaCardActions(root) {
   if (!root || root.dataset.mediaActionsDelegated === 'true') return;
   root.dataset.mediaActionsDelegated = 'true';
@@ -316,11 +368,12 @@ function bindMediaCardActions(root) {
 
     const pickBtn = target.closest('[data-media-pick]');
     if (pickBtn && root.contains(pickBtn)) {
-      const asset = pickerAssets.find(a => a.id === pickBtn.dataset.mediaPick);
+      event.preventDefault();
+      event.stopPropagation();
+      const requestedId = String(pickBtn.dataset.mediaPick || '');
+      const asset = pickerAssets.find(a => String(a.id) === requestedId);
       if (!asset || !pickerState) return;
-      const presentation = readPickerPresentation();
-      pickerState.onSelect?.({ url: asset.url, asset, presentation });
-      closeMediaPicker();
+      await commitPickerSelection(asset, pickBtn.closest('.media-picker-card-button') || pickBtn);
       return;
     }
 
@@ -386,6 +439,44 @@ function bindMediaCardActions(root) {
   });
 }
 
+function pickerAssetKey(asset) {
+  return String(asset?.id || safeUrl(asset?.url) || '').trim();
+}
+
+function uniquePickerAssets(list = [], existing = []) {
+  const seen = new Set(existing.map(pickerAssetKey).filter(Boolean));
+  const result = [];
+  list.forEach((asset) => {
+    const key = pickerAssetKey(asset);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    result.push(asset);
+  });
+  return result;
+}
+
+function splitPickerResponse(rawAssets = [], existing = []) {
+  const unique = uniquePickerAssets(rawAssets, existing);
+  const page = unique.slice(0, MEDIA_PICKER_PAGE_SIZE);
+  const overflow = unique.slice(MEDIA_PICKER_PAGE_SIZE);
+  return { page, overflow, rawCount: rawAssets.length };
+}
+
+function bindMediaPreviewFallbacks(root) {
+  if (!root) return;
+  root.querySelectorAll('img.media-thumb-preview').forEach((img) => {
+    if (img.dataset.previewFallbackBound === 'true') return;
+    img.dataset.previewFallbackBound = 'true';
+    img.addEventListener('load', () => {
+      img.closest('.media-thumb')?.classList.remove('is-preview-error');
+    }, { once: true });
+    img.addEventListener('error', () => {
+      img.closest('.media-thumb')?.classList.add('is-preview-error');
+      img.remove();
+    }, { once: true });
+  });
+}
+
 function renderMediaGrid(container, filters, mode = 'panel', allowedKinds = null) {
   if (!container) return 0;
   const source = mode === 'picker' ? pickerAssets : currentPanelAssets();
@@ -414,6 +505,7 @@ function renderMediaGrid(container, filters, mode = 'panel', allowedKinds = null
         <span>${visible.length} de ${list.length}</span>
       </div>` : ''));
   bindMediaCardActions(container);
+  bindMediaPreviewFallbacks(container);
   bindMediaLoadMoreButtons(container);
   return list.length;
 }
@@ -492,7 +584,7 @@ function ensureMediaConfirmModal() {
         <button type="button" class="media-action-danger" id="media-confirm-action-btn"></button>
       </div>
     </div>`;
-  document.body.appendChild(modal);
+  mountModal(modal);
   return modal;
 }
 
@@ -625,7 +717,7 @@ async function indexUsedMediaAssets() {
 
 function bindPanelFilters() {
   const rerenderPanel = () => {
-    panelState.visibleLimit = MEDIA_PANEL_PAGE_SIZE;
+    panelState.visibleLimit = panelPageSize();
     if (panelState.minimized) return;
     renderMediaGrid(document.getElementById('media-library-grid'), panelFilters, 'panel');
   };
@@ -681,7 +773,7 @@ export function initMediaLibraryPanel() {
     btn.addEventListener('click', () => {
       if (panelState.view === btn.dataset.mediaView) return;
       panelState.view = btn.dataset.mediaView || 'active';
-      panelState.visibleLimit = MEDIA_PANEL_PAGE_SIZE;
+      panelState.visibleLimit = panelPageSize();
       loadAndRenderMediaLibrary();
     });
   });
@@ -724,7 +816,7 @@ function ensureExternalModal() {
       <div class="modal-error hidden" id="media-external-error"></div>
       <button class="btn-primary media-primary-btn" id="save-media-external-btn">Usar URL</button>
     </div>`;
-  document.body.appendChild(modal);
+  mountModal(modal);
   document.getElementById('close-media-external-modal').addEventListener('click', () => modal.classList.add('hidden'));
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
   const updatePreview = debounce(() => previewExternalUrl(), 350);
@@ -848,7 +940,7 @@ function ensureMediaEditModal() {
       <div class="modal-error hidden" id="media-edit-error"></div>
       <button class="btn-primary media-primary-btn" id="save-media-edit-btn">Guardar metadatos</button>
     </div>`;
-  document.body.appendChild(modal);
+  mountModal(modal);
   document.getElementById('close-media-edit-modal').addEventListener('click', () => modal.classList.add('hidden'));
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
   return modal;
@@ -963,7 +1055,7 @@ function ensurePickerModal() {
       <p class="media-status media-picker-status" id="media-picker-status"></p>
       <div class="media-grid media-picker-grid" id="media-picker-grid"></div>
     </div>`;
-  document.body.appendChild(modal);
+  mountModal(modal);
   document.getElementById('close-media-picker-modal').addEventListener('click', closeMediaPicker);
   modal.addEventListener('click', (e) => { if (e.target === modal) closeMediaPicker(); });
   const rerenderPicker = () => {
@@ -1037,6 +1129,7 @@ function appendPickerAssetsToGrid(newAssets) {
   if (newAssets.length) {
     grid.insertAdjacentHTML('beforeend', newAssets.map(asset => renderMediaCard(asset, 'picker')).join(''));
     bindMediaCardActions(grid);
+    bindMediaPreviewFallbacks(grid);
   }
   if (pickerHasMore) {
     grid.insertAdjacentHTML('beforeend', `
@@ -1056,13 +1149,20 @@ async function loadPickerAssets({ reset = false } = {}) {
   const token = pickerState.token;
   const loadToken = ++pickerLoadToken;
   const key = pickerQueryKey();
-  const offset = reset ? 0 : pickerAssets.length;
 
   if (reset) {
     pickerAssetsQueryKey = key;
     pickerHasMore = false;
+    pickerRemoteHasMore = false;
+    pickerBufferedAssets = [];
     pickerAssets = [];
     grid.innerHTML = '<p class="media-empty">Cargando recursos...</p>';
+  } else if (pickerBufferedAssets.length) {
+    const nextAssets = pickerBufferedAssets.splice(0, MEDIA_PICKER_PAGE_SIZE);
+    pickerAssets = [...pickerAssets, ...nextAssets];
+    pickerHasMore = pickerBufferedAssets.length > 0 || pickerRemoteHasMore;
+    appendPickerAssetsToGrid(nextAssets);
+    return;
   } else {
     const loadMoreBtn = grid.querySelector('[data-media-load-more="picker"]');
     if (loadMoreBtn) {
@@ -1074,6 +1174,7 @@ async function loadPickerAssets({ reset = false } = {}) {
   pickerLoading = true;
   updatePickerStatus();
 
+  const offset = reset ? 0 : pickerAssets.length;
   const { data, error } = await listMediaPickerAssets({
     search: pickerFilters.search.trim(),
     kind: pickerKindForRequest(),
@@ -1089,6 +1190,8 @@ async function loadPickerAssets({ reset = false } = {}) {
   if (error) {
     mediaPickerInfrastructureReady = !isMediaInfrastructureMissing(error);
     pickerHasMore = false;
+    pickerRemoteHasMore = false;
+    pickerBufferedAssets = [];
     pickerAssets = reset ? [] : pickerAssets;
     if (!mediaPickerInfrastructureReady) renderPickerInfrastructureError(grid);
     else grid.innerHTML = `<p class="media-empty">No se pudo cargar el selector: ${escapeHtml(error.message)}</p>`;
@@ -1097,14 +1200,23 @@ async function loadPickerAssets({ reset = false } = {}) {
   }
 
   mediaPickerInfrastructureReady = true;
-  const newAssets = (data || []).map(normalizePickerAsset);
-  pickerAssets = reset ? newAssets : [...pickerAssets, ...newAssets];
-  pickerHasMore = newAssets.length === MEDIA_PICKER_PAGE_SIZE;
+  const normalized = (data || []).map(normalizePickerAsset);
+  const { page, overflow, rawCount } = splitPickerResponse(normalized, reset ? [] : pickerAssets);
+
+  // Algunas instalaciones antiguas de la RPC ignoran input_limit y devuelven
+  // toda la biblioteca. Solo montamos 32 tarjetas por tanda y guardamos el
+  // resto como metadatos, evitando cientos de <img> simultáneas y duplicados.
+  pickerBufferedAssets = overflow;
+  pickerRemoteHasMore = rawCount <= MEDIA_PICKER_PAGE_SIZE && rawCount === MEDIA_PICKER_PAGE_SIZE;
+  if (!page.length && !overflow.length) pickerRemoteHasMore = false;
+
+  pickerAssets = reset ? page : [...pickerAssets, ...page];
+  pickerHasMore = pickerBufferedAssets.length > 0 || pickerRemoteHasMore;
   pickerAssetsLoadedAt = Date.now();
   pickerAssetsQueryKey = key;
 
   if (reset) renderPickerGrid();
-  else appendPickerAssetsToGrid(newAssets);
+  else appendPickerAssetsToGrid(page);
 }
 
 function renderPickerGrid() {
@@ -1121,13 +1233,29 @@ function renderPickerGrid() {
 
 function closeMediaPicker() {
   document.getElementById('media-picker-modal')?.classList.add('hidden');
-  document.getElementById('media-picker-grid')?.classList.remove('is-opening');
+  const grid = document.getElementById('media-picker-grid');
+  if (grid) {
+    grid.classList.remove('is-opening');
+    grid.replaceChildren();
+  }
   pickerOpenToken++;
+  pickerLoadToken++;
+  pickerLoading = false;
   pickerState = null;
-  scheduleClosedPickerGridCleanup(pickerOpenToken);
+  pickerAssets = [];
+  pickerBufferedAssets = [];
+  pickerRemoteHasMore = false;
+  pickerHasMore = false;
+  pickerAssetsLoadedAt = 0;
+  pickerAssetsQueryKey = '';
+  setPickerStatus('');
 }
 
 export async function openMediaPicker({ title = 'Biblioteca Multimedia', allowedKinds = ['image'], currentUrl = '', onSelect = () => {} } = {}) {
+  // El selector multimedia siempre debe ser la capa superior. Si se abrió
+  // desde un menú contextual, ese menú ya no es necesario y además podría
+  // interceptar clics por encima del selector.
+  closeContextPanel();
   const modal = ensurePickerModal();
   const token = ++pickerOpenToken;
   pickerState = { allowedKinds, currentUrl, onSelect, token };
@@ -1145,25 +1273,19 @@ export async function openMediaPicker({ title = 'Biblioteca Multimedia', allowed
     : 'image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng';
   writePresentationControls('picker', DEFAULT_MEDIA_PRESENTATION);
   const grid = document.getElementById('media-picker-grid');
-  const key = pickerQueryKey();
   grid.classList.add('is-opening');
   grid.innerHTML = '<p class="media-empty">Preparando selector...</p>';
   setPickerStatus('');
   modal.classList.remove('hidden');
+  const pickerBox = modal.querySelector('.media-picker-box');
+  if (pickerBox) pickerBox.scrollTop = 0;
+  if (grid) grid.scrollTop = 0;
 
   schedulePickerInitialRender(async () => {
     if (!pickerState || pickerState.token !== token) return;
     grid.classList.remove('is-opening');
-    if (pickerCacheFresh(key)) {
-      renderPickerGrid();
-      return;
-    }
-    if (pickerAssetsQueryKey === key && pickerAssets.length) {
-      renderPickerGrid();
-    } else {
-      grid.innerHTML = '<p class="media-empty">Cargando recursos...</p>';
-      setPickerStatus('Cargando recursos...');
-    }
+    grid.innerHTML = '<p class="media-empty">Cargando recursos...</p>';
+    setPickerStatus('Cargando recursos...');
     await loadPickerAssets({ reset: true });
   });
 }

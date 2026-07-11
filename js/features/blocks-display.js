@@ -59,7 +59,7 @@ export function renderKeyValueRows(fields) {
 // completa (abre asset-view.html en otra pestaña, con su propio
 // botón de "Volver").
 
-function renderMobDetailPanel(mob, contextKey) {
+export function renderMobDetailPanel(mob, contextKey) {
   const fieldsConfig = (state.fieldConfig.mob && state.fieldConfig.mob.length > 0) ? state.fieldConfig.mob : DEFAULT_MOB_FIELDS;
   const rows = [];
 
@@ -143,7 +143,7 @@ function renderMobDetailPanel(mob, contextKey) {
 }
 
 
-function renderItemDetailPanel(item, contextKey) {
+export function renderItemDetailPanel(item, contextKey) {
   if (item.item_type === '_libre') {
     return renderLibreDetailPanel(item, contextKey);
   }
@@ -204,7 +204,7 @@ function renderItemDetailPanel(item, contextKey) {
 }
 
 
-function renderLibreDetailPanel(item, contextKey) {
+export function renderLibreDetailPanel(item, contextKey) {
   const fields = parseLibreFields(item);
   const panelId = `block-detail-${contextKey}-${item.id}`;
   const rows = renderKeyValueRows(fields);
@@ -221,6 +221,13 @@ function renderLibreDetailPanel(item, contextKey) {
       ${guideLinkHtml}
       ${rows ? `<div class="item-detail-grid">${rows}</div>` : (descHtml || assetHtml || guideLinkHtml ? '' : '<p class="comments-empty">Sin campos.</p>')}
     </div>`;
+}
+
+
+export function renderLogEntryDetail(entry, type, contextKey) {
+  if (type === 'mob') return renderMobDetailPanel(entry, contextKey);
+  if (type === 'libre') return renderLibreDetailPanel(entry, contextKey);
+  return renderItemDetailPanel(entry, contextKey);
 }
 
 // FIX PRINCIPAL: usa contextKey para que los IDs sean únicos entre

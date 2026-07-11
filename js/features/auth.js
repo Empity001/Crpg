@@ -14,15 +14,42 @@ const adminUiRefreshHandlers = new Set();
 let adminLoginSequenceTimers = [];
 let adminSubmitting = false;
 let adminLoginSequenceActive = false;
+let adminTerminalPrepared = false;
+let adminTerminalLineTemplates = [];
 const ADMIN_MOBILE_TERMINAL_LINES = new Set([
-  '0', '1', '2', '3', '4', '5',
-  '9', '10', '11',
-  '20', '22', '24',
-  '27', '28', '29', '30',
-  '31', '37', '43', '50', '54', '57',
-  '60', '61', '62', '63', '68', '69', '70', '80',
-  '82', '83', '84', '85'
+  '0', '1', '2', '3', '4', '5', '6',
+  '7', '8', '9', '10', '11', '12', '13'
 ]);
+
+/**
+ * El terminal de acceso es una interfaz pesada (decenas de líneas). Se
+ * conserva idéntico, pero sus nodos se desmontan mientras el modal está
+ * cerrado y se crean solamente cuando el usuario abre Modo Admin.
+ */
+export function prepareAdminLoginModal() {
+  if (adminTerminalPrepared) return;
+  const panel = document.querySelector('#admin-modal .admin-terminal-panel');
+  if (!panel) return;
+  const lines = [...panel.querySelectorAll('[data-admin-terminal-line]')];
+  adminTerminalLineTemplates = lines.map(line => line.cloneNode(true));
+  lines.forEach(line => line.remove());
+  adminTerminalPrepared = true;
+}
+
+function mountAdminTerminalLines() {
+  prepareAdminLoginModal();
+  const panel = document.querySelector('#admin-modal .admin-terminal-panel');
+  const form = document.getElementById('admin-login-form');
+  if (!panel || panel.querySelector('[data-admin-terminal-line]')) return;
+  const fragment = document.createDocumentFragment();
+  adminTerminalLineTemplates.forEach(template => fragment.appendChild(template.cloneNode(true)));
+  panel.insertBefore(fragment, form || panel.firstChild);
+}
+
+function unmountAdminTerminalLines() {
+  document.querySelectorAll('#admin-modal [data-admin-terminal-line]').forEach(line => line.remove());
+}
+
 
 function clearAdminLoginSequence() {
   adminLoginSequenceTimers.forEach(timer => clearTimeout(timer));
@@ -54,7 +81,6 @@ async function typeAdminTerminalLine(line) {
   line.classList.add('is-visible');
   for (let idx = 0; idx < text.length; idx += chunk) {
     line.textContent = text.slice(0, idx + chunk);
-    line.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     await waitAdminTerminal(delay);
   }
   await waitAdminTerminal(pause);
@@ -122,10 +148,16 @@ export function updateAdminUI() {
   const dot = document.getElementById('admin-dot');
   const badge = document.getElementById('admin-mode-badge');
   const label = document.getElementById('admin-toggle-label');
+  const sublabel = document.getElementById('admin-toggle-sublabel');
+  const subtitle = document.getElementById('hud-subtitle');
+  const mobileIndicator = document.getElementById('mobile-admin-indicator');
   const admin = isAdmin();
   if (dot) dot.className = admin ? 'dot-online' : 'dot-offline';
   if (badge) badge.classList.toggle('hidden', !admin);
-  if (label) label.textContent = admin ? 'LOGOUT' : 'ADMIN';
+  if (mobileIndicator) mobileIndicator.classList.toggle('hidden', !admin);
+  if (label) label.textContent = admin ? 'Salir del Modo Admin' : 'Entrar a Modo Admin';
+  if (sublabel) sublabel.textContent = admin ? 'Sesión administrativa activa' : 'Acceso para administradores';
+  if (subtitle) subtitle.textContent = admin ? 'Panel de Administración' : 'Página oficial';
   document.body?.classList.toggle('is-admin-mode', admin);
 
   // Botones/elementos que solo existen en algunas páginas — se ocultan
@@ -159,6 +191,7 @@ export function openAdminLoginModal() {
   const form = document.getElementById('admin-login-form');
   const input = document.getElementById('admin-code-input');
   if (!modal) return;
+  mountAdminTerminalLines();
   clearAdminLoginSequence();
   resetAdminAccessState();
   if (input) input.value = '';
@@ -205,6 +238,7 @@ export function closeAdminLoginModal() {
   clearAdminLoginSequence();
   document.getElementById('admin-modal')?.classList.add('hidden');
   resetAdminAccessState();
+  unmountAdminTerminalLines();
 }
 
 export async function submitAdminCode() {

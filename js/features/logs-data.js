@@ -9,11 +9,23 @@ import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { showToast } from '../core/utils.js';
 
+async function fetchLogsWithOptionalCover() {
+  let result = await supabaseClient.from('logs')
+    .select('id,title,description,category,relevance,likes,created_at,cover_image_url')
+    .order('created_at', { ascending: false });
+
+  if (result.error && /cover_image_url/i.test(`${result.error.message || ''} ${result.error.details || ''}`)) {
+    result = await supabaseClient.from('logs')
+      .select('id,title,description,category,relevance,likes,created_at')
+      .order('created_at', { ascending: false });
+    if (!result.error) result.data = (result.data || []).map(log => ({ ...log, cover_image_url: null }));
+  }
+  return result;
+}
+
 export async function loadLogsData() {
   const [logsRes, mobsRes, itemsRes] = await Promise.all([
-    supabaseClient.from('logs')
-      .select('id,title,description,category,relevance,likes,created_at')
-      .order('created_at', { ascending: false }),
+    fetchLogsWithOptionalCover(),
     supabaseClient.from('log_mobs')
       .select('id,log_id,name,health,damage,armor,equipment,location,description,extra_fields,image_url,sort_order')
       .order('sort_order', { ascending: true }),

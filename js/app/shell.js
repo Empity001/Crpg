@@ -22,13 +22,124 @@
 // =========================================================
 
 import { loadSharedShell } from './include.js';
-import { closeAdminLoginModal, logoutAdmin, openAdminLoginModal, skipAdminLoginIntro, submitAdminCode, updateAdminUI } from '../features/auth.js';
+import { closeAdminLoginModal, logoutAdmin, openAdminLoginModal, prepareAdminLoginModal, skipAdminLoginIntro, submitAdminCode, updateAdminUI } from '../features/auth.js';
 import { loadAppSettings } from '../features/field-config.js';
 import { isAdmin, state } from '../core/state.js';
 import { openAssetFullscreen } from '../core/storage.js';
 import { registerModalLifecycleCleanup, setupModalLifecycleObserver } from '../core/utils.js';
 
 let modalVisualCleanupsRegistered = false;
+
+const PAGE_HERO_COPY = {
+  logs: {
+    eyebrow: 'Registro del servidor',
+    title: 'Centro de Logs',
+    normal: 'Explora los eventos, cambios y mecánicas más importantes del servidor.',
+    admin: 'Explora y administra los eventos, cambios y mecánicas más importantes del servidor.',
+  },
+  weapons: {
+    eyebrow: 'Catálogo y progresión',
+    title: 'Guías del servidor',
+    normal: 'Consulta armas, objetos, rangos, estadísticas y formas de obtención.',
+    admin: 'Consulta y administra armas, objetos, rangos, estadísticas y formas de obtención.',
+  },
+  tierlist: {
+    eyebrow: 'Clasificación oficial',
+    title: 'Tierlist',
+    normal: 'Compara armas, subarmas y accesorios organizados por su rendimiento.',
+    admin: 'Organiza y administra las posiciones de armas, subarmas y accesorios.',
+  },
+  kits: {
+    eyebrow: 'Combinaciones recomendadas',
+    title: 'Kits',
+    normal: 'Descubre combinaciones de arma, accesorio y subarma preparadas para el servidor.',
+    admin: 'Crea y administra combinaciones de arma, accesorio y subarma para el servidor.',
+  },
+  about: {
+    eyebrow: 'Nuestra comunidad',
+    title: 'Acerca del servidor',
+    normal: 'Conoce el mundo, la comunidad y la identidad detrás de Culones-RPG.',
+    admin: 'Conoce y administra la información pública que representa a Culones-RPG.',
+  },
+  admin: {
+    eyebrow: 'Gestión completa',
+    title: 'Herramientas',
+    normal: 'Área privada de administración del servidor.',
+    admin: 'Administra recursos, copias de seguridad, borradores y ajustes globales del sitio.',
+  },
+};
+
+function ensurePageHero(pageKey) {
+  const panel = document.querySelector('.tab-panel.is-active') || document.querySelector('.tab-panel');
+  const copy = PAGE_HERO_COPY[pageKey];
+  if (!panel || !copy || panel.querySelector('.page-hero')) return;
+
+  const hero = document.createElement('section');
+  hero.className = 'page-hero';
+  hero.setAttribute('aria-labelledby', `page-title-${pageKey}`);
+  hero.innerHTML = `
+    <div class="page-hero-copy">
+      <span class="page-hero-eyebrow">${copy.eyebrow}</span>
+      <h1 id="page-title-${pageKey}">${copy.title}<span class="hero-spark" aria-hidden="true">✦</span></h1>
+      <p><span class="hero-copy-normal">${copy.normal}</span><span class="hero-copy-admin">${copy.admin}</span></p>
+    </div>
+    <div class="page-hero-art" aria-hidden="true">
+      <span class="hero-moon"></span>
+      <span class="hero-castle"></span>
+      <span class="hero-flag"></span>
+    </div>`;
+  panel.prepend(hero);
+}
+
+function wireMobileSidebar() {
+  const toggle = document.getElementById('sidebar-menu-toggle');
+  const scrim = document.getElementById('sidebar-scrim');
+  const sidebar = document.getElementById('app-sidebar');
+  const tabs = sidebar?.querySelector('.browser-tabs');
+  const normalizeDrawerScroll = () => {
+    if (!tabs) return;
+    // Al cambiar entre escritorio y drawer el navegador puede conservar
+    // un scroll vertical antiguo. En alturas intermedias eso deja el
+    // menú situado sobre el espacio flexible y parece que las pestañas
+    // desaparecieron. Cada apertura siempre empieza desde el principio.
+    tabs.scrollLeft = 0;
+    tabs.scrollTop = 0;
+  };
+  const close = () => {
+    document.body.classList.remove('sidebar-open');
+    toggle?.setAttribute('aria-expanded', 'false');
+    normalizeDrawerScroll();
+  };
+  const switchState = () => {
+    const open = !document.body.classList.contains('sidebar-open');
+    document.body.classList.toggle('sidebar-open', open);
+    toggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+      normalizeDrawerScroll();
+      window.requestAnimationFrame(normalizeDrawerScroll);
+    }
+  };
+
+  toggle?.addEventListener('click', switchState);
+  scrim?.addEventListener('click', close);
+  document.querySelectorAll('.tab-item').forEach(item => item.addEventListener('click', close));
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 900) {
+      close();
+      return;
+    }
+
+    // Si el drawer sigue abierto mientras la ventana cambia de tamaño,
+    // recalculamos su posición y evitamos que conserve un scroll inválido.
+    if (document.body.classList.contains('sidebar-open')) {
+      window.requestAnimationFrame(normalizeDrawerScroll);
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.body.classList.contains('sidebar-open')) close();
+  });
+}
+
 
 function registerModalVisualCleanups() {
   if (modalVisualCleanupsRegistered) return;
@@ -70,6 +181,8 @@ function wireHeaderNav(pageKey) {
     const active = tab.dataset.page === pageKey;
     tab.classList.toggle('is-active', active);
     tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    if (active) tab.setAttribute('aria-current', 'page');
+    else tab.removeAttribute('aria-current');
   });
   const pathEl = document.getElementById('active-tab-path');
   if (pathEl) pathEl.textContent = pageKey;
@@ -127,9 +240,13 @@ function wireAssetFullscreenDelegation() {
 export async function bootShell(pageKey) {
   state.activeTab = pageKey;
   await loadSharedShell();
+  prepareAdminLoginModal();
   registerModalVisualCleanups();
   setupModalLifecycleObserver();
+  document.body.dataset.page = pageKey;
   wireHeaderNav(pageKey);
+  ensurePageHero(pageKey);
+  wireMobileSidebar();
   wireAdminModal();
   wireAssetFullscreenDelegation();
   updateAdminUI();

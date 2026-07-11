@@ -16,7 +16,8 @@
 <link rel="stylesheet" href="css/admin-tools.css" />
 <link rel="stylesheet" href="css/weapons.css" />
 <link rel="stylesheet" href="css/about.css" />
-<link rel="stylesheet" href="css/media.css" />
+<link rel="stylesheet" href="css/media.css?v=20260710-12" />
+<link rel="stylesheet" href="css/rebrand.css?v=20260711-01" />
 </head>
 <body>
 
@@ -68,11 +69,7 @@
     <button class="modal-close" id="close-tier-item-modal" aria-label="Cerrar">✕</button>
     <div class="modal-title-row">
       <h3 class="modal-title" id="tier-item-modal-title">🎴 NUEVO ELEMENTO</h3>
-      <span class="editor-row-actions" id="tier-item-copy-actions">
-        <button type="button" class="editor-mini-btn" data-tier-item-copy-action="duplicate" title="Duplicar elemento">⧉</button>
-        <button type="button" class="editor-mini-btn" data-tier-item-copy-action="copy" title="Copiar elemento">⎘</button>
-        <button type="button" class="editor-mini-btn" data-tier-item-copy-action="paste" title="Pegar elemento">↧</button>
-      </span>
+      <button type="button" class="context-menu-trigger" id="tier-item-actions-btn">⋯ Acciones</button>
     </div>
 
     <label class="field-label">Nombre</label>
@@ -142,6 +139,6 @@
 <div id="shell-footer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script type="module" src="js/pages/tierlist.js?v=20260710-2"></script>
+<script type="module" src="js/pages/tierlist.js?v=20260710-12"></script>
 </body>
 </html>

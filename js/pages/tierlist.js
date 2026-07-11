@@ -15,7 +15,7 @@ import { attachMediaPickerButton } from '../features/media-library.js';
 import {
   initTierItemClipboardActions, initTierItemDropzone, loadTierlist, openTierItemModal, openTierRowModal,
   renderTierlist, submitTierItem, submitTierMove, submitTierRow, syncTierDropzoneState,
-} from '../features/tierlist.js?v=20260710-2';
+} from '../features/tierlist.js?v=20260710-12';
 
 function initTierlistModals() {
   document.getElementById('open-new-tier-row-btn').addEventListener('click', () => openTierRowModal(null));

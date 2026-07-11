@@ -27,6 +27,7 @@ function captureDraftData() {
     category: document.getElementById('log-category-input')?.value || '',
     relevance: document.getElementById('log-relevance-input')?.value || 'normal',
     date: document.getElementById('log-date-input')?.value || '',
+    cover_image_url: document.getElementById('log-cover-image-input')?.value || '',
     mobs: JSON.parse(JSON.stringify(state.draftMobs)),
     items: JSON.parse(JSON.stringify(state.draftItems)),
     libres: JSON.parse(JSON.stringify(state.draftLibres)),
@@ -39,7 +40,7 @@ export function saveDraft(logId, isManual = false) {
   if (!isAdmin()) return;
   const data = captureDraftData();
   // No guardar si está completamente vacío
-  if (!data.title && !data.description && data.mobs.length === 0 && data.items.length === 0 && data.libres.length === 0) return;
+  if (!data.title && !data.description && !data.cover_image_url && data.mobs.length === 0 && data.items.length === 0 && data.libres.length === 0) return;
   const draft = {
     savedAt: new Date().toISOString(),
     isLocal: !logId, // true si nunca fue publicado
@@ -73,6 +74,11 @@ export function restoreDraft(draft) {
   if (d.category) document.getElementById('log-category-input').value = d.category;
   document.getElementById('log-relevance-input').value = d.relevance || 'normal';
   if (d.date) document.getElementById('log-date-input').value = d.date;
+  const coverInput = document.getElementById('log-cover-image-input');
+  if (coverInput) {
+    coverInput.value = d.cover_image_url || '';
+    coverInput.dispatchEvent(new CustomEvent('draft-cover-restored', { detail: { url: d.cover_image_url || '' } }));
+  }
   state.draftMobs = d.mobs || [];
   state.draftItems = d.items || [];
   state.draftLibres = d.libres || [];
@@ -115,7 +121,7 @@ export function startDraftAutosave() {
   updateDraftAutosaveStatus('idle');
 
   // Marcar como "hay cambios" cuando el admin escribe
-  const fields = ['log-title-input', 'log-desc-input', 'log-category-input', 'log-relevance-input', 'log-date-input'];
+  const fields = ['log-title-input', 'log-desc-input', 'log-category-input', 'log-relevance-input', 'log-date-input', 'log-cover-image-input'];
   fields.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', markDraftDirty);
@@ -132,7 +138,7 @@ export function startDraftAutosave() {
 export function stopDraftAutosave() {
   if (_draftAutosaveTimer) { clearInterval(_draftAutosaveTimer); _draftAutosaveTimer = null; }
   // Remove listeners
-  const fields = ['log-title-input', 'log-desc-input', 'log-category-input', 'log-relevance-input', 'log-date-input'];
+  const fields = ['log-title-input', 'log-desc-input', 'log-category-input', 'log-relevance-input', 'log-date-input', 'log-cover-image-input'];
   fields.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.removeEventListener('input', markDraftDirty);

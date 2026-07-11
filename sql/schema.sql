@@ -19,6 +19,7 @@ create table if not exists public.logs (
   category    text not null default 'other',
   relevance   text not null default 'normal', -- low | normal | high | critical
   likes       integer not null default 0,
+  cover_image_url text,
   created_at  timestamptz not null default now()
 );
 

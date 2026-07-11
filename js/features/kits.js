@@ -1,19 +1,12 @@
 import { supabaseClient } from '../config.js';
 import { KIT_COLUMNS, isAdmin, state, suppressNextKitsReload } from '../core/state.js';
 import { cloneData, confirmAction, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast } from '../core/utils.js';
-import { attachMediaPickerButton } from './media-library.js';
+import { openMediaPicker } from './media-library.js';
+import { appendActionGrid, appendDisclosure, openContextPanel } from '../core/context-actions.js';
 import { guideLinkUrl, hydrateGuideLinkSelect, parseGuideLinkValue } from './guide-links.js';
 
 let kitsLoadRequestId = 0;
 let kitSubmitInProgress = false;
-
-function editorActionButtons(scope, idx) {
-  return `
-    <button type="button" class="kit-row-btn" data-action="duplicate-kit-item" data-scope="${scope}" data-index="${idx}" title="Duplicar">⧉</button>
-    <button type="button" class="kit-row-btn" data-action="copy-kit-item" data-scope="${scope}" data-index="${idx}" title="Copiar">📋</button>
-    <button type="button" class="kit-row-btn" data-action="paste-kit-item" data-scope="${scope}" data-index="${idx}" title="Pegar" ${hasEditorPayload(scope) ? '' : 'disabled'}>📥</button>
-  `;
-}
 
 function emptyKitItems() {
   return { weapon: [], accessory: [], subweapon: [] };
@@ -98,8 +91,7 @@ function renderKitCard(kit) {
         </div>
         ${isAdmin() ? `
           <div class="kit-admin-actions">
-            <button type="button" class="kit-mini-btn" data-action="edit-kit" data-kit-id="${kit.id}" title="Editar">✏</button>
-            <button type="button" class="kit-mini-btn danger" data-action="delete-kit" data-kit-id="${kit.id}" title="Eliminar">🗑</button>
+            <button type="button" class="context-menu-trigger" data-action="kit-actions" data-kit-id="${kit.id}">⋯ Acciones</button>
           </div>
         ` : ''}
       </header>
@@ -147,137 +139,186 @@ export function renderKits() {
   if (!grid) return;
 
   if (!state.kits.length) {
-    grid.innerHTML = `<div class="logs-empty"><p>Todavia no hay kits recomendados.${isAdmin() ? ' Crea el primero con "+ Nuevo kit".' : ''}</p></div>`;
+    grid.innerHTML = `<div class="logs-empty"><p>Todavía no hay kits recomendados.${isAdmin() ? ' Crea el primero con "+ Nuevo kit".' : ''}</p></div>`;
     return;
   }
 
   grid.innerHTML = state.kits.map(renderKitCard).join('');
-  grid.querySelectorAll('[data-action="edit-kit"]').forEach(btn => {
-    btn.addEventListener('click', () => openKitModal(btn.dataset.kitId));
+  grid.querySelectorAll('[data-action="kit-actions"]').forEach(btn => {
+    btn.addEventListener('click', () => openKitCardActions(btn, btn.dataset.kitId));
   });
-  grid.querySelectorAll('[data-action="delete-kit"]').forEach(btn => {
-    btn.addEventListener('click', () => deleteKit(btn.dataset.kitId));
-  });
+}
+
+function kitItemFace(item, index) {
+  const image = safeUrl(item?.image_url);
+  return `
+    <span class="kit-context-index">${index + 1}</span>
+    <div class="kit-image-preview" data-kit-image-preview>
+      ${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(item?.name || 'Elemento')}" loading="lazy" />` : '<span>Sin imagen</span>'}
+    </div>
+    <strong>${escapeHtml(item?.name || 'Elemento sin nombre')}</strong>
+    <span class="kit-context-hint">Toca para editar</span>
+  `;
 }
 
 function renderKitEditor() {
   const editor = document.getElementById('kit-columns-editor');
   if (!editor) return;
-
   editor.innerHTML = KIT_COLUMNS.map(column => `
-    <div class="kit-editor-column" data-kit-column="${column.key}">
+    <section class="kit-editor-column" data-kit-column="${column.key}">
       <div class="kit-editor-head">
-        <span class="kit-editor-title">${escapeHtml(column.label)}</span>
-        <button type="button" class="kit-add-item-btn" data-action="add-kit-item" data-column-key="${column.key}" title="Agregar">+</button>
+        <div>
+          <span class="kit-editor-title">${escapeHtml(column.label)}</span>
+          <small class="kit-editor-subtitle">Selecciona un cuadro para editarlo.</small>
+        </div>
+        <button type="button" class="kit-add-item-btn" data-action="add-kit-item" data-column-key="${column.key}">+ Agregar</button>
       </div>
-      <div class="kit-editor-list">
+      <div class="kit-editor-list kit-context-grid">
         ${(state.kitDraftItems[column.key] || []).map((item, index) => `
-          <div class="kit-editor-row" data-column-key="${column.key}" data-index="${index}">
-            <input type="text" class="modal-input" data-kit-field="name" value="${escapeHtml(item.name)}" maxlength="80" placeholder="Nombre" />
-            <div class="editor-row-actions">${editorActionButtons(`kit-${column.key}`, index)}</div>
-            <button type="button" class="kit-row-btn danger" data-action="remove-kit-item" title="Quitar">✕</button>
-            <div class="kit-url-row">
-              <input type="text" class="modal-input" id="kit-${column.key}-${index}-image" data-kit-field="image_url" value="${escapeHtml(item.image_url)}" placeholder="URL de imagen" />
-              <button type="button" class="kit-row-btn" data-action="pick-kit-media" data-input-id="kit-${column.key}-${index}-image">Biblioteca</button>
-              <button type="button" class="kit-row-btn" data-action="clear-kit-image" title="Limpiar">Limpiar</button>
-            </div>
-            <select class="modal-select kit-guide-select" id="kit-${column.key}-${index}-guide" data-kit-field="guide_link"></select>
-          </div>
-        `).join('')}
+          <button type="button" class="kit-editor-item kit-context-item" data-action="open-kit-item" data-column-key="${column.key}" data-index="${index}">
+            ${kitItemFace(item, index)}
+          </button>`).join('') || '<p class="kit-editor-empty">No hay elementos en esta columna.</p>'}
       </div>
-    </div>
+    </section>
   `).join('');
-
   bindKitEditorEvents();
 }
 
 function syncKitDraftFromEditor() {
-  const next = emptyKitItems();
-  document.querySelectorAll('.kit-editor-row').forEach((row) => {
-    const columnKey = row.dataset.columnKey;
-    if (!next[columnKey]) return;
-    next[columnKey].push({
-      name: row.querySelector('[data-kit-field="name"]')?.value.trim() || '',
-      image_url: row.querySelector('[data-kit-field="image_url"]')?.value.trim() || '',
-      guide_link: parseGuideLinkValue(row.querySelector('[data-kit-field="guide_link"]')?.value || ''),
-    });
+  // Los paneles contextuales escriben directamente en state.kitDraftItems.
+  state.kitDraftItems = normalizeKitItems(state.kitDraftItems, { keepEmpty: true });
+}
+
+function openKitItemContext(anchor, columnKey, index) {
+  const list = state.kitDraftItems[columnKey];
+  const item = list?.[index];
+  if (!item) return;
+  const scope = 'kit-item-editor';
+  openContextPanel({
+    anchor,
+    title: 'Elemento del kit',
+    subtitle: item.name || `Elemento ${index + 1}`,
+    width: 390,
+    className: 'kit-item-context',
+    build(root, close) {
+      const nameField = document.createElement('label');
+      nameField.className = 'context-field';
+      nameField.innerHTML = `<span>Nombre</span><input class="modal-input" maxlength="80" value="${escapeHtml(item.name || '')}" placeholder="Nombre del elemento" />`;
+      nameField.querySelector('input').addEventListener('input', event => {
+        item.name = event.target.value;
+        anchor.innerHTML = kitItemFace(item, index);
+      });
+      root.appendChild(nameField);
+
+      const preview = document.createElement('div');
+      preview.className = 'context-image-preview';
+      const paintPreview = () => {
+        const image = safeUrl(item.image_url);
+        preview.innerHTML = image ? `<img src="${escapeHtml(image)}" alt="Vista previa" />` : '<span>Sin imagen</span>';
+        anchor.innerHTML = kitItemFace(item, index);
+      };
+      paintPreview();
+      root.appendChild(preview);
+
+      appendActionGrid(root, [
+        { label: 'Biblioteca', icon: '▦', onClick: () => openMediaPicker({
+          title: 'Seleccionar imagen de kit', allowedKinds: ['image'], currentUrl: item.image_url || '',
+          onSelect: ({ url }) => { item.image_url = url; paintPreview(); },
+        }) },
+      ]);
+
+      appendDisclosure(root, {
+        title: 'Propiedades', open: true, build(content) {
+          const guide = document.createElement('label');
+          const selectId = `kit-context-guide-${crypto.randomUUID()}`;
+          guide.className = 'context-field';
+          guide.innerHTML = `<span>Enlazar con Guías</span><select class="modal-select" id="${selectId}"></select>`;
+          content.appendChild(guide);
+          hydrateGuideLinkSelect(selectId, item.guide_link || null);
+          guide.querySelector('select').addEventListener('change', event => {
+            item.guide_link = parseGuideLinkValue(event.target.value || '');
+          });
+        },
+      });
+
+      appendDisclosure(root, {
+        title: 'Acciones', build(content) {
+          appendActionGrid(content, [
+            { label: 'Copiar', icon: '⎘', onClick: () => copyEditorPayload(scope, item) },
+            { label: 'Pegar', icon: '↧', disabled: !hasEditorPayload(scope), onClick: () => {
+              const payload = getEditorPayload(scope); if (!payload) return;
+              list[index] = { name: String(payload.name || ''), image_url: String(payload.image_url || ''), guide_link: payload.guide_link || null };
+              close(); renderKitEditor();
+            } },
+            { label: 'Duplicar', icon: '⧉', onClick: () => { list.splice(index + 1, 0, cloneData(item)); close(); renderKitEditor(); } },
+            { label: 'Eliminar', icon: '🗑', tone: 'danger', onClick: () => { list.splice(index, 1); close(); renderKitEditor(); } },
+          ]);
+        },
+      });
+    },
   });
-  state.kitDraftItems = normalizeKitItems(next, { keepEmpty: true });
 }
 
 function bindKitEditorEvents() {
   document.querySelectorAll('[data-action="add-kit-item"]').forEach(btn => {
     btn.addEventListener('click', () => {
-      syncKitDraftFromEditor();
-      state.kitDraftItems[btn.dataset.columnKey].push({ name: '', image_url: '' });
+      state.kitDraftItems[btn.dataset.columnKey].push({ name: '', image_url: '', guide_link: null });
       renderKitEditor();
+      requestAnimationFrame(() => {
+        const list = document.querySelectorAll(`[data-action="open-kit-item"][data-column-key="${btn.dataset.columnKey}"]`);
+        list[list.length - 1]?.click();
+      });
     });
   });
-
-  document.querySelectorAll('[data-action="remove-kit-item"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      syncKitDraftFromEditor();
-      const row = btn.closest('.kit-editor-row');
-      state.kitDraftItems[row.dataset.columnKey].splice(Number(row.dataset.index), 1);
-      renderKitEditor();
-    });
-  });
-
-  document.querySelectorAll('[data-action="duplicate-kit-item"], [data-action="copy-kit-item"], [data-action="paste-kit-item"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      syncKitDraftFromEditor();
-      const row = btn.closest('.kit-editor-row');
-      const columnKey = row?.dataset.columnKey;
-      const index = Number(row?.dataset.index);
-      const scope = `kit-${columnKey}`;
-      const list = state.kitDraftItems[columnKey];
-      if (!list?.[index]) return;
-      if (btn.dataset.action === 'duplicate-kit-item') {
-        list.splice(index + 1, 0, cloneData(list[index]));
-      } else if (btn.dataset.action === 'copy-kit-item') {
-        copyEditorPayload(scope, list[index]);
-      } else if (btn.dataset.action === 'paste-kit-item') {
-        const payload = getEditorPayload(scope);
-        if (!payload) return;
-        list[index] = {
-          name: String(payload?.name || ''),
-          image_url: String(payload?.image_url || ''),
-          guide_link: payload?.guide_link || null,
-        };
-      }
-      renderKitEditor();
-    });
-  });
-
-  document.querySelectorAll('[data-action="clear-kit-image"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const row = btn.closest('.kit-editor-row');
-      const input = row?.querySelector('[data-kit-field="image_url"]');
-      if (input) input.value = '';
-    });
-  });
-
-  document.querySelectorAll('[data-action="pick-kit-media"]').forEach(btn => {
-    const inputId = btn.dataset.inputId;
-    attachMediaPickerButton({
-      targetInputId: inputId,
-      insertAfterId: inputId,
-      label: 'Elegir',
-      title: 'Seleccionar imagen de kit',
-    });
-    document.querySelector(`[data-media-picker-for="${inputId}"]`)?.classList.add('hidden');
-    btn.addEventListener('click', () => {
-      document.querySelector(`[data-media-picker-for="${inputId}"]`)?.click();
-    });
-  });
-
-  document.querySelectorAll('.kit-editor-row').forEach((row) => {
-    const columnKey = row.dataset.columnKey;
-    const index = Number(row.dataset.index);
-    const item = state.kitDraftItems[columnKey]?.[index];
-    hydrateGuideLinkSelect(`kit-${columnKey}-${index}-guide`, item?.guide_link || null);
+  document.querySelectorAll('[data-action="open-kit-item"]').forEach(btn => {
+    btn.addEventListener('click', () => openKitItemContext(btn, btn.dataset.columnKey, Number(btn.dataset.index)));
   });
 }
+
+function kitEditorPayload(kit) {
+  return {
+    name: kit?.name || '',
+    description: kit?.description || '',
+    published: kit ? !!kit.published : true,
+    items: normalizeKitItems(kit?.items, { keepEmpty: true }),
+  };
+}
+
+function applyKitEditorPayload(payload, { asNew = true } = {}) {
+  state.editingKitId = asNew ? null : state.editingKitId;
+  document.getElementById('kit-modal-title').textContent = asNew ? 'Nuevo kit' : 'Editar kit';
+  document.getElementById('kit-name-input').value = payload?.name || '';
+  document.getElementById('kit-description-input').value = payload?.description || '';
+  document.getElementById('kit-published-input').checked = payload?.published ?? true;
+  state.kitDraftItems = normalizeKitItems(payload?.items, { keepEmpty: true });
+  renderKitEditor();
+  document.getElementById('kit-modal-error').classList.add('hidden');
+  document.getElementById('kit-modal').classList.remove('hidden');
+}
+
+function openKitCardActions(anchor, kitId) {
+  const kit = state.kits.find(item => item.id === kitId);
+  if (!kit) return;
+  openContextPanel({
+    anchor, title: 'Acciones del kit', subtitle: kit.name || '', width: 340,
+    build(root, close) {
+      appendActionGrid(root, [
+        { label: 'Editar', icon: '✏', onClick: () => { close(); openKitModal(kitId); } },
+        { label: 'Copiar', icon: '⎘', onClick: () => copyEditorPayload('kit-editor', kitEditorPayload(kit)) },
+        { label: 'Duplicar', icon: '⧉', onClick: () => {
+          const payload = kitEditorPayload(kit); payload.name = `${payload.name} (copia)`;
+          close(); applyKitEditorPayload(payload, { asNew: true });
+        } },
+        { label: 'Pegar como nuevo', icon: '↧', disabled: !hasEditorPayload('kit-editor'), onClick: () => {
+          const payload = getEditorPayload('kit-editor'); if (!payload) return;
+          close(); applyKitEditorPayload(payload, { asNew: true });
+        } },
+        { label: 'Eliminar', icon: '🗑', tone: 'danger', onClick: () => { close(); deleteKit(kitId); } },
+      ]);
+    },
+  });
+}
+
 
 export function openKitModal(kitId = null) {
   state.editingKitId = kitId;
@@ -313,7 +354,7 @@ export async function submitKit() {
     return;
   }
   if (!state.adminCode) {
-    errorBox.textContent = 'Tu sesion de administrador expiro.';
+    errorBox.textContent = 'Tu sesión de administrador expiró.';
     errorBox.classList.remove('hidden');
     return;
   }

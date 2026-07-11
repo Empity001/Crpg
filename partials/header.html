@@ -1,53 +1,82 @@
-<!-- ============ FONDO DE PARTÍCULAS / SCANLINES ============ -->
+<!-- ============ CAPAS AMBIENTALES ============ -->
 <div class="crt-overlay" aria-hidden="true"></div>
 <div class="bg-grid" aria-hidden="true"></div>
 
-<!-- ============ HUD SUPERIOR FIJO ============ -->
-<header class="hud-top">
+<!-- ============ BARRA MÓVIL ============ -->
+<header class="mobile-topbar">
+  <button class="mobile-menu-btn" id="sidebar-menu-toggle" type="button" aria-label="Abrir menú" aria-controls="app-sidebar" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="mobile-brand-mark" aria-hidden="true"><img class="mobile-brand-image js-site-logo-image hidden" alt="" /><span class="mobile-brand-fallback js-site-logo-fallback">⚔</span></div>
+  <span class="mobile-brand-title">CULONES<span>-RPG</span></span>
+  <span class="mobile-admin-indicator hidden" id="mobile-admin-indicator">ADMIN</span>
+</header>
+
+<div class="sidebar-scrim" id="sidebar-scrim" aria-hidden="true"></div>
+
+<!-- ============ SIDEBAR COMPARTIDA ============ -->
+<aside class="hud-top app-sidebar" id="app-sidebar" aria-label="Navegación principal">
   <div class="hud-brand">
-    <div class="hud-logo">⛏</div>
+    <div class="hud-logo" aria-hidden="true">
+      <img class="hud-logo-custom js-site-logo-image hidden" alt="" />
+      <span class="hud-logo-fallback js-site-logo-fallback"><span class="hud-logo-blade blade-a"></span><span class="hud-logo-blade blade-b"></span></span>
+    </div>
     <div class="hud-titles">
       <span class="hud-title">CULONES<span class="accent">-RPG</span></span>
-      <span class="hud-subtitle">Pagina oficial</span>
+      <span class="hud-subtitle" id="hud-subtitle">Página oficial</span>
     </div>
   </div>
 
-  <div class="hud-spacer"></div>
+  <nav class="browser-tabs" aria-label="Secciones">
+    <span class="sidebar-section-label">Explorar</span>
 
-  <div class="admin-mode-badge hidden" id="admin-mode-badge" aria-live="polite">
-    <span class="admin-mode-pulse"></span>
-    <span>Administrator Mode</span>
+    <a class="tab-item" data-page="logs" href="index.html" aria-current="false">
+      <span class="tab-icon" aria-hidden="true">📜</span>
+      <span class="tab-label">Logs</span>
+    </a>
+    <a class="tab-item" data-page="weapons" href="weapons.html" aria-current="false">
+      <span class="tab-icon" aria-hidden="true">⚔️</span>
+      <span class="tab-label">Guías</span>
+    </a>
+    <a class="tab-item" data-page="tierlist" href="tierlist.html" aria-current="false">
+      <span class="tab-icon" aria-hidden="true">🏆</span>
+      <span class="tab-label">Tierlist</span>
+    </a>
+    <a class="tab-item" data-page="kits" href="kits.html" aria-current="false">
+      <span class="tab-icon" aria-hidden="true">🎒</span>
+      <span class="tab-label">Kits</span>
+    </a>
+    <a class="tab-item" data-page="about" href="about.html" aria-current="false">
+      <span class="tab-icon" aria-hidden="true">🎮</span>
+      <span class="tab-label">Acerca del servidor</span>
+    </a>
+
+    <div class="sidebar-admin-group">
+      <span class="sidebar-section-label">Administración</span>
+      <a class="tab-item admin-tab hidden" data-page="admin" href="admin.html" aria-current="false" id="admin-panel-tab">
+        <span class="tab-icon" aria-hidden="true">🛠</span>
+        <span class="tab-label">Herramientas</span>
+      </a>
+    </div>
+
+    <div class="tab-spacer"></div>
+    <div class="tab-fake-url" aria-hidden="true">culones-rpg.gg/<span id="active-tab-path">logs</span></div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="admin-mode-badge hidden" id="admin-mode-badge" aria-live="polite">
+      <span class="admin-mode-pulse"></span>
+      <span>Sesión administrativa activa</span>
+    </div>
+
+    <button id="admin-toggle-btn" class="btn-admin-toggle" type="button">
+      <span class="admin-toggle-emblem" aria-hidden="true">◆</span>
+      <span class="admin-toggle-copy">
+        <strong id="admin-toggle-label">Entrar a Modo Admin</strong>
+        <small id="admin-toggle-sublabel">Acceso para administradores</small>
+      </span>
+      <span class="admin-toggle-arrow" aria-hidden="true">→</span>
+      <span class="dot-offline" id="admin-dot" aria-hidden="true"></span>
+    </button>
   </div>
-
-  <button id="admin-toggle-btn" class="btn-admin-toggle" type="button">
-    <span class="dot-offline" id="admin-dot"></span>
-    <span id="admin-toggle-label">ADMIN</span>
-  </button>
-</header>
-
-<!-- ============ NAV TIPO PESTAÑAS DE NAVEGADOR ============ -->
-<!-- Navegación real entre páginas (cada pestaña es un archivo .html
-     independiente). El estado "activo" y el texto de active-tab-path
-     se aplican en runtime desde js/app/shell.js según la página actual. -->
-<nav class="browser-tabs" role="tablist" aria-label="Secciones">
-  <a class="tab-item" data-page="logs" href="index.html" role="tab" aria-selected="false">
-    <span class="tab-icon">📜</span> Logs
-  </a>
-  <a class="tab-item" data-page="weapons" href="weapons.html" role="tab" aria-selected="false">
-    <span class="tab-icon">⚔️</span> Guías
-  </a>
-  <a class="tab-item" data-page="tierlist" href="tierlist.html" role="tab" aria-selected="false">
-    <span class="tab-icon">🏆</span> Tierlist
-  </a>
-  <a class="tab-item" data-page="kits" href="kits.html" role="tab" aria-selected="false">
-    <span class="tab-icon">🎒</span> Kits
-  </a>
-  <a class="tab-item" data-page="about" href="about.html" role="tab" aria-selected="false">
-    <span class="tab-icon">🎮</span> Acerca del Server
-  </a>
-  <a class="tab-item admin-tab hidden" data-page="admin" href="admin.html" role="tab" aria-selected="false" id="admin-panel-tab">
-    <span class="tab-icon">🛠</span> Herramientas
-  </a>
-  <div class="tab-spacer"></div>
-  <div class="tab-fake-url">culones-rpg.gg/<span id="active-tab-path">logs</span></div>
-</nav>
+</aside>

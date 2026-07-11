@@ -78,12 +78,14 @@ function assetSearchText(asset) {
   return text;
 }
 
-export function renderMediaPreview(asset, className = 'media-thumb-preview') {
+export function renderMediaPreview(asset, className = 'media-thumb-preview', options = {}) {
   const safe = safeUrl(asset.url);
   if (!safe) return `<div class="${className} is-empty">?</div>`;
   const style = presentationStyle(asset.presentation);
+  const loading = options.loading === 'eager' ? 'eager' : 'lazy';
+  const priority = loading === 'eager' ? 'auto' : 'low';
   if (asset.media_kind === 'image') {
-    return `<img src="${escapeHtml(safe)}" alt="${escapeHtml(asset.display_name || '')}" class="${className}" loading="lazy" decoding="async" fetchpriority="low" style="${style}" />`;
+    return `<img src="${escapeHtml(safe)}" alt="${escapeHtml(asset.display_name || '')}" class="${className}" loading="${loading}" decoding="async" fetchpriority="${priority}" style="${style}" />`;
   }
   if (asset.media_kind === 'video') {
     return `<video src="${escapeHtml(safe)}" class="${className}" muted playsinline preload="metadata" style="${style}"></video>`;

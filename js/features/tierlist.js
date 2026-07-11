@@ -10,6 +10,7 @@ import { supabaseClient } from '../config.js';
 import { TIER_COLUMNS, isAdmin, state, suppressNextTierlistReload } from '../core/state.js';
 import { initImageUploader, updateAssetPreview, uploadImageToStorage } from '../core/storage.js';
 import { confirmAction, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast } from '../core/utils.js';
+import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 import { getGuideLinkFromFields, hydrateGuideLinkSelect, openGuideLink, readGuideLinkSelect, setGuideLinkInFields } from './guide-links.js';
 
 export function syncTierDropzoneState(url) {
@@ -51,34 +52,36 @@ function applyTierItemEditorPayload(payload) {
 }
 
 export function initTierItemClipboardActions() {
-  const actions = document.getElementById('tier-item-copy-actions');
-  if (!actions || actions.dataset.bound === 'true') return;
-  actions.dataset.bound = 'true';
-  actions.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-tier-item-copy-action]');
-    if (!btn) return;
-    const action = btn.dataset.tierItemCopyAction;
-
-    if (action === 'copy') {
-      copyEditorPayload('tier-item-editor', readTierItemEditorPayload());
-      return;
-    }
-
-    if (action === 'paste') {
-      if (!hasEditorPayload('tier-item-editor')) return;
-      applyTierItemEditorPayload(getEditorPayload('tier-item-editor'));
-      showToast('Pegado', 'success');
-      return;
-    }
-
-    if (action === 'duplicate') {
-      const payload = readTierItemEditorPayload();
-      state.editingTierItemId = null;
-      const titleEl = document.getElementById('tier-item-modal-title');
-      if (titleEl) titleEl.textContent = 'NUEVO ELEMENTO';
-      applyTierItemEditorPayload(payload);
-      showToast('Duplicado como nuevo elemento', 'success');
-    }
+  const trigger = document.getElementById('tier-item-actions-btn');
+  if (!trigger || trigger.dataset.bound === 'true') return;
+  trigger.dataset.bound = 'true';
+  trigger.addEventListener('click', () => {
+    openContextPanel({
+      anchor: trigger,
+      title: 'Acciones del elemento',
+      subtitle: document.getElementById('tier-item-name-input')?.value.trim() || 'Elemento nuevo',
+      width: 330,
+      build(root, close) {
+        appendActionGrid(root, [
+          { label: 'Copiar', icon: '⎘', onClick: () => copyEditorPayload('tier-item-editor', readTierItemEditorPayload()) },
+          { label: 'Pegar', icon: '↧', disabled: !hasEditorPayload('tier-item-editor'), onClick: () => {
+            const payload = getEditorPayload('tier-item-editor');
+            if (!payload) return;
+            applyTierItemEditorPayload(payload);
+            close();
+            showToast('Elemento pegado', 'success');
+          } },
+          { label: 'Duplicar como nuevo', icon: '⧉', onClick: () => {
+            const payload = readTierItemEditorPayload();
+            state.editingTierItemId = null;
+            document.getElementById('tier-item-modal-title').textContent = 'NUEVO ELEMENTO';
+            applyTierItemEditorPayload(payload);
+            close();
+            showToast('Duplicado como nuevo elemento', 'success');
+          } },
+        ]);
+      },
+    });
   });
 }
 
@@ -203,9 +206,7 @@ function renderTierItemChip(item) {
         ${thumb}
         ${isAdmin() ? `
           <div class="tier-chip-admin-overlay">
-            <button type="button" class="tier-chip-mini-btn" data-action="move-tier-item" data-item-id="${item.id}" title="Mover">↕</button>
-            <button type="button" class="tier-chip-mini-btn" data-action="edit-tier-item" data-item-id="${item.id}" title="Editar">✏️</button>
-            <button type="button" class="tier-chip-mini-btn danger" data-action="delete-tier-item" data-item-id="${item.id}" title="Eliminar">🗑️</button>
+            <button type="button" class="context-menu-trigger" data-action="tier-item-actions" data-item-id="${item.id}" title="Acciones">⋯</button>
           </div>
         ` : ''}
       </div>
@@ -304,12 +305,8 @@ function bindTierlistCellEvents() {
 
   // ---- Botones admin sobre cada chip / fila (delegado por contenedor) ----
   [board, bench].forEach(container => {
-    container.querySelectorAll('[data-action="move-tier-item"]').forEach(btn =>
-      btn.addEventListener('click', (e) => { e.stopPropagation(); openTierMoveModal(btn.dataset.itemId); }));
-    container.querySelectorAll('[data-action="edit-tier-item"]').forEach(btn =>
-      btn.addEventListener('click', (e) => { e.stopPropagation(); openTierItemModal(btn.dataset.itemId); }));
-    container.querySelectorAll('[data-action="delete-tier-item"]').forEach(btn =>
-      btn.addEventListener('click', (e) => { e.stopPropagation(); deleteTierItem(btn.dataset.itemId); }));
+    container.querySelectorAll('[data-action="tier-item-actions"]').forEach(btn =>
+      btn.addEventListener('click', (e) => { e.stopPropagation(); openTierCardActions(btn, btn.dataset.itemId); }));
     container.querySelectorAll('.tier-item-chip[data-has-guide-link="true"]').forEach(chip => {
       chip.addEventListener('click', (e) => {
         if (e.target.closest('[data-action]')) return;
@@ -330,6 +327,49 @@ function bindTierlistCellEvents() {
     btn.addEventListener('click', () => reorderTierRow(btn.dataset.rowId, -1)));
   board.querySelectorAll('[data-action="move-row-down"]').forEach(btn =>
     btn.addEventListener('click', () => reorderTierRow(btn.dataset.rowId, 1)));
+}
+
+
+function tierItemPayload(item) {
+  return {
+    name: item?.name || '',
+    column_key: item?.column_key || 'weapon',
+    image_url: item?.image_url || '',
+    guide_link: getGuideLinkFromFields(item?.extra_fields),
+  };
+}
+
+function openTierCardActions(anchor, itemId) {
+  const item = state.tierItems.find(entry => entry.id === itemId);
+  if (!item) return;
+  openContextPanel({
+    anchor,
+    title: 'Acciones del elemento',
+    subtitle: item.name || '',
+    width: 340,
+    build(root, close) {
+      appendActionGrid(root, [
+        { label: 'Editar', icon: '✏', onClick: () => { close(); openTierItemModal(itemId); } },
+        { label: 'Mover', icon: '↕', onClick: () => { close(); openTierMoveModal(itemId); } },
+        { label: 'Copiar', icon: '⎘', onClick: () => copyEditorPayload('tier-item-editor', tierItemPayload(item)) },
+        { label: 'Duplicar', icon: '⧉', onClick: () => {
+          state.editingTierItemId = null;
+          close();
+          openTierItemModal(null);
+          applyTierItemEditorPayload(tierItemPayload(item));
+          document.getElementById('tier-item-modal-title').textContent = 'NUEVO ELEMENTO';
+        } },
+        { label: 'Pegar como nuevo', icon: '↧', disabled: !hasEditorPayload('tier-item-editor'), onClick: () => {
+          const payload = getEditorPayload('tier-item-editor'); if (!payload) return;
+          state.editingTierItemId = null;
+          close();
+          openTierItemModal(null);
+          applyTierItemEditorPayload(payload);
+        } },
+        { label: 'Eliminar', icon: '🗑', tone: 'danger', onClick: () => { close(); deleteTierItem(itemId); } },
+      ]);
+    },
+  });
 }
 
 // ---------------------------------------------------------

@@ -27,7 +27,7 @@ async function loadPartial(url, targetId) {
 
 export async function loadSharedShell() {
   await Promise.all([
-    loadPartial('partials/header.html', 'shell-header'),
-    loadPartial('partials/footer.html', 'shell-footer'),
+    loadPartial('partials/header.html?v=20260710-5', 'shell-header'),
+    loadPartial('partials/footer.html?v=20260710-5', 'shell-footer'),
   ]);
 }

@@ -203,7 +203,7 @@ function buildLogsSheets() {
   // — Hoja 1: Logs —
   const logsHeaders = [
     'ID', 'Título', 'Descripción', 'Categoría', 'Emoji Cat.',
-    'Relevancia', 'Likes', 'Fecha', 'Fecha (ISO)',
+    'Relevancia', 'Likes', 'Fecha', 'Fecha (ISO)', 'Portada (URL)',
     '# Mobs', '# Items', '# Bloques Libres',
   ];
   const logsRows = state.logs.map(log => {
@@ -215,7 +215,7 @@ function buildLogsSheets() {
     return [
       log.id, log.title, log.description || '', cat.label, cat.emoji || '',
       RELEVANCE_LABELS[log.relevance] || log.relevance,
-      log.likes || 0, formatDate(log.created_at), log.created_at,
+      log.likes || 0, formatDate(log.created_at), log.created_at, log.cover_image_url || '',
       mobs.length, normalItems.length, libres.length,
     ];
   });
@@ -273,7 +273,7 @@ function buildLogsSheets() {
   });
 
   return {
-    wsLogs:  buildXlSheet(`📜 Logs  (${logsRows.length} registros)`,  logsHeaders,  logsRows,  [6,9,10,11], [12,30,40,18,8,12,8,12,30,10,10,12]),
+    wsLogs:  buildXlSheet(`📜 Logs  (${logsRows.length} registros)`,  logsHeaders,  logsRows,  [6,10,11,12], [12,30,40,18,8,12,8,12,30,35,10,10,12]),
     wsMobs:  buildXlSheet(`⚔️ Mobs  (${mobsRows.length} registros)`,  mobsHeaders,  mobsRows,  [3,4,5],     [12,30,24,8,8,8,30,24,35,35,30]),
     wsItems: buildXlSheet(`🎒 Items (${itemsRows.length} registros)`,  itemsHeaders, itemsRows, [6],         [12,30,24,12,14,24,8,24,35,35,30]),
     wsLibres: buildXlSheet(`📦 Bloques Libres (${libresRows.length} registros)`, libresHeaders, libresRows, [], [12,30,24,45,35,35]),

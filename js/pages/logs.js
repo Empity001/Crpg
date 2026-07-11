@@ -17,8 +17,8 @@ import { cancelReply, deleteCommentAction, startReplyTo, submitComment, toggleCo
 import { initBeforeUnload, restoreDraft, saveDraft, stopDraftAutosave } from '../features/drafts.js';
 import { loadDraftByKey } from '../features/drafts-store.js';
 import { openFieldConfigModal, saveFieldConfig, setFieldConfigSavedHandler } from '../features/field-config.js';
-import { initSortControl, loadLogs, openEditLogModal, openNewLogModal, renderLogs, submitLog } from '../features/logs.js';
-import { attachMediaPickerButton } from '../features/media-library.js';
+import { initSortControl, loadLogs, openEditLogModal, openNewLogModal, renderLogs, submitLog, updateLogCoverPreview } from '../features/logs.js';
+import { attachMediaPickerButton, openMediaPicker } from '../features/media-library.js';
 import { state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
 import { registerModalLifecycleCleanup } from '../core/utils.js';
@@ -35,6 +35,27 @@ function initLogsModals() {
   document.getElementById('submit-log-btn').addEventListener('click', submitLog);
   document.getElementById('draft-manual-save-btn')?.addEventListener('click', () => {
     saveDraft(state.editingLogId || 'new', true);
+  });
+
+  document.getElementById('log-cover-image-picker-btn')?.addEventListener('click', () => {
+    const input = document.getElementById('log-cover-image-input');
+    openMediaPicker({
+      title: 'Seleccionar portada del log',
+      allowedKinds: ['image'],
+      currentUrl: input?.value || '',
+      onSelect: ({ url }) => {
+        updateLogCoverPreview(url || '');
+        input?.dispatchEvent(new Event('input', { bubbles: true }));
+      },
+    });
+  });
+  document.getElementById('log-cover-image-clear-btn')?.addEventListener('click', () => {
+    const input = document.getElementById('log-cover-image-input');
+    updateLogCoverPreview('');
+    input?.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  document.getElementById('log-cover-image-input')?.addEventListener('draft-cover-restored', (event) => {
+    updateLogCoverPreview(event.detail?.url || '');
   });
 
   document.getElementById('open-add-mob-btn').addEventListener('click', () => openMobModal(null));

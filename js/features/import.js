@@ -187,6 +187,7 @@ export async function confirmImport() {
             input_title: log.title, input_description: log.description,
             input_category: log.category, input_relevance: log.relevance,
             input_created_at: log.created_at, input_mobs: mobsPayload, input_items: itemsPayload,
+            input_cover_image_url: log.cover_image_url || null,
           });
         } else {
           // Nuevo: create_log
@@ -195,6 +196,7 @@ export async function confirmImport() {
             input_title: log.title, input_description: log.description,
             input_category: log.category, input_relevance: log.relevance,
             input_created_at: log.created_at, input_mobs: mobsPayload, input_items: itemsPayload,
+            input_cover_image_url: log.cover_image_url || null,
           });
         }
         imported++;
