@@ -249,6 +249,18 @@ function renderInspectorTabBody(log) {
     </div>`;
 }
 
+function resetLogInspectorScroll({ focusTop = false } = {}) {
+  const inspector = document.getElementById('logs-inspector');
+  const body = inspector?.querySelector('.logs-inspector-body');
+  if (body) {
+    body.scrollTop = 0;
+    body.scrollLeft = 0;
+  }
+  if (focusTop && inspector && window.matchMedia('(max-width: 1180px)').matches) {
+    inspector.scrollTop = 0;
+  }
+}
+
 function renderLogInspector() {
   const inspector = document.getElementById('logs-inspector');
   if (!inspector) return;
@@ -287,10 +299,13 @@ function renderLogInspector() {
 
     <div class="logs-inspector-body">${renderInspectorTabBody(log)}</div>`;
 
+  requestAnimationFrame(() => resetLogInspectorScroll({ focusTop: true }));
+
   inspector.querySelectorAll('[data-inspector-tab]').forEach(button => {
     button.addEventListener('click', () => {
       inspectorTab = button.dataset.inspectorTab;
       renderLogInspector();
+      requestAnimationFrame(() => resetLogInspectorScroll({ focusTop: true }));
     });
   });
 
@@ -308,7 +323,17 @@ function renderLogInspector() {
         panel.classList.remove('hidden');
         button.classList.add('is-expanded');
         button.setAttribute('aria-expanded', 'true');
-        requestAnimationFrame(() => panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+        requestAnimationFrame(() => {
+          const scrollBody = inspector.querySelector('.logs-inspector-body');
+          if (!scrollBody) return;
+          const bodyRect = scrollBody.getBoundingClientRect();
+          const panelRect = panel.getBoundingClientRect();
+          if (panelRect.bottom > bodyRect.bottom - 12) {
+            scrollBody.scrollBy({ top: panelRect.bottom - bodyRect.bottom + 18, behavior: 'smooth' });
+          } else if (panelRect.top < bodyRect.top + 12) {
+            scrollBody.scrollBy({ top: panelRect.top - bodyRect.top - 12, behavior: 'smooth' });
+          }
+        });
       }
     });
   });

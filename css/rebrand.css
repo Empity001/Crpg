@@ -4779,3 +4779,157 @@ button[aria-disabled="true"],
   border-color: var(--btn-danger-bg) !important;
   background: var(--btn-danger-bg) !important;
 }
+
+/* ======================================================================
+   CORRECCIÓN · INSPECTOR DE LOGS EN MÓVIL
+   ----------------------------------------------------------------------
+   En pantallas estrechas, una pestaña con muchas fichas podía comprimir la
+   cabecera hasta ocultar el título y dejar el desplazamiento atrapado en el
+   documento de fondo. La selección usa ahora tres filas rígidas: cabecera,
+   pestañas y cuerpo desplazable.
+   ====================================================================== */
+.logs-inspector.has-selection {
+  display: grid;
+  grid-template-rows: max-content max-content minmax(0, 1fr);
+  min-height: 0;
+}
+
+.logs-inspector-head,
+.logs-inspector-tabs {
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.logs-inspector-head {
+  position: relative;
+  z-index: 3;
+  overflow: visible;
+}
+
+.logs-inspector-head > div {
+  min-width: 0;
+}
+
+.logs-inspector-head h2 {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.logs-inspector-tabs {
+  position: relative;
+  z-index: 2;
+}
+
+.logs-inspector-body {
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+}
+
+@media (max-width: 1180px) {
+  body.logs-inspector-open {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  .logs-inspector {
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: hidden !important;
+    overscroll-behavior: contain;
+  }
+
+  .logs-inspector.has-selection {
+    grid-template-rows: max-content max-content minmax(0, 1fr) !important;
+  }
+
+  .logs-inspector-body {
+    height: auto !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .logs-inspector {
+    top: calc(66px + 8px) !important;
+    right: 8px !important;
+    bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    left: auto !important;
+    height: auto !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .logs-inspector {
+    inset: calc(66px + 6px) 6px max(6px, env(safe-area-inset-bottom)) 6px !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .logs-inspector-head {
+    min-height: 70px;
+    padding: 13px 13px 11px !important;
+    background: color-mix(in srgb, var(--theme-panel-bg, #111528) 97%, transparent);
+  }
+
+  .logs-inspector-category {
+    margin-bottom: 5px;
+  }
+
+  .logs-inspector-head h2 {
+    font-size: 16px !important;
+    line-height: 1.25;
+  }
+
+  .logs-inspector-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    background: color-mix(in srgb, var(--theme-page-bg, #070914) 58%, var(--theme-panel-bg, #111528));
+  }
+
+  .logs-inspector-tabs button {
+    min-height: 42px;
+    padding-inline: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .logs-inspector-tabs button span {
+    display: inline;
+  }
+
+  .logs-inspector-body {
+    padding: 11px !important;
+    scroll-padding-top: 10px;
+    scroll-padding-bottom: 18px;
+  }
+
+  .inspector-entity-list {
+    padding-bottom: 8px;
+  }
+}
+
+@media (max-height: 560px) and (max-width: 1180px) {
+  .logs-inspector-head {
+    min-height: 56px;
+    padding-block: 9px !important;
+  }
+
+  .logs-inspector-category {
+    margin-bottom: 3px;
+  }
+
+  .logs-inspector-tabs button {
+    min-height: 38px;
+  }
+}

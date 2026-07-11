@@ -18,6 +18,7 @@ import {
   listMediaPickerAssets,
   mediaKindFromMime,
   mediaKindFromUrlFallback,
+  replaceMediaAssetFileRecord,
   storagePathFromPublicUrl,
   updateMediaAsset,
   upsertMediaAsset,
@@ -25,7 +26,7 @@ import {
 import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { localAuditTime, mediaAuditLabel, recordAdminAction } from '../core/audit.js';
-import { uploadMediaToStorage } from '../core/storage.js';
+import { removeStorageObject, stageMediaReplacement, uploadMediaToStorage, validateMediaReplacementFile } from '../core/storage.js';
 import { asArray, debounce, escapeHtml, mountModal, registerModalLifecycleCleanup, safeUrl, showToast } from '../core/utils.js';
 import { closeContextPanel } from '../core/context-actions.js';
 import {
@@ -63,6 +64,9 @@ let pickerLoading = false;
 let pickerLoadToken = 0;
 let externalPreviewToken = 0;
 const gridRenderState = new WeakMap();
+let mediaEditReplacementFile = null;
+let mediaEditReplacementObjectUrl = '';
+let mediaEditActiveAsset = null;
 
 const panelState = {
   view: 'active',
@@ -213,12 +217,14 @@ async function buildMediaUsageIndex() {
     { data: tierItems = [] },
     { data: weapons = [] },
     { data: ranks = [] },
+    { data: kits = [] },
   ] = await Promise.all([
     supabaseClient.from('log_mobs').select('log_id,name,image_url'),
     supabaseClient.from('log_items').select('log_id,name,item_type,image_url'),
     supabaseClient.from('tierlist_items').select('name,image_url'),
     supabaseClient.from('weapons').select('id,name,image_url'),
     supabaseClient.from('weapon_ranks').select('id,weapon_id,name,image_url,upgrade_recipe'),
+    supabaseClient.from('kits').select('name,items'),
   ]);
   const logs = logsResult.data || [];
 
@@ -255,6 +261,15 @@ async function buildMediaUsageIndex() {
       asArray(method.grid).forEach((mat, idx) => addUsage(usage, mat.image_url, `Crafteo: ${weaponName} > ${methodLabel} > Slot ${idx + 1}${mat.name ? ` (${mat.name})` : ''}`));
       asArray(method.inputs).forEach((mat, idx) => addUsage(usage, mat.image_url, `Fabricacion: ${weaponName} > ${methodLabel} > ${inputLabels[idx] || `Slot ${idx + 1}`}${mat.name ? ` (${mat.name})` : ''}`));
       addUsage(usage, method.result?.image_url, `Receta: ${weaponName} > ${methodLabel} > Resultado`);
+    });
+  });
+
+  kits.forEach((kit) => {
+    const kitName = kit.name || 'Kit';
+    ['weapon', 'accessory', 'subweapon'].forEach((column) => {
+      asArray(kit.items?.[column]).forEach((item, index) => {
+        addUsage(usage, item?.image_url, `Kit: ${kitName} > ${column} ${index + 1}${item?.name ? ` (${item.name})` : ''}`);
+      });
     });
   });
 
@@ -919,17 +934,187 @@ function openExternalMediaModal(onCreated = () => {}) {
   };
 }
 
+
+function clearMediaEditReplacement({ keepAsset = false } = {}) {
+  if (mediaEditReplacementObjectUrl) URL.revokeObjectURL(mediaEditReplacementObjectUrl);
+  mediaEditReplacementObjectUrl = '';
+  mediaEditReplacementFile = null;
+  if (!keepAsset) mediaEditActiveAsset = null;
+
+  const input = document.getElementById('media-replace-file-input');
+  if (input) input.value = '';
+  const pending = document.getElementById('media-replace-pending');
+  if (pending) {
+    pending.classList.add('hidden');
+    pending.innerHTML = '';
+  }
+  const button = document.getElementById('replace-media-file-btn');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Reemplazar en todos los usos';
+  }
+}
+
+function closeMediaEditModal() {
+  document.getElementById('media-edit-modal')?.classList.add('hidden');
+  clearMediaEditReplacement();
+}
+
+function mediaReplacementAccept(asset) {
+  const kind = asset?.media_kind && asset.media_kind !== 'other'
+    ? asset.media_kind
+    : mediaKindFromUrlFallback(asset?.url);
+  return kind === 'video'
+    ? 'video/mp4,video/webm'
+    : 'image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml,image/apng';
+}
+
+function selectMediaReplacementFile(file) {
+  const errorBox = document.getElementById('media-edit-error');
+  errorBox?.classList.add('hidden');
+  if (!mediaEditActiveAsset) return;
+
+  try {
+    const expectedKind = mediaEditActiveAsset.media_kind && mediaEditActiveAsset.media_kind !== 'other'
+      ? mediaEditActiveAsset.media_kind
+      : mediaKindFromUrlFallback(mediaEditActiveAsset.url);
+    const nextKind = validateMediaReplacementFile(file, expectedKind === 'other' ? '' : expectedKind);
+    clearMediaEditReplacement({ keepAsset: true });
+    mediaEditReplacementFile = file;
+    mediaEditReplacementObjectUrl = URL.createObjectURL(file);
+
+    const pending = document.getElementById('media-replace-pending');
+    if (pending) {
+      pending.classList.remove('hidden');
+      pending.innerHTML = `
+        <div class="media-replace-preview">
+          ${renderMediaPreview({
+            ...mediaEditActiveAsset,
+            url: mediaEditReplacementObjectUrl,
+            display_name: file.name,
+            mime_type: file.type,
+            media_kind: nextKind,
+          }, 'media-thumb-preview', { loading: 'eager' })}
+        </div>
+        <div class="media-replace-file-info">
+          <strong>${escapeHtml(file.name)}</strong>
+          <span>${escapeHtml(file.type || 'Tipo desconocido')} · ${escapeHtml(formatFileSize(file.size))}</span>
+          <small>El archivo nuevo sustituirá al anterior en todos sus usos detectados.</small>
+        </div>`;
+    }
+    const button = document.getElementById('replace-media-file-btn');
+    if (button) button.disabled = false;
+  } catch (error) {
+    if (errorBox) {
+      errorBox.textContent = error.message;
+      errorBox.classList.remove('hidden');
+    }
+  }
+}
+
+async function commitMediaFileReplacement() {
+  const asset = mediaEditActiveAsset;
+  const file = mediaEditReplacementFile;
+  const errorBox = document.getElementById('media-edit-error');
+  const button = document.getElementById('replace-media-file-btn');
+  if (!asset || !file || !button) return;
+
+  const confirmed = await confirmMediaAction({
+    title: 'Reemplazar recurso en todos sus usos',
+    asset,
+    actionLabel: 'Reemplazar archivo',
+    danger: false,
+    message: 'Se subirá el archivo nuevo, se actualizarán automáticamente todas las referencias detectadas y, al finalizar, se borrará el archivo anterior de Storage.',
+  });
+  if (!confirmed) return;
+
+  button.disabled = true;
+  button.textContent = 'Reemplazando y actualizando usos...';
+  errorBox?.classList.add('hidden');
+  let staged = null;
+
+  try {
+    staged = await stageMediaReplacement(file, asset);
+    const metadata = {
+      ...(asset.metadata || {}),
+      replacement_original_name: file.name || '',
+      replacement_client_time: new Date().toISOString(),
+    };
+    const { data, error } = await replaceMediaAssetFileRecord({
+      id: asset.id,
+      url: staged.url,
+      storagePath: staged.path,
+      displayName: document.getElementById('media-edit-name')?.value.trim() || asset.display_name,
+      description: document.getElementById('media-edit-description')?.value.trim() || '',
+      mimeType: staged.mimeType,
+      mediaKind: staged.mediaKind,
+      fileSize: staged.fileSize,
+      fileHash: staged.hash,
+      tags: parseTags(document.getElementById('media-edit-tags')?.value || ''),
+      presentation: readPresentationControls('edit'),
+      metadata,
+    });
+
+    if (error) throw error;
+
+    const oldPath = data?.old_storage_path || staged.oldPath;
+    if (oldPath && oldPath !== staged.path) {
+      const { error: removeError } = await removeStorageObject(oldPath, staged.bucket);
+      if (removeError) {
+        showToast('El reemplazo se aplicó, pero no se pudo borrar el archivo anterior de Storage.', 'warning');
+      }
+    }
+
+    const updatedRecords = Number(data?.updated_records || 0);
+    showToast(`Recurso reemplazado en ${updatedRecords} registro(s)`, 'success');
+    closeMediaEditModal();
+    pickerAssetsLoadedAt = 0;
+    await buildMediaUsageIndex();
+    await loadAndRenderMediaLibrary();
+  } catch (error) {
+    if (staged?.path) await removeStorageObject(staged.path, staged.bucket).catch(() => {});
+    const message = /replace_media_asset_file|schema cache|could not find/i.test(String(error?.message || ''))
+      ? 'Falta ejecutar sql/migration_019_replace_media_asset.sql en Supabase.'
+      : (error?.message || 'No se pudo reemplazar el recurso.');
+    if (errorBox) {
+      errorBox.textContent = message;
+      errorBox.classList.remove('hidden');
+    }
+    button.disabled = false;
+    button.textContent = 'Reemplazar en todos los usos';
+  }
+}
+
 function ensureMediaEditModal() {
   let modal = document.getElementById('media-edit-modal');
   if (modal) return modal;
+  registerModalLifecycleCleanup('media-edit-modal', { onClose: () => clearMediaEditReplacement() });
   modal = document.createElement('div');
   modal.className = 'modal-overlay hidden media-modal-overlay';
   modal.id = 'media-edit-modal';
   modal.innerHTML = `
-    <div class="modal-box media-modal-box">
+    <div class="modal-box modal-box-tall media-modal-box media-edit-box">
       <button class="modal-close" id="close-media-edit-modal" aria-label="Cerrar">✕</button>
       <h3 class="modal-title media-modal-title">EDITAR RECURSO</h3>
       <div id="media-edit-preview"></div>
+
+      <section class="media-replace-section">
+        <div class="media-replace-heading">
+          <div>
+            <strong>Reemplazar archivo</strong>
+            <span id="media-replace-usage-summary">Mantiene todos los usos del recurso.</span>
+          </div>
+          <span class="media-replace-kind" id="media-replace-kind"></span>
+        </div>
+        <p class="media-replace-help">Sube un archivo nuevo y la página actualizará automáticamente logs, guías, recetas, kits, tierlist y ajustes que usen el recurso anterior.</p>
+        <input type="file" id="media-replace-file-input" class="hidden" />
+        <div class="media-replace-actions">
+          <button type="button" class="media-action-btn" id="choose-media-replacement-btn">Elegir archivo nuevo</button>
+          <button type="button" class="media-action-primary" id="replace-media-file-btn" disabled>Reemplazar en todos los usos</button>
+        </div>
+        <div class="media-replace-pending hidden" id="media-replace-pending"></div>
+      </section>
+
       <label class="field-label">Nombre visible</label>
       <input type="text" id="media-edit-name" class="modal-input media-input" maxlength="120" />
       <label class="field-label">Descripción</label>
@@ -941,13 +1126,24 @@ function ensureMediaEditModal() {
       <button class="btn-primary media-primary-btn" id="save-media-edit-btn">Guardar metadatos</button>
     </div>`;
   mountModal(modal);
-  document.getElementById('close-media-edit-modal').addEventListener('click', () => modal.classList.add('hidden'));
-  modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
+  document.getElementById('close-media-edit-modal').addEventListener('click', closeMediaEditModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeMediaEditModal(); });
+  document.getElementById('choose-media-replacement-btn').addEventListener('click', () => {
+    document.getElementById('media-replace-file-input')?.click();
+  });
+  document.getElementById('media-replace-file-input').addEventListener('change', (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) selectMediaReplacementFile(file);
+  });
+  document.getElementById('replace-media-file-btn').addEventListener('click', commitMediaFileReplacement);
   return modal;
 }
 
 function openMediaEditModal(asset) {
   const modal = ensureMediaEditModal();
+  clearMediaEditReplacement();
+  mediaEditActiveAsset = asset;
   const presentation = normalizePresentation(asset.presentation);
   document.getElementById('media-edit-preview').innerHTML = `<div class="media-edit-preview">${renderMediaPreview(asset)}</div>`;
   document.getElementById('media-edit-name').value = asset.display_name || '';
@@ -955,6 +1151,12 @@ function openMediaEditModal(asset) {
   document.getElementById('media-edit-tags').value = (asset.tags || []).join(', ');
   writePresentationControls('edit', presentation);
   document.getElementById('media-edit-error').classList.add('hidden');
+  const usageCount = (mediaUsageIndex.get(safeUrl(asset.url)) || []).length;
+  document.getElementById('media-replace-usage-summary').textContent = usageCount
+    ? `${usageCount} uso(s) detectado(s); todos se actualizarán automáticamente.`
+    : 'No hay usos detectados; el recurso de Storage igualmente será reemplazado.';
+  document.getElementById('media-replace-kind').textContent = kindLabel(asset.media_kind);
+  document.getElementById('media-replace-file-input').accept = mediaReplacementAccept(asset);
   modal.classList.remove('hidden');
   document.getElementById('save-media-edit-btn').onclick = async () => {
     const btn = document.getElementById('save-media-edit-btn');
@@ -981,7 +1183,7 @@ function openMediaEditModal(asset) {
       tags: parseTags(document.getElementById('media-edit-tags').value),
     })} a las ${localAuditTime()}.`);
     showToast('Metadatos guardados', 'success');
-    modal.classList.add('hidden');
+    closeMediaEditModal();
     await loadAndRenderMediaLibrary();
   };
 }

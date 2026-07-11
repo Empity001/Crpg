@@ -14,10 +14,13 @@ import {
   MEDIA_IMAGE_MIME_TYPES,
   MEDIA_UPLOAD_MIME_TYPES,
   findDuplicateMediaAsset,
+  folderFromStoragePath,
   formatFileSize,
   hashFile,
   mediaKindFromMime,
+  mediaKindFromUrlFallback,
   registerUploadedMediaAsset,
+  storagePathFromPublicUrl,
 } from './media.js';
 import { escapeHtml, safeUrl, showToast } from './utils.js';
 
@@ -99,6 +102,61 @@ function removeOldStorageObject(oldUrl, nextUrl = '') {
   if (oldPath) {
     supabaseClient.storage.from(MEDIA_BUCKET).remove([oldPath]).catch(() => {});
   }
+}
+
+
+export function validateMediaReplacementFile(file, expectedKind = '') {
+  if (!file) throw new Error('Selecciona un archivo para reemplazar el recurso.');
+  if (!MEDIA_UPLOAD_MIME_TYPES.includes(file.type)) {
+    throw new Error('Solo se permiten PNG, JPG, WEBP, GIF, SVG, APNG, MP4 o WEBM.');
+  }
+  if (file.size > MEDIA_STORAGE_MAX_BYTES) {
+    throw new Error(`El archivo supera el límite de ${formatFileSize(MEDIA_STORAGE_MAX_BYTES)}.`);
+  }
+  const nextKind = mediaKindFromMime(file.type);
+  if (expectedKind && expectedKind !== nextKind) {
+    const expectedLabel = expectedKind === 'video' ? 'video MP4/WEBM' : 'imagen PNG/JPG/WEBP/GIF/SVG/APNG';
+    throw new Error(`Este recurso debe reemplazarse por otro ${expectedLabel} para no romper sus usos actuales.`);
+  }
+  return nextKind;
+}
+
+export async function stageMediaReplacement(file, asset = {}) {
+  const expectedKind = asset.media_kind && asset.media_kind !== 'other'
+    ? asset.media_kind
+    : mediaKindFromUrlFallback(asset.url);
+  const mediaKind = validateMediaReplacementFile(file, expectedKind === 'other' ? '' : expectedKind);
+  const fileHash = await hashFile(file);
+  const oldPath = asset.storage_path || storagePathFromPublicUrl(asset.url);
+  const folder = asset.folder || folderFromStoragePath(oldPath) || (mediaKind === 'video' ? 'videos' : 'media');
+  const ext = extensionForFile(file);
+  const path = `${folder}/${Date.now()}-replacement-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+  const { error: uploadError } = await supabaseClient.storage
+    .from(asset.bucket || MEDIA_BUCKET)
+    .upload(path, file, {
+      upsert: false,
+      contentType: file.type,
+      cacheControl: '0',
+    });
+  if (uploadError) throw new Error('Error al subir el reemplazo: ' + uploadError.message);
+
+  const { data } = supabaseClient.storage.from(asset.bucket || MEDIA_BUCKET).getPublicUrl(path);
+  return {
+    url: data.publicUrl,
+    path,
+    oldPath,
+    bucket: asset.bucket || MEDIA_BUCKET,
+    hash: fileHash,
+    mediaKind,
+    mimeType: file.type,
+    fileSize: file.size,
+  };
+}
+
+export async function removeStorageObject(path, bucket = MEDIA_BUCKET) {
+  if (!path) return { error: null };
+  return supabaseClient.storage.from(bucket).remove([path]);
 }
 
 export async function uploadMediaToStorage(file, folder = 'media', oldUrl = '', options = {}) {

@@ -165,6 +165,39 @@ export async function updateMediaAsset(asset) {
   return { data: normalizeRpcAsset(data), error };
 }
 
+
+export async function replaceMediaAssetFileRecord({
+  id,
+  url,
+  storagePath,
+  displayName,
+  description = '',
+  mimeType = '',
+  mediaKind = 'image',
+  fileSize = null,
+  fileHash = '',
+  tags = [],
+  presentation = DEFAULT_MEDIA_PRESENTATION,
+  metadata = {},
+} = {}) {
+  if (!state.adminCode) return { data: null, error: new Error('Admin requerido') };
+  const { data, error } = await supabaseClient.rpc('replace_media_asset_file', withAdminCode({
+    input_asset_id: id,
+    input_new_url: url,
+    input_new_storage_path: storagePath,
+    input_new_display_name: displayName || '',
+    input_new_description: description || '',
+    input_new_mime_type: mimeType || '',
+    input_new_media_kind: mediaKind || 'image',
+    input_new_file_size: fileSize,
+    input_new_file_hash: fileHash || '',
+    input_new_tags: Array.isArray(tags) ? tags : [],
+    input_new_presentation: { ...DEFAULT_MEDIA_PRESENTATION, ...(presentation || {}) },
+    input_new_metadata: metadata || {},
+  }));
+  return { data: normalizeRpcAsset(data), error };
+}
+
 export async function archiveMediaAsset(id, archived = true) {
   if (!state.adminCode) return { error: new Error('Admin requerido') };
   const { error } = await supabaseClient.rpc('archive_media_asset', withAdminCode({

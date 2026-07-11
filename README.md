@@ -210,3 +210,13 @@ sql/migration_018_log_cover_image.sql
 ```
 
 La migración añade `logs.cover_image_url` y nuevas variantes compatibles de los RPC `create_log` y `update_log`.
+
+## Migración 019: reemplazo global de recursos
+
+El editor de Biblioteca Multimedia permite sustituir el archivo físico de un recurso sin editar manualmente cada uso. Antes de usar **Reemplazar archivo**, ejecuta una vez en Supabase:
+
+```sql
+sql/migration_019_replace_media_asset.sql
+```
+
+La operación sube un archivo nuevo, actualiza las referencias en logs, mobs, items, tierlist, guías, recetas, kits, borradores y ajustes globales, y después elimina el objeto anterior de Storage. Para evitar romper componentes, una imagen solo puede reemplazarse por otra imagen y un video por otro video.

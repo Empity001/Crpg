@@ -177,3 +177,24 @@ Ejecuta una vez `sql/migration_018_log_cover_image.sql` en Supabase. La página 
 - Los botones de Logs, Guías, Tierlist, Kits, Acerca del servidor, Herramientas, biblioteca multimedia, modales, menús contextuales y modo administrador usan variables semánticas compartidas.
 - Publicar la paleta global ya no reemplaza temporalmente la paleta personal del navegador: si existe una paleta local, se mantiene activa.
 - No requiere migración SQL. Los nuevos campos se almacenan dentro del JSON existente `app_settings.theme_config`; las paletas antiguas reciben valores predeterminados automáticamente.
+
+## Corrección móvil del inspector de Logs — 2026-07-11
+
+- La cabecera y las pestañas del detalle ya no se comprimen cuando hay muchas fichas.
+- El título del log permanece visible en pantallas estrechas.
+- El contenido de Resumen, Mobs, Items y Bloques usa un área de desplazamiento táctil propia.
+- Al cambiar de pestaña o seleccionar otro log, el detalle vuelve al inicio.
+- Al expandir una ficha, solo se desplaza el cuerpo del inspector y no la página completa.
+
+## Reemplazo global de archivos multimedia — 2026-07-11
+
+- «Editar recurso» ahora incluye una sección para elegir un archivo nuevo y reemplazarlo en todos sus usos.
+- El archivo nuevo se sube a una ruta distinta para evitar caché antigua del navegador/CDN.
+- La migración 019 actualiza URLs directas y URLs anidadas dentro de recetas, kits, borradores y ajustes globales en una sola transacción.
+- El objeto anterior de Storage solo se elimina después de confirmar que las referencias fueron actualizadas.
+- Se conserva el mismo registro de `media_assets`, junto con nombre visible, descripción, etiquetas y presentación.
+- Imágenes y videos solo pueden reemplazarse por archivos de la misma familia para no romper los componentes donde ya están utilizados.
+
+### SQL obligatorio
+
+Ejecuta una vez `sql/migration_019_replace_media_asset.sql` en Supabase antes de usar esta función.
