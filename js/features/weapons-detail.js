@@ -102,14 +102,17 @@ function renderWeaponRankBody(weapon, rank, admin) {
       ${infoVisuals.map((item) => {
         const safe = safeUrl(item.image_url);
         const link = guideLinkUrl(item.guide_link);
-        const content = `
-          <span class="weapon-info-visual-thumb">
-            ${safe ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(item.name || 'Recurso visual')}" class="pixel-art" loading="lazy" />` : `<span class="tier-chip-initials">${escapeHtml((item.name || '?').slice(0, 2).toUpperCase())}</span>`}
-          </span>
-          <span class="weapon-info-visual-name">${escapeHtml(item.name || 'Recurso visual')}</span>`;
-        return link
-          ? `<a class="weapon-info-visual-card" href="${escapeHtml(link)}">${content}</a>`
-          : `<div class="weapon-info-visual-card">${content}</div>`;
+        const title = item.name || 'Recurso visual';
+        const media = safe
+          ? `<button type="button" class="weapon-info-visual-thumb js-open-asset" data-asset-src="${escapeHtml(safe)}" data-asset-title="${escapeHtml(title)}" aria-label="Ampliar ${escapeHtml(title)}" title="Ver imagen completa">
+              <img src="${escapeHtml(safe)}" alt="${escapeHtml(title)}" class="pixel-art" loading="lazy" />
+              <span class="weapon-info-visual-zoom" aria-hidden="true">⛶</span>
+            </button>`
+          : `<span class="weapon-info-visual-thumb is-placeholder"><span class="tier-chip-initials">${escapeHtml((title || '?').slice(0, 2).toUpperCase())}</span></span>`;
+        const label = link
+          ? `<a class="weapon-info-visual-name weapon-info-visual-link" href="${escapeHtml(link)}">${escapeHtml(title)} <span aria-hidden="true">↗</span></a>`
+          : `<span class="weapon-info-visual-name">${escapeHtml(title)}</span>`;
+        return `<div class="weapon-info-visual-card">${media}${label}</div>`;
       }).join('')}
     </div>` : '';
 

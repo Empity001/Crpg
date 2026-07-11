@@ -11,6 +11,9 @@ export const DEFAULT_THEME_CONFIG = Object.freeze({
   textPrimary: '#f5f3ff',
   textSecondary: '#aaa6c5',
   textMuted: '#6d6a87',
+  brandPrimary: '#f5f3ff',
+  brandAccent: '#ffb83e',
+  brandSubtitle: '#aaa6c5',
   border: '#8570bf',
 
   selection: '#8b3dff',
@@ -59,6 +62,11 @@ const THEME_GROUPS = [
     ['textPrimary', 'Texto principal', 'Títulos y contenido importante.'],
     ['textSecondary', 'Texto secundario', 'Descripciones y ayudas.'],
     ['textMuted', 'Texto apagado', 'Fechas, metadatos y placeholders.'],
+  ]],
+  ['Identidad del servidor', [
+    ['brandPrimary', 'Nombre del servidor', 'Color de “CULONES” en el menú y la barra móvil.'],
+    ['brandAccent', 'Acento del nombre', 'Color de “-RPG” en el nombre del servidor.'],
+    ['brandSubtitle', 'Subtítulo del servidor', 'Color de “Página oficial” o “Panel de Administración”.'],
   ]],
   ['Botones principales y secundarios', [
     ['primary', 'Botón principal', 'Guardar, crear, publicar y acciones destacadas.'],
@@ -268,6 +276,9 @@ export function applyThemeConfig(config = state.themeConfig) {
 
     '--theme-link': colors.link,
     '--theme-link-hover': colors.linkHover,
+    '--theme-brand-primary': colors.brandPrimary,
+    '--theme-brand-accent': colors.brandAccent,
+    '--theme-brand-subtitle': colors.brandSubtitle,
     '--admin-bg-deep': colors.pageBackground,
     '--admin-bg-panel': colors.sidebarBackground,
     '--admin-bg-elevated': colors.elevatedBackground,

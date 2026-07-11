@@ -216,3 +216,12 @@ Ejecuta una vez `sql/migration_019_replace_media_asset.sql` en Supabase antes de
 
 ## Guías
 - El apartado antes llamado “Mejora/fabricación” ahora se llama “🛠️ Mesas de trabajo”.
+
+## Bloque de estadística en «Acerca del servidor»
+
+El editor de la página incorpora el bloque **📊 Estadística**. Cada bloque guarda un nombre y una lista de tareas dentro de `app_settings.about_blocks`.
+
+- El progreso se calcula automáticamente: tareas completadas / tareas totales.
+- Solo los administradores pueden añadir, editar, marcar o eliminar tareas desde el editor.
+- Los visitantes ven la barra, el porcentaje y el estado de las tareas, sin controles editables.
+- No requiere una migración SQL adicional.

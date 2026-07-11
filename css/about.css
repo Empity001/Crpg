@@ -30,12 +30,22 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
-.about-block-image {
+.about-block-figure {
   width: 100%;
-  border-radius: var(--radius-md);
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+.about-block-image {
   display: block;
-  max-height: 420px;
-  object-fit: cover;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: min(78vh, 900px);
+  object-fit: contain;
+  object-position: center;
+  border-radius: var(--radius-md);
 }
 .about-block-divider {
   border: none;
@@ -228,3 +238,292 @@
 }
 .bg-tab-checkbox input[type="checkbox"] { accent-color: var(--gold); }
 .bg-tab-checkbox:has(input:checked) { border-color: var(--gold); color: var(--ink-100); }
+
+/* =========================================================
+   ESTADÍSTICA / PROGRESO DEL SERVIDOR
+   Bloque público y editor administrativo de tareas.
+   ========================================================= */
+.about-stat-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background:
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--admin-purple) 16%, transparent), transparent 38%),
+    var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+.about-stat-card::after {
+  content: '';
+  position: absolute;
+  inset: auto -44px -64px auto;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--hud-green) 8%, transparent);
+  filter: blur(8px);
+  pointer-events: none;
+}
+.about-stat-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.about-stat-eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--admin-purple-light);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .09em;
+}
+.about-stat-title {
+  margin: 0;
+  color: var(--ink-100);
+  font-family: var(--font-body);
+  font-size: clamp(18px, 2.5vw, 24px);
+  line-height: 1.2;
+}
+.about-stat-percent {
+  flex: 0 0 auto;
+  color: var(--ink-100);
+  font-family: var(--font-mono);
+  font-size: clamp(22px, 3vw, 32px);
+  line-height: 1;
+}
+.about-stat-progress {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 12px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg-panel) 82%, #000);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.28);
+}
+.about-stat-progress-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--admin-purple), var(--purple), var(--hud-green));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--admin-purple) 35%, transparent);
+  transition: width 220ms ease;
+}
+.about-stat-meta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink-600);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.about-stat-task-list {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.about-stat-task {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 9px 11px;
+  background: color-mix(in srgb, var(--bg-panel) 74%, transparent);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  color: var(--ink-300);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.about-stat-task-state {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 900;
+}
+.about-stat-task.is-done {
+  color: var(--ink-600);
+  background: color-mix(in srgb, var(--hud-green) 7%, var(--bg-panel));
+  border-color: color-mix(in srgb, var(--hud-green) 28%, var(--border-dim));
+}
+.about-stat-task.is-done .about-stat-task-state {
+  color: #06140c;
+  background: var(--hud-green);
+  border-color: var(--hud-green);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--hud-green) 28%, transparent);
+}
+.about-stat-task.is-done .about-stat-task-label {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.about-stat-empty {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: 12px;
+  color: var(--ink-600);
+  background: color-mix(in srgb, var(--bg-panel) 62%, transparent);
+  border: 1px dashed var(--border-dim);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* Editor del bloque de estadística */
+.about-editor-statistic {
+  padding: 14px;
+}
+.about-editor-statistic .about-editor-block-body {
+  gap: 10px;
+}
+.about-stat-editor-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 11px 12px;
+  background: color-mix(in srgb, var(--bg-panel) 74%, transparent);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+}
+.about-stat-editor-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ink-400);
+  font-size: 12px;
+}
+.about-stat-editor-preview-head strong {
+  color: var(--ink-100);
+  font-family: var(--font-mono);
+}
+.about-stat-editor-preview small,
+.about-stat-admin-note {
+  margin: 0;
+  color: var(--ink-600);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.about-stat-tasks-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.about-stat-task-editor {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px;
+  background: color-mix(in srgb, var(--bg-panel) 72%, transparent);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+}
+.about-stat-task-editor.is-done {
+  border-color: color-mix(in srgb, var(--hud-green) 34%, var(--border-dim));
+  background: color-mix(in srgb, var(--hud-green) 6%, var(--bg-panel));
+}
+.about-stat-check {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+}
+.about-stat-check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.about-stat-check span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--bg-card);
+  transition: 150ms ease;
+}
+.about-stat-check input:checked + span {
+  background: var(--hud-green);
+  border-color: var(--hud-green);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--hud-green) 28%, transparent);
+}
+.about-stat-check input:checked + span::after {
+  content: '✓';
+  color: #06140c;
+  font-size: 13px;
+  font-weight: 900;
+}
+.about-stat-check input:focus-visible + span {
+  outline: 2px solid var(--admin-purple-light);
+  outline-offset: 2px;
+}
+.about-stat-task-label-input.modal-input {
+  min-width: 0;
+  height: 38px;
+  padding-block: 8px;
+}
+.about-stat-task-delete {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--ink-600);
+  background: transparent;
+  border: 1px solid var(--border-dim);
+  border-radius: 9px;
+}
+.about-stat-task-delete:hover {
+  color: var(--admin-danger-ink);
+  background: var(--admin-danger-bg);
+  border-color: var(--admin-danger-border);
+}
+.about-stat-add-task {
+  align-self: flex-start;
+}
+.about-stat-editor-empty {
+  margin: 0;
+  padding: 12px;
+  color: var(--ink-600);
+  border: 1px dashed var(--border-dim);
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .about-stat-card { padding: 16px; gap: 12px; }
+  .about-stat-header { align-items: center; }
+  .about-stat-meta { flex-direction: column; gap: 2px; }
+  .about-stat-task { align-items: flex-start; }
+  .about-stat-task-editor { grid-template-columns: 30px minmax(0, 1fr) 32px; gap: 5px; padding: 5px; }
+  .about-stat-check { width: 30px; height: 34px; }
+  .about-stat-task-delete { width: 30px; }
+  .about-editor-statistic { padding: 10px; }
+}

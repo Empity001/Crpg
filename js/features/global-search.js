@@ -153,6 +153,23 @@ function buildAboutEntries(entries, seen) {
       return;
     }
 
+    if (kind === 'statistic') {
+      const title = String(block?.title || '').trim() || currentHeading || 'Estadística del servidor';
+      const tasks = Array.isArray(block?.tasks) ? block.tasks : [];
+      const taskLabels = tasks.map(task => typeof task === 'string' ? task : String(task?.label || task?.name || '')).filter(Boolean);
+      const completed = tasks.filter(task => typeof task === 'object' && Boolean(task?.done ?? task?.completed)).length;
+      addEntry(entries, seen, {
+        key: `about:statistic:${index}`,
+        title,
+        sectionKey: 'about',
+        kind: 'Estadística',
+        description: `${completed} de ${tasks.length} tareas completadas`,
+        keywords: taskLabels,
+        url: `about.html?block=${index}`,
+      });
+      return;
+    }
+
     if (kind === 'image' && caption) {
       addEntry(entries, seen, {
         key: `about:image:${index}`,

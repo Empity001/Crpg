@@ -5359,3 +5359,109 @@ button[aria-disabled="true"],
   background:var(--theme-primary,#8b3dff); color:var(--theme-primary-text,#fff);
   font-weight:700; cursor:pointer;
 }
+
+
+/* ======================================================================
+   AJUSTES DE CONTENIDO VISUAL E IDENTIDAD
+   ====================================================================== */
+.hud-title,
+.mobile-brand-title {
+  color: var(--theme-brand-primary, var(--theme-text-main, #f5f3ff)) !important;
+}
+.hud-title .accent,
+.mobile-brand-title span {
+  color: var(--theme-brand-accent, var(--theme-accent, #ffb83e)) !important;
+}
+.hud-subtitle {
+  color: var(--theme-brand-subtitle, var(--theme-text-secondary, #aaa6c5)) !important;
+}
+
+/* Las imágenes de “Acerca del servidor” respetan su proporción natural.
+   Nunca se recortan para llenar una caja. */
+.about-block-figure {
+  width: 100%;
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+.about-block-image {
+  width: auto !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: min(78vh, 900px) !important;
+  object-fit: contain !important;
+  object-position: center !important;
+}
+
+/* Recursos visuales de Guías: la miniatura abre el visor y el nombre
+   conserva su enlace independiente cuando existe. */
+.weapon-info-visual-card {
+  align-items: center;
+}
+.weapon-info-visual-thumb {
+  position: relative;
+  appearance: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: zoom-in;
+  overflow: hidden;
+}
+button.weapon-info-visual-thumb {
+  border: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--theme-input-bg, #1d2240) 82%, transparent);
+}
+button.weapon-info-visual-thumb:hover,
+button.weapon-info-visual-thumb:focus-visible {
+  border-color: var(--theme-selection, #8b3dff);
+  box-shadow: 0 0 0 3px var(--theme-selection-soft, rgba(139,61,255,.22));
+  outline: none;
+}
+.weapon-info-visual-zoom {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--theme-text-main, #fff) 18%, transparent);
+  border-radius: 7px;
+  background: rgba(5, 6, 17, .78);
+  color: var(--theme-text-main, #fff);
+  font-size: 10px;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity .14s ease, transform .14s ease;
+  pointer-events: none;
+}
+.weapon-info-visual-thumb:hover .weapon-info-visual-zoom,
+.weapon-info-visual-thumb:focus-visible .weapon-info-visual-zoom {
+  opacity: 1;
+  transform: translateY(0);
+}
+.weapon-info-visual-link {
+  color: var(--theme-link, #38bdf8);
+  text-decoration: none;
+}
+.weapon-info-visual-link:hover {
+  color: var(--theme-link-hover, #9ee8ff);
+  text-decoration: underline;
+}
+
+.theme-preview-logo {
+  width: auto !important;
+  min-width: 0;
+  padding: 8px 10px;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  font-family: var(--font-display);
+  font-size: 11px !important;
+  letter-spacing: -.02em;
+  white-space: nowrap;
+}
+.theme-preview-logo b { color: var(--theme-brand-primary, #f5f3ff); font-style: normal; }
+.theme-preview-logo em { color: var(--theme-brand-accent, #ffb83e); font-style: normal; }
