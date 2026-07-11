@@ -12,15 +12,35 @@ export const DEFAULT_THEME_CONFIG = Object.freeze({
   textSecondary: '#aaa6c5',
   textMuted: '#6d6a87',
   border: '#8570bf',
+
   selection: '#8b3dff',
+  selectionText: '#ffffff',
+
   primary: '#8b3dff',
   primarySoft: '#b46cff',
+  primaryText: '#ffffff',
+
+  secondaryButton: '#171b32',
+  secondaryButtonHover: '#27214a',
+  secondaryButtonText: '#f5f3ff',
+
+  disabledButton: '#24283d',
+  disabledButtonText: '#73788f',
+
   accent: '#ffb83e',
   event: '#ff3d8d',
+  eventText: '#ffffff',
   info: '#38bdf8',
+  infoText: '#06131a',
   confirmation: '#35d98b',
+  confirmationText: '#06140f',
   warning: '#f5c542',
+  warningText: '#1b1300',
   danger: '#ef4444',
+  dangerText: '#ffffff',
+
+  link: '#38bdf8',
+  linkHover: '#9ee8ff',
 });
 
 const LOCAL_THEME_STORAGE_KEY = 'culones_theme_local_v1';
@@ -40,18 +60,34 @@ const THEME_GROUPS = [
     ['textSecondary', 'Texto secundario', 'Descripciones y ayudas.'],
     ['textMuted', 'Texto apagado', 'Fechas, metadatos y placeholders.'],
   ]],
-  ['Interacción y acentos', [
-    ['selection', 'Color de selección', 'Texto seleccionado, foco y opción activa.'],
-    ['primary', 'Acción principal', 'Botones principales y Modo Admin.'],
-    ['primarySoft', 'Acento morado claro', 'Gradientes y detalles secundarios.'],
-    ['accent', 'Destacado dorado', 'Logo, rareza y elementos especiales.'],
-    ['event', 'Eventos y corazones', 'Eventos, likes y detalles rosados.'],
-    ['info', 'Mecánicas e información', 'Estados informativos y mecánicas.'],
+  ['Botones principales y secundarios', [
+    ['primary', 'Botón principal', 'Guardar, crear, publicar y acciones destacadas.'],
+    ['primarySoft', 'Segundo color principal', 'Gradiente y hover de los botones principales.'],
+    ['primaryText', 'Texto del botón principal', 'Texto e iconos sobre acciones principales.'],
+    ['secondaryButton', 'Botón secundario', 'Acciones neutrales, menús, biblioteca y cancelar.'],
+    ['secondaryButtonHover', 'Hover secundario', 'Fondo al pasar el cursor por botones neutrales.'],
+    ['secondaryButtonText', 'Texto secundario', 'Texto e iconos de botones neutrales.'],
+    ['disabledButton', 'Botón desactivado', 'Fondo de controles que no se pueden usar.'],
+    ['disabledButtonText', 'Texto desactivado', 'Texto e iconos de controles bloqueados.'],
   ]],
-  ['Estados del sistema', [
-    ['confirmation', 'Color de confirmación', 'Guardado, conexión y acciones correctas.'],
+  ['Selección, enlaces y destacados', [
+    ['selection', 'Color de selección', 'Pestañas activas, foco y opciones elegidas.'],
+    ['selectionText', 'Texto de selección', 'Texto e iconos sobre una opción activa.'],
+    ['accent', 'Destacado dorado', 'Logo, rareza y elementos especiales.'],
+    ['link', 'Enlaces', 'Botones de texto y enlaces normales.'],
+    ['linkHover', 'Hover de enlaces', 'Color del enlace al pasar el cursor.'],
+  ]],
+  ['Estados y acciones', [
+    ['confirmation', 'Confirmación', 'Guardado, conexión y acciones correctas.'],
+    ['confirmationText', 'Texto de confirmación', 'Texto sobre botones y avisos positivos.'],
     ['warning', 'Advertencia', 'Avisos, relevancia alta y precauciones.'],
-    ['danger', 'Error y eliminación', 'Acciones destructivas y mensajes críticos.'],
+    ['warningText', 'Texto de advertencia', 'Texto sobre botones y avisos de precaución.'],
+    ['danger', 'Error y eliminación', 'Eliminar, vaciar, archivar y acciones destructivas.'],
+    ['dangerText', 'Texto de eliminación', 'Texto sobre botones destructivos.'],
+    ['info', 'Información y mecánicas', 'Estados informativos y mecánicas.'],
+    ['infoText', 'Texto informativo', 'Texto sobre controles informativos.'],
+    ['event', 'Eventos y corazones', 'Eventos, likes y detalles rosados.'],
+    ['eventText', 'Texto de evento', 'Texto sobre controles y etiquetas de evento.'],
   ]],
 ];
 
@@ -185,8 +221,53 @@ export function applyThemeConfig(config = state.themeConfig) {
     '--border-soft': rgba(colors.border, 0.24),
     '--border-strong': rgba(colors.border, 0.5),
     '--theme-selection': colors.selection,
+    '--theme-selection-text': colors.selectionText,
     '--theme-selection-soft': rgba(colors.selection, 0.22),
     '--theme-selection-glow': rgba(colors.selection, 0.34),
+
+    '--btn-primary-bg': colors.primary,
+    '--btn-primary-bg-alt': colors.primarySoft,
+    '--btn-primary-text': colors.primaryText,
+    '--btn-primary-border': mix(colors.primarySoft, colors.primaryText, 0.18),
+    '--btn-primary-shadow': rgba(colors.primary, 0.28),
+
+    '--btn-secondary-bg': colors.secondaryButton,
+    '--btn-secondary-bg-hover': colors.secondaryButtonHover,
+    '--btn-secondary-text': colors.secondaryButtonText,
+    '--btn-secondary-border': rgba(colors.border, 0.34),
+    '--btn-secondary-border-hover': rgba(colors.selection, 0.62),
+
+    '--btn-disabled-bg': colors.disabledButton,
+    '--btn-disabled-text': colors.disabledButtonText,
+    '--btn-disabled-border': rgba(colors.border, 0.18),
+
+    '--btn-success-bg': colors.confirmation,
+    '--btn-success-text': colors.confirmationText,
+    '--btn-success-soft': rgba(colors.confirmation, 0.16),
+    '--btn-success-border': rgba(colors.confirmation, 0.56),
+
+    '--btn-warning-bg': colors.warning,
+    '--btn-warning-text': colors.warningText,
+    '--btn-warning-soft': rgba(colors.warning, 0.16),
+    '--btn-warning-border': rgba(colors.warning, 0.56),
+
+    '--btn-danger-bg': colors.danger,
+    '--btn-danger-text': colors.dangerText,
+    '--btn-danger-soft': rgba(colors.danger, 0.15),
+    '--btn-danger-border': rgba(colors.danger, 0.58),
+
+    '--btn-info-bg': colors.info,
+    '--btn-info-text': colors.infoText,
+    '--btn-info-soft': rgba(colors.info, 0.15),
+    '--btn-info-border': rgba(colors.info, 0.56),
+
+    '--btn-event-bg': colors.event,
+    '--btn-event-text': colors.eventText,
+    '--btn-event-soft': rgba(colors.event, 0.14),
+    '--btn-event-border': rgba(colors.event, 0.58),
+
+    '--theme-link': colors.link,
+    '--theme-link-hover': colors.linkHover,
     '--admin-bg-deep': colors.pageBackground,
     '--admin-bg-panel': colors.sidebarBackground,
     '--admin-bg-elevated': colors.elevatedBackground,
@@ -230,12 +311,23 @@ export function applyThemeConfig(config = state.themeConfig) {
     '--theme-input-bg': colors.inputBackground,
     '--theme-primary': colors.primary,
     '--theme-primary-soft': colors.primarySoft,
+    '--theme-primary-text': colors.primaryText,
+    '--theme-secondary-button': colors.secondaryButton,
+    '--theme-secondary-button-hover': colors.secondaryButtonHover,
+    '--theme-secondary-button-text': colors.secondaryButtonText,
+    '--theme-disabled-button': colors.disabledButton,
+    '--theme-disabled-button-text': colors.disabledButtonText,
     '--theme-accent': colors.accent,
     '--theme-event': colors.event,
+    '--theme-event-text': colors.eventText,
     '--theme-info': colors.info,
+    '--theme-info-text': colors.infoText,
     '--theme-confirmation': colors.confirmation,
+    '--theme-confirmation-text': colors.confirmationText,
     '--theme-warning': colors.warning,
+    '--theme-warning-text': colors.warningText,
     '--theme-danger': colors.danger,
+    '--theme-danger-text': colors.dangerText,
     '--glow-gold': `0 0 26px ${rgba(colors.accent, 0.18)}`,
     '--glow-magenta': `0 0 26px ${rgba(colors.event, 0.18)}`,
     '--glow-admin': `0 0 30px ${rgba(colors.primary, 0.24)}`,
@@ -379,11 +471,13 @@ async function saveTheme() {
   }
 
   state.serverThemeConfig = value;
-  state.themeConfig = value;
-  applyThemeConfig(value);
+  state.localThemeConfig = getLocalThemeOverride();
+  state.themeConfig = state.localThemeConfig || value;
+  applyThemeConfig(state.themeConfig);
+  updateScopeUi('server');
   showToast(
     state.localThemeConfig
-      ? 'Paleta global publicada. Este navegador conserva su paleta local al recargar.'
+      ? 'Paleta global publicada. Este navegador mantiene su paleta personal.'
       : 'Colores publicados para todos',
     'success',
   );

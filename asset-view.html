@@ -5,13 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>culones-rpg · Vista de imagen</title>
 <style>
-  :root { color-scheme: dark; }
+  :root {
+    color-scheme: dark;
+    --theme-page-bg: #070914;
+    --theme-sidebar-bg: #0b0e1d;
+    --theme-panel-bg: #111528;
+    --theme-primary: #8b3dff;
+    --theme-primary-soft: #b46cff;
+    --btn-secondary-bg: #171b32;
+    --btn-secondary-bg-hover: #27214a;
+    --btn-secondary-text: #f5f3ff;
+    --btn-secondary-border: rgba(133,112,191,.34);
+    --btn-secondary-border-hover: rgba(139,61,255,.62);
+    --theme-link: #38bdf8;
+    --theme-link-hover: #9ee8ff;
+    --theme-danger: #ef4444;
+  }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; height: 100%;
     background:
-      radial-gradient(circle at 70% 0%, rgba(139,61,255,.16), transparent 38%),
-      #070914;
+      radial-gradient(circle at 70% 0%, color-mix(in srgb, var(--theme-primary) 16%, transparent), transparent 38%),
+      var(--theme-page-bg);
     font-family: 'Space Grotesk', Arial, sans-serif;
   }
   .bar {
@@ -19,16 +34,16 @@
     display: flex; align-items: center; justify-content: space-between;
     gap: 12px;
     padding: 12px 18px;
-    background: rgba(11,14,29,0.92);
-    border-bottom: 1px solid rgba(133,112,191,0.24);
+    background: color-mix(in srgb, var(--theme-sidebar-bg) 92%, transparent);
+    border-bottom: 1px solid var(--btn-secondary-border);
     backdrop-filter: blur(18px);
     z-index: 10;
   }
   .back-btn {
     display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(17,21,40,.9);
-    border: 1px solid rgba(180,108,255,.42);
-    color: #f4f1fb;
+    background: var(--btn-secondary-bg);
+    border: 1px solid var(--btn-secondary-border);
+    color: var(--btn-secondary-text);
     font-size: 13px;
     font-weight: 600;
     padding: 9px 16px;
@@ -36,9 +51,9 @@
     cursor: pointer;
     text-decoration: none;
   }
-  .back-btn:hover { border-color: #b46cff; color: #d2adff; background: rgba(139,61,255,.12); }
+  .back-btn:hover { border-color: var(--btn-secondary-border-hover); color: var(--btn-secondary-text); background: var(--btn-secondary-bg-hover); }
   .asset-title {
-    color: #aaa6c5;
+    color: var(--ink-400, #aaa6c5);
     font-size: 13px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -61,7 +76,7 @@
     image-rendering: crisp-edges;
   }
   .error-msg {
-    color: #ff3d8e;
+    color: var(--theme-danger);
     font-size: 14px;
     text-align: center;
   }
@@ -76,6 +91,27 @@
     <p class="error-msg" id="error-msg" style="display:none;">No se pudo cargar la imagen.</p>
     <img id="asset-img" alt="Vista completa" style="display:none;" />
   </div>
+
+  <script type="module">
+    import { supabaseClient } from './js/config.js';
+    import { applyThemeConfig, getLocalThemeOverride, normalizeThemeConfig } from './js/features/theme.js?v=20260711-02';
+
+    const localTheme = getLocalThemeOverride();
+    if (localTheme) {
+      applyThemeConfig(localTheme);
+    } else {
+      try {
+        const { data } = await supabaseClient
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'theme_config')
+          .maybeSingle();
+        applyThemeConfig(normalizeThemeConfig(data?.value || {}));
+      } catch (error) {
+        applyThemeConfig(normalizeThemeConfig({}));
+      }
+    }
+  </script>
 
   <script>
     const params = new URLSearchParams(window.location.search);

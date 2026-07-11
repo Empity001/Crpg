@@ -12,7 +12,7 @@ import { renderDraftsList } from './drafts-list.js';
 import { exportData } from './export.js';
 import { initFaviconTool } from './favicon.js';
 import { initHeroBannerTool } from './hero-banners.js';
-import { initThemeTool } from './theme.js';
+import { initThemeTool } from './theme.js?v=20260711-02';
 import { _importConflicts, confirmImport, handleImportFile } from './import.js';
 import { initMediaLibraryPanel } from './media-library.js';
 import { confirmAction, showToast } from '../core/utils.js';

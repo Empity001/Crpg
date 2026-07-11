@@ -4285,3 +4285,497 @@ body[data-page="logs"] .logs-page-main {
   .logs-inspector-admin-actions { grid-template-columns: 1fr; }
   .inspector-entity-toggle { grid-template-columns: 58px minmax(0, 1fr) 26px; gap: 9px; }
 }
+
+/* ======================================================================
+   PALETA SEMÁNTICA COMPLETA · botones y controles
+   ----------------------------------------------------------------------
+   Todos los botones comparten estas variables. Las mismas se generan desde
+   theme.js, por lo que funcionan igual con la paleta local del navegador y
+   con la paleta global publicada en Supabase.
+   ====================================================================== */
+
+/* Valores seguros antes de que termine de cargar la configuración remota. */
+:root {
+  --theme-selection-text: #ffffff;
+  --btn-primary-bg: var(--theme-primary, #8b3dff);
+  --btn-primary-bg-alt: var(--theme-primary-soft, #b46cff);
+  --btn-primary-text: #ffffff;
+  --btn-primary-border: color-mix(in srgb, var(--btn-primary-bg-alt) 78%, #ffffff);
+  --btn-primary-shadow: color-mix(in srgb, var(--btn-primary-bg) 28%, transparent);
+  --btn-secondary-bg: var(--theme-elevated-bg, #171b32);
+  --btn-secondary-bg-hover: color-mix(in srgb, var(--theme-selection, #8b3dff) 18%, var(--theme-elevated-bg, #171b32));
+  --btn-secondary-text: var(--ink-100, #f5f3ff);
+  --btn-secondary-border: color-mix(in srgb, var(--border-strong, #8570bf) 34%, transparent);
+  --btn-secondary-border-hover: color-mix(in srgb, var(--theme-selection, #8b3dff) 62%, transparent);
+  --btn-disabled-bg: #24283d;
+  --btn-disabled-text: #73788f;
+  --btn-disabled-border: color-mix(in srgb, var(--border-strong, #8570bf) 18%, transparent);
+  --btn-success-bg: var(--theme-confirmation, #35d98b);
+  --btn-success-text: #06140f;
+  --btn-success-soft: color-mix(in srgb, var(--btn-success-bg) 16%, transparent);
+  --btn-success-border: color-mix(in srgb, var(--btn-success-bg) 56%, transparent);
+  --btn-warning-bg: var(--theme-warning, #f5c542);
+  --btn-warning-text: #1b1300;
+  --btn-warning-soft: color-mix(in srgb, var(--btn-warning-bg) 16%, transparent);
+  --btn-warning-border: color-mix(in srgb, var(--btn-warning-bg) 56%, transparent);
+  --btn-danger-bg: var(--theme-danger, #ef4444);
+  --btn-danger-text: #ffffff;
+  --btn-danger-soft: color-mix(in srgb, var(--btn-danger-bg) 15%, transparent);
+  --btn-danger-border: color-mix(in srgb, var(--btn-danger-bg) 58%, transparent);
+  --btn-info-bg: var(--theme-info, #38bdf8);
+  --btn-info-text: #06131a;
+  --btn-info-soft: color-mix(in srgb, var(--btn-info-bg) 15%, transparent);
+  --btn-info-border: color-mix(in srgb, var(--btn-info-bg) 56%, transparent);
+  --btn-event-bg: var(--theme-event, #ff3d8d);
+  --btn-event-text: #ffffff;
+  --btn-event-soft: color-mix(in srgb, var(--btn-event-bg) 14%, transparent);
+  --btn-event-border: color-mix(in srgb, var(--btn-event-bg) 58%, transparent);
+  --theme-link: var(--theme-info, #38bdf8);
+  --theme-link-hover: #9ee8ff;
+}
+
+/* Acciones principales: guardar, crear, publicar, restaurar y continuar. */
+.btn-primary,
+.btn-new-log,
+.media-action-primary,
+.media-primary-btn,
+.admin-login-submit,
+body.is-admin-mode .btn-primary,
+.admin-section .btn-primary,
+.import-conflict-footer .btn-primary,
+.action-log-list + .btn-primary {
+  color: var(--btn-primary-text) !important;
+  border-color: var(--btn-primary-border) !important;
+  background: linear-gradient(135deg, var(--btn-primary-bg), var(--btn-primary-bg-alt)) !important;
+  box-shadow: 0 10px 25px var(--btn-primary-shadow), inset 0 1px color-mix(in srgb, var(--btn-primary-text) 20%, transparent) !important;
+}
+
+.btn-primary:hover,
+.btn-new-log:hover,
+.media-action-primary:hover,
+.media-primary-btn:hover,
+.admin-login-submit:hover,
+body.is-admin-mode .btn-primary:hover,
+.admin-section .btn-primary:hover,
+.import-conflict-footer .btn-primary:hover,
+.action-log-list + .btn-primary:hover {
+  color: var(--btn-primary-text) !important;
+  border-color: color-mix(in srgb, var(--btn-primary-bg-alt) 78%, var(--btn-primary-text)) !important;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--btn-primary-bg) 88%, var(--btn-primary-text)),
+    color-mix(in srgb, var(--btn-primary-bg-alt) 88%, var(--btn-primary-text))) !important;
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--btn-primary-bg) 34%, transparent), inset 0 1px color-mix(in srgb, var(--btn-primary-text) 24%, transparent) !important;
+}
+
+/* Acciones secundarias y neutrales. */
+.btn-secondary-admin,
+.media-action-btn,
+.btn-export,
+.icon-btn,
+.kit-mini-btn,
+.tier-row-ctrl-btn,
+.weapon-rank-admin-mini,
+.context-menu-trigger,
+.editor-mini-btn,
+.comment-action-btn,
+.fieldcfg-move-btn,
+.btn-media-picker,
+.media-view-tab,
+.btn-fullscreen-asset,
+.weapon-back-btn,
+.inspector-action-wide,
+.logs-inspector-close,
+.btn-block-add,
+.btn-upload-zone,
+.btn-add-about-block,
+.about-block-img-btn,
+.about-block-media-btn,
+.kit-add-item-btn,
+.category-manage-edit,
+.draft-open-btn,
+.btn-draft-restore,
+.btn-draft-discard {
+  color: var(--btn-secondary-text) !important;
+  border-color: var(--btn-secondary-border) !important;
+  background: var(--btn-secondary-bg) !important;
+  box-shadow: inset 0 1px color-mix(in srgb, var(--btn-secondary-text) 7%, transparent) !important;
+}
+
+.btn-secondary-admin:hover,
+.media-action-btn:hover,
+.btn-export:hover,
+.icon-btn:hover,
+.kit-mini-btn:hover,
+.tier-row-ctrl-btn:hover,
+.weapon-rank-admin-mini:hover,
+.context-menu-trigger:hover,
+.editor-mini-btn:hover,
+.comment-action-btn:hover,
+.fieldcfg-move-btn:hover,
+.btn-media-picker:hover,
+.media-view-tab:hover,
+.btn-fullscreen-asset:hover,
+.weapon-back-btn:hover,
+.inspector-action-wide:hover,
+.logs-inspector-close:hover,
+.btn-block-add:hover,
+.btn-upload-zone:hover,
+.btn-add-about-block:hover,
+.about-block-img-btn:hover,
+.about-block-media-btn:hover,
+.kit-add-item-btn:hover,
+.category-manage-edit:hover,
+.draft-open-btn:hover,
+.btn-draft-restore:hover,
+.btn-draft-discard:hover {
+  color: var(--btn-secondary-text) !important;
+  border-color: var(--btn-secondary-border-hover) !important;
+  background: var(--btn-secondary-bg-hover) !important;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--theme-selection) 12%, transparent), inset 0 1px color-mix(in srgb, var(--btn-secondary-text) 9%, transparent) !important;
+}
+
+/* Pestañas, filtros y opciones seleccionadas. */
+.pill {
+  color: var(--btn-secondary-text) !important;
+  border-color: var(--btn-secondary-border) !important;
+  background: var(--btn-secondary-bg) !important;
+}
+.pill:hover {
+  color: var(--btn-secondary-text) !important;
+  border-color: var(--btn-secondary-border-hover) !important;
+  background: var(--btn-secondary-bg-hover) !important;
+}
+.pill.is-active,
+.pill[aria-selected="true"],
+.media-view-tab.is-active,
+.logs-inspector-tabs button.is-active,
+.theme-scope-card.is-selected,
+.tab-item.is-active,
+.tab-item[aria-current="page"] {
+  color: var(--theme-selection-text) !important;
+  border-color: color-mix(in srgb, var(--theme-selection) 70%, transparent) !important;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--theme-selection) 88%, var(--theme-panel-bg)),
+    color-mix(in srgb, var(--theme-selection) 58%, var(--theme-primary-soft))) !important;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--theme-selection) 22%, transparent), inset 0 1px color-mix(in srgb, var(--theme-selection-text) 16%, transparent) !important;
+}
+
+.logs-inspector-tabs button {
+  color: var(--btn-secondary-text);
+}
+.logs-inspector-tabs button:hover {
+  color: var(--theme-selection-text) !important;
+  background: color-mix(in srgb, var(--theme-selection) 10%, transparent) !important;
+}
+
+/* Estado administrativo activo: utiliza confirmación, no un morado fijo. */
+body.is-admin-mode .btn-admin-toggle,
+.btn-admin-toggle.is-active {
+  color: var(--btn-success-text) !important;
+  border-color: var(--btn-success-border) !important;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--btn-success-bg) 22%, var(--btn-secondary-bg)),
+    color-mix(in srgb, var(--btn-success-bg) 11%, var(--btn-secondary-bg-hover))) !important;
+}
+body.is-admin-mode .btn-admin-toggle:hover,
+.btn-admin-toggle.is-active:hover {
+  color: var(--btn-success-text) !important;
+  border-color: var(--btn-success-bg) !important;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--btn-success-bg) 34%, var(--btn-secondary-bg)),
+    color-mix(in srgb, var(--btn-success-bg) 20%, var(--btn-secondary-bg-hover))) !important;
+}
+
+/* Acciones destructivas. */
+.btn-danger,
+.media-action-danger,
+button.danger,
+button.is-danger,
+.category-manage-delete,
+.comment-delete-btn,
+.draft-delete-btn,
+.about-block-img-clear,
+.tier-img-clear-btn,
+.identity-clear-btn,
+.draft-block-remove,
+[data-context-action="delete"],
+[data-context-action="remove"],
+[data-context-action="clear"] {
+  color: var(--btn-danger-text) !important;
+  border-color: var(--btn-danger-border) !important;
+  background: color-mix(in srgb, var(--btn-danger-bg) 20%, var(--btn-secondary-bg)) !important;
+}
+.btn-danger:hover,
+.media-action-danger:hover,
+button.danger:hover,
+button.is-danger:hover,
+.category-manage-delete:hover,
+.comment-delete-btn:hover,
+.draft-delete-btn:hover,
+.about-block-img-clear:hover,
+.tier-img-clear-btn:hover,
+.identity-clear-btn:hover,
+.draft-block-remove:hover,
+[data-context-action="delete"]:hover,
+[data-context-action="remove"]:hover,
+[data-context-action="clear"]:hover {
+  color: var(--btn-danger-text) !important;
+  border-color: var(--btn-danger-bg) !important;
+  background: var(--btn-danger-bg) !important;
+  box-shadow: 0 0 20px color-mix(in srgb, var(--btn-danger-bg) 20%, transparent) !important;
+}
+
+/* Likes y controles de evento. */
+.log-like-btn,
+.inspector-like-btn,
+.comment-like-btn {
+  color: color-mix(in srgb, var(--btn-event-bg) 86%, var(--btn-event-text)) !important;
+  border-color: var(--btn-event-border) !important;
+  background: var(--btn-event-soft) !important;
+}
+.log-like-btn:hover,
+.log-like-btn.is-liked,
+.inspector-like-btn:hover,
+.inspector-like-btn.is-liked,
+.comment-like-btn:hover,
+.comment-like-btn.is-liked {
+  color: var(--btn-event-text) !important;
+  border-color: var(--btn-event-bg) !important;
+  background: var(--btn-event-bg) !important;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--btn-event-bg) 22%, transparent) !important;
+}
+.inspector-like-btn strong,
+.log-like-btn strong { color: inherit !important; }
+
+/* Enlaces y botones de texto. */
+.link-btn,
+a.link-btn,
+.action-log-refresh-row .link-btn {
+  color: var(--theme-link) !important;
+}
+.link-btn:hover,
+a.link-btn:hover,
+.action-log-refresh-row .link-btn:hover {
+  color: var(--theme-link-hover) !important;
+}
+
+/* Controles cerrados y botón X. Mantienen su forma, pero ya no usan grises fijos. */
+.modal-close,
+.context-action-close {
+  color: var(--btn-secondary-text) !important;
+  border-color: transparent !important;
+  background: transparent !important;
+}
+.modal-close:hover,
+.context-action-close:hover {
+  color: var(--theme-selection-text) !important;
+  border-color: color-mix(in srgb, var(--theme-selection) 36%, transparent) !important;
+  background: color-mix(in srgb, var(--theme-selection) 16%, transparent) !important;
+}
+
+/* Desactivados: cubre botones nativos y clases que JavaScript bloquea. */
+button:disabled,
+button[aria-disabled="true"],
+.is-disabled:is(button, .btn-primary, .btn-secondary-admin, .media-action-btn, .context-menu-trigger) {
+  color: var(--btn-disabled-text) !important;
+  border-color: var(--btn-disabled-border) !important;
+  background: var(--btn-disabled-bg) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  opacity: .78 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+/* Vista previa del editor: una muestra por familia semántica. */
+.theme-preview-btn.primary {
+  color: var(--btn-primary-text);
+  background: linear-gradient(135deg, var(--btn-primary-bg), var(--btn-primary-bg-alt));
+}
+.theme-preview-btn.secondary {
+  color: var(--btn-secondary-text);
+  border: 1px solid var(--btn-secondary-border);
+  background: var(--btn-secondary-bg);
+}
+.theme-preview-btn.selection {
+  color: var(--theme-selection-text);
+  background: var(--theme-selection);
+}
+.theme-preview-btn.confirm {
+  color: var(--btn-success-text);
+  background: var(--btn-success-bg);
+}
+.theme-preview-btn.warning {
+  color: var(--btn-warning-text);
+  background: var(--btn-warning-bg);
+}
+.theme-preview-btn.info {
+  color: var(--btn-info-text);
+  background: var(--btn-info-bg);
+}
+.theme-preview-btn.event {
+  color: var(--btn-event-text);
+  background: var(--btn-event-bg);
+}
+.theme-preview-btn.danger {
+  color: var(--btn-danger-text);
+  background: var(--btn-danger-bg);
+}
+.theme-preview-btn.disabled {
+  color: var(--btn-disabled-text);
+  background: var(--btn-disabled-bg);
+}
+
+/* Etiquetas de estado que actúan como controles. */
+.category-badge[data-category="evento"],
+.log-type-badge.type-event,
+.chip-mob.is-expanded {
+  color: var(--btn-event-text);
+  border-color: var(--btn-event-border);
+  background: var(--btn-event-soft);
+}
+.category-badge[data-category="mecanica"],
+.log-type-badge.type-mechanic,
+.chip-item.is-expanded {
+  color: color-mix(in srgb, var(--btn-info-bg) 84%, var(--btn-info-text));
+  border-color: var(--btn-info-border);
+  background: var(--btn-info-soft);
+}
+
+/* El selector de alcance también usa los colores neutrales cuando no está activo. */
+.theme-scope-card {
+  color: var(--btn-secondary-text);
+  border-color: var(--btn-secondary-border);
+  background: var(--btn-secondary-bg);
+}
+.theme-scope-card:hover {
+  border-color: var(--btn-secondary-border-hover);
+  background: var(--btn-secondary-bg-hover);
+}
+
+/* Controles menores que conservaban colores heredados. */
+.btn-upload-img,
+.btn-upload-zone-sm,
+.mobile-menu-btn,
+.js-open-asset {
+  color: var(--btn-secondary-text) !important;
+  border-color: var(--btn-secondary-border) !important;
+  background: var(--btn-secondary-bg) !important;
+}
+.btn-upload-img:hover,
+.btn-upload-zone-sm:hover,
+.mobile-menu-btn:hover,
+.js-open-asset:hover {
+  color: var(--btn-secondary-text) !important;
+  border-color: var(--btn-secondary-border-hover) !important;
+  background: var(--btn-secondary-bg-hover) !important;
+}
+.mobile-menu-btn span { background: var(--btn-secondary-text) !important; }
+
+.btn-draft-save-manual {
+  color: var(--btn-info-text) !important;
+  border-color: var(--btn-info-border) !important;
+  background: color-mix(in srgb, var(--btn-info-bg) 18%, var(--btn-secondary-bg)) !important;
+}
+.btn-draft-save-manual:hover {
+  color: var(--btn-info-text) !important;
+  border-color: var(--btn-info-bg) !important;
+  background: var(--btn-info-bg) !important;
+}
+
+.btn-block-add.btn-block-mob {
+  color: color-mix(in srgb, var(--btn-event-bg) 82%, var(--btn-event-text)) !important;
+}
+.btn-block-add.btn-block-mob:hover {
+  color: var(--btn-event-text) !important;
+  border-color: var(--btn-event-bg) !important;
+  background: var(--btn-event-bg) !important;
+}
+.btn-block-add.btn-block-item {
+  color: var(--theme-accent) !important;
+}
+.btn-block-add.btn-block-item:hover {
+  color: var(--theme-warning-text) !important;
+  border-color: var(--theme-accent) !important;
+  background: var(--theme-accent) !important;
+}
+.btn-block-add.btn-block-libre {
+  color: var(--theme-selection) !important;
+}
+.btn-block-add.btn-block-libre:hover {
+  color: var(--theme-selection-text) !important;
+  border-color: var(--theme-selection) !important;
+  background: var(--theme-selection) !important;
+}
+
+.media-picker-card-button {
+  color: var(--btn-secondary-text) !important;
+  border-color: var(--btn-secondary-border) !important;
+  background: var(--btn-secondary-bg) !important;
+}
+.media-picker-card-button:hover,
+.media-picker-card-button:focus-visible {
+  color: var(--btn-secondary-text) !important;
+  border-color: var(--btn-secondary-border-hover) !important;
+  background: var(--btn-secondary-bg-hover) !important;
+}
+.media-picker-card-button.is-selecting {
+  color: var(--btn-success-text) !important;
+  border-color: var(--btn-success-border) !important;
+  background: color-mix(in srgb, var(--btn-success-bg) 18%, var(--btn-secondary-bg)) !important;
+}
+
+.inspector-entity-toggle {
+  color: var(--btn-secondary-text) !important;
+  border-color: transparent !important;
+  background: transparent !important;
+}
+.inspector-entity-toggle:hover,
+.inspector-entity-toggle.is-expanded {
+  color: var(--btn-secondary-text) !important;
+  background: color-mix(in srgb, var(--theme-selection) 8%, var(--btn-secondary-bg)) !important;
+}
+
+/* Botones-tarjeta y controles específicos de editores. */
+.btn-admin-toggle {
+  color: var(--btn-secondary-text) !important;
+  border-color: var(--btn-secondary-border) !important;
+  background: var(--btn-secondary-bg) !important;
+}
+.btn-admin-toggle:hover {
+  color: var(--btn-secondary-text) !important;
+  border-color: var(--btn-secondary-border-hover) !important;
+  background: var(--btn-secondary-bg-hover) !important;
+}
+
+.kit-editor-item,
+.kit-context-item,
+.recipe-editor-slot,
+.recipe-editor-result-slot,
+.draft-block-chip,
+.block-chip {
+  color: var(--btn-secondary-text) !important;
+  border-color: var(--btn-secondary-border) !important;
+  background: color-mix(in srgb, var(--btn-secondary-bg) 88%, transparent) !important;
+}
+.kit-editor-item:hover,
+.kit-context-item:hover,
+.recipe-editor-slot:hover,
+.recipe-editor-result-slot:hover,
+.draft-block-chip:hover,
+.block-chip:hover {
+  color: var(--btn-secondary-text) !important;
+  border-color: var(--btn-secondary-border-hover) !important;
+  background: var(--btn-secondary-bg-hover) !important;
+}
+
+.kit-remove-item-btn {
+  color: var(--btn-danger-text) !important;
+  border-color: var(--btn-danger-border) !important;
+  background: color-mix(in srgb, var(--btn-danger-bg) 20%, var(--btn-secondary-bg)) !important;
+}
+.kit-remove-item-btn:hover {
+  color: var(--btn-danger-text) !important;
+  border-color: var(--btn-danger-bg) !important;
+  background: var(--btn-danger-bg) !important;
+}

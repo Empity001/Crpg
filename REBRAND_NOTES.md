@@ -169,3 +169,11 @@ No requiere migración SQL.
 ### SQL obligatorio
 
 Ejecuta una vez `sql/migration_018_log_cover_image.sql` en Supabase. La página puede seguir leyendo logs antes de aplicar la migración, pero crear o editar una portada requiere esa migración.
+
+## Auditoría de colores de botones (2026-07-11)
+
+- La paleta ahora distingue botones principales, secundarios, seleccionados, desactivados, de confirmación, advertencia, información, evento y eliminación.
+- Se añadieron colores de texto independientes para cada familia, evitando texto blanco fijo sobre colores claros.
+- Los botones de Logs, Guías, Tierlist, Kits, Acerca del servidor, Herramientas, biblioteca multimedia, modales, menús contextuales y modo administrador usan variables semánticas compartidas.
+- Publicar la paleta global ya no reemplaza temporalmente la paleta personal del navegador: si existe una paleta local, se mantiene activa.
+- No requiere migración SQL. Los nuevos campos se almacenan dentro del JSON existente `app_settings.theme_config`; las paletas antiguas reciben valores predeterminados automáticamente.

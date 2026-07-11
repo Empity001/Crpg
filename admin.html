@@ -20,7 +20,7 @@
 <!-- SheetJS: generación de archivos Excel nativos (.xlsx) — solo esta
      página usa exportación, así que solo ella carga esta librería. -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="css/rebrand.css?v=20260711-01" />
+<link rel="stylesheet" href="css/rebrand.css?v=20260711-02" />
 </head>
 <body>
 
@@ -362,8 +362,26 @@
       </div>
 
       <div class="theme-preview-card" aria-hidden="true">
-        <div class="theme-preview-sidebar"><span class="theme-preview-logo">◆</span><span class="theme-preview-nav is-active">Selección activa</span><span class="theme-preview-nav">Opción normal</span></div>
-        <div class="theme-preview-content"><strong>Vista previa general</strong><p>Texto principal, texto secundario y superficies.</p><div class="theme-preview-buttons"><span class="theme-preview-btn primary">Acción principal</span><span class="theme-preview-btn confirm">Confirmar</span><span class="theme-preview-btn danger">Eliminar</span></div></div>
+        <div class="theme-preview-sidebar">
+          <span class="theme-preview-logo">◆</span>
+          <span class="theme-preview-nav is-active">Selección activa</span>
+          <span class="theme-preview-nav">Opción normal</span>
+        </div>
+        <div class="theme-preview-content">
+          <strong>Vista previa general</strong>
+          <p>Los botones reales de la web usan estas mismas variables, tanto en la paleta personal como en la del servidor.</p>
+          <div class="theme-preview-buttons">
+            <span class="theme-preview-btn primary">Principal</span>
+            <span class="theme-preview-btn secondary">Secundario</span>
+            <span class="theme-preview-btn selection">Seleccionado</span>
+            <span class="theme-preview-btn confirm">Confirmar</span>
+            <span class="theme-preview-btn warning">Advertencia</span>
+            <span class="theme-preview-btn info">Información</span>
+            <span class="theme-preview-btn event">Evento</span>
+            <span class="theme-preview-btn danger">Eliminar</span>
+            <span class="theme-preview-btn disabled">Desactivado</span>
+          </div>
+        </div>
       </div>
       <div class="theme-color-groups" id="theme-color-grid"></div>
       <div class="modal-error hidden" id="theme-config-error"></div>
@@ -416,6 +434,6 @@
 <div id="shell-footer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script type="module" src="js/pages/admin.js?v=20260710-13"></script>
+<script type="module" src="js/pages/admin.js?v=20260711-02"></script>
 </body>
 </html>

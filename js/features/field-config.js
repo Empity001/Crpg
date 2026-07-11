@@ -11,7 +11,7 @@ import { renderAboutContent } from './about.js';
 import { applyCustomBackground, normalizeBackgroundOpacity, normalizeBackgroundPresentation, populateBackgroundForm } from './background.js';
 import { applyFavicon, applySiteLogo, populateFaviconForm } from './favicon.js';
 import { applyHeroBanner, normalizeHeroBannerConfig, populateHeroBannerForm } from './hero-banners.js';
-import { applyThemeConfig, getLocalThemeOverride, normalizeThemeConfig, populateThemeForm } from './theme.js';
+import { applyThemeConfig, getLocalThemeOverride, normalizeThemeConfig, populateThemeForm } from './theme.js?v=20260711-02';
 import { DEFAULT_ITEM_FIELDS, DEFAULT_MOB_FIELDS, state } from '../core/state.js';
 import { escapeHtml, showToast } from '../core/utils.js';
 
