@@ -77,7 +77,7 @@ export async function initForumTools() {
     const config = configResult.data || {};
     status.textContent = config.guidesForumChannelId
       ? `Foro configurado: ${config.guidesForumChannelId}`
-      : 'No hay foro configurado. Usa /guidesforum set en Discord.';
+      : 'No hay foro configurado. Usa /config guias set en Discord.';
     input.value = (config.forumReactions || []).map(displayReaction).join(' ');
     renderPreview(input);
   }

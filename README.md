@@ -68,7 +68,7 @@ El shell compartido vive en `partials/header.html` y `partials/footer.html`. La 
 
 - Inicio de sesión con Discord mediante Supabase Auth.
 - Nombre y avatar del servidor en la interfaz.
-- Un único rol configurable mediante `/adminrole` concede acceso administrativo.
+- Un único rol configurable mediante `/config admin set` concede acceso administrativo.
 - El modo administrador se activa voluntariamente y se revoca al perder el rol.
 - Publicación, actualización y despublicación manual de Guías en el foro de Discord.
 - Indicador global de Administrator Mode.
@@ -120,7 +120,7 @@ partials/            header y footer compartidos
 sql/                 esquema y migraciones incrementales
 ```
 
-El proyecto es una MPA estática sin bundler ni build step. Usa ES Modules nativos. Cada página carga su entry point y su hoja específica. El rebrand compartido está dividido, en orden de cascada, entre `rebrand.css`, `rebrand-runtime.css`, `rebrand-editors.css`, `rebrand-logs.css`, `rebrand-extras.css` y `rebrand-controls.css`.
+El proyecto es una MPA estática sin bundler ni build step. Usa ES Modules nativos. Cada página carga su entry point y su hoja específica. El rebrand compartido está dividido, en orden de cascada, entre `rebrand.css`, `rebrand-runtime.css`, `rebrand-editors.css`, `rebrand-logs.css`, `rebrand-extras.css`, `rebrand-controls.css` y `theme-system.css`. La última capa centraliza tokens visibles compartidos, scrollbars y controles base para evitar colores duplicados en varias hojas.
 
 Supabase proporciona Postgres, Auth, Edge Functions, RPC, RLS, Storage y Realtime. La `anon key` es pública por diseño. Las escrituras administrativas pasan por `discord-admin-api`, que valida la sesión, la identidad de Discord, la pertenencia al servidor y el rol configurado antes de usar `service_role` en el servidor. Nunca debe incluirse una `service_role`, un Bot Token ni un Client Secret en el cliente.
 

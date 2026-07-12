@@ -4,6 +4,7 @@
 - `discord-admin-api` distingue RPC modernas sin `input_code` de firmas legacy. Esto corrige la carga administrativa de Logs y `set_log_published` tras `migration_022`.
 - Publicar/despublicar Logs y Guías usa el mismo lenguaje, tono visual, confirmación al ocultar y feedback sobre Discord.
 - El editor de tema cubre fondos, superficies, transparencias, sombras, textos, bordes, selección, botones, estados, Multimedia, Kits, Tierlist, Guías y centro de comandos mediante variables RGB derivadas.
+- Se añadió `css/theme-system.css` como última capa global para centralizar scrollbars, enlaces/acciones base y tokens visibles compartidos. Las páginas principales lo cargan al final de la cascada.
 - Los colores definidos por contenido, como categorías, conservan su configuración propia. Los colores técnicos de máscaras y pruebas `@supports` no forman parte de la paleta visible.
 - Se retiraron aliases de autenticación y helpers administrativos sin consumidores.
 - El bot reintenta publicaciones de Logs hasta tres veces y el barrido de integridad recupera también Logs públicos que nunca llegaron a crear un mapeo en Discord.

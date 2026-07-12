@@ -1,0 +1,118 @@
+/* ======================================================================
+   CULONES-RPG · THEME SYSTEM
+   Ultima capa compartida: tokens visibles, scrollbars y controles base.
+   ====================================================================== */
+
+:root {
+  --scrollbar-size: 10px;
+  --scrollbar-track: var(--theme-page-bg, var(--bg));
+  --scrollbar-track-soft: color-mix(in srgb, var(--theme-input-bg, var(--bg-card)) 88%, transparent);
+  --scrollbar-thumb-start: var(--theme-selection, var(--theme-primary, var(--admin-purple)));
+  --scrollbar-thumb-mid: var(--theme-primary-soft, var(--purple));
+  --scrollbar-thumb-end: var(--theme-warning, var(--theme-accent, var(--gold)));
+  --scrollbar-thumb-border: var(--theme-page-bg, var(--bg));
+  --scrollbar-thumb-glow: color-mix(in srgb, var(--scrollbar-thumb-start) 22%, transparent);
+  --scrollbar-thumb-vertical: linear-gradient(
+    180deg,
+    var(--scrollbar-thumb-start),
+    var(--scrollbar-thumb-mid) 52%,
+    var(--scrollbar-thumb-end)
+  );
+  --scrollbar-thumb-horizontal: linear-gradient(
+    90deg,
+    var(--scrollbar-thumb-start),
+    var(--scrollbar-thumb-mid) 52%,
+    var(--scrollbar-thumb-end)
+  );
+
+  --link-action-color: var(--theme-primary-soft, var(--admin-purple-light));
+  --link-action-hover: var(--theme-text-primary, var(--ink-100));
+  --control-border: rgb(var(--theme-primary-soft-rgb) / .34);
+  --control-border-hover: rgb(var(--theme-primary-soft-rgb) / .62);
+  --control-bg: rgb(var(--theme-panel-rgb) / .62);
+  --control-bg-hover: rgb(var(--theme-primary-rgb) / .14);
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-start) var(--scrollbar-track);
+}
+
+::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  min-width: 44px;
+  min-height: 44px;
+  border: 2px solid var(--scrollbar-thumb-border);
+  border-radius: 999px;
+  background: var(--scrollbar-thumb-vertical);
+  background-clip: padding-box;
+  box-shadow: 0 0 10px var(--scrollbar-thumb-glow);
+}
+
+::-webkit-scrollbar-thumb:horizontal {
+  background: var(--scrollbar-thumb-horizontal);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  --scrollbar-thumb-start: var(--theme-primary-soft, var(--purple));
+}
+
+.weapon-filter-row,
+#weapon-category-filters,
+#weapon-type-filters,
+.filter-pills {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-start) var(--scrollbar-track-soft);
+}
+
+.weapon-filter-row::-webkit-scrollbar,
+#weapon-category-filters::-webkit-scrollbar,
+#weapon-type-filters::-webkit-scrollbar,
+.filter-pills::-webkit-scrollbar {
+  height: 10px;
+}
+
+.weapon-filter-row::-webkit-scrollbar-track,
+#weapon-category-filters::-webkit-scrollbar-track,
+#weapon-type-filters::-webkit-scrollbar-track,
+.filter-pills::-webkit-scrollbar-track {
+  margin-inline: 8px;
+  border: 1px solid var(--border-dim);
+  border-radius: 999px;
+  background: var(--scrollbar-track-soft);
+  box-shadow: inset 0 1px 5px rgb(var(--theme-page-rgb) / .32);
+}
+
+.weapon-filter-row::-webkit-scrollbar-thumb,
+#weapon-category-filters::-webkit-scrollbar-thumb,
+#weapon-type-filters::-webkit-scrollbar-thumb,
+.filter-pills::-webkit-scrollbar-thumb {
+  min-width: 52px;
+  border-color: var(--scrollbar-track-soft);
+  background: var(--scrollbar-thumb-horizontal);
+}
+
+a.link-btn,
+button.link-btn,
+.btn-link,
+.inline-action {
+  color: var(--link-action-color);
+  text-decoration-color: color-mix(in srgb, var(--link-action-color) 52%, transparent);
+  text-underline-offset: 3px;
+}
+
+a.link-btn:hover,
+button.link-btn:hover,
+.btn-link:hover,
+.inline-action:hover {
+  color: var(--link-action-hover);
+  text-decoration-color: var(--link-action-color);
+}

@@ -156,23 +156,23 @@ El bot escucha `messageDelete` y `threadDelete`, hace una revisión de integrida
 Ejecuta con el propietario o una cuenta con `Administrator`:
 
 ```text
-/adminrole set rol:@RolAdministradoresWeb
-/setlogchannel canal:#logs
-/guidesforum set canal:#guias
+/config admin set rol:@RolAdministradoresWeb
+/config logs set canal:#logs
+/config guias set canal:#guias
 ```
 
 Reglas:
 
 - Solo las personas que tengan el rol elegido pueden activar el modo administrador en la web.
 - El propietario y otros `Administrator` pueden configurar el rol, pero no obtienen acceso web si no poseen ese rol.
-- `/guidesforum set` configura permisos de solo lectura para los usuarios normales.
-- `/setlogchannel` configura los hilos de Logs como solo lectura.
+- `/config guias set` configura permisos de solo lectura para los usuarios normales.
+- `/config logs set` configura los hilos de Logs como solo lectura.
 
 Comprueba con:
 
 ```text
-/adminrole view
-/guidesforum view
+/config admin view
+/config guias view
 /ping
 ```
 
@@ -228,7 +228,7 @@ La opción **Aplicar también a todas las publicaciones existentes** puede elimi
 
 - Revisa `DISCORD_BOT_TOKEN` y `DISCORD_GUILD_ID` en Edge Functions.
 - Confirma que el bot continúa en el servidor.
-- Comprueba que `/adminrole view` apunta a un rol existente.
+- Comprueba que `/config admin view` apunta a un rol existente.
 
 ### “Edge Function returned a non-2xx status code”
 
@@ -242,7 +242,7 @@ La interfaz intenta leer el cuerpo JSON y mostrar el código real. Revisa los lo
 
 ### El foro no acepta publicaciones
 
-- Ejecuta `/guidesforum view`.
+- Ejecuta `/config guias view`.
 - Revisa permisos del bot.
 - Comprueba que el foro no haya alcanzado el máximo de tags.
 - La Guía debe tener categoría, tipo y estar visible en la web.
