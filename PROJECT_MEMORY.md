@@ -1272,3 +1272,14 @@ Objetivo: mejoras de capa superior una vez cerradas auditoría, multimedia y adm
 - Los selectores de modo y pestañas del fondo global ahora usan tarjetas y controles visuales consistentes.
 - Los deep links de Logs conservan abierta la ficha objetivo; el estado expandido sobrevive a re-renderizados y actualizaciones Realtime.
 - Se conserva el scroll del inspector cuando el mismo Log y pestaña se vuelven a dibujar.
+
+## Sesión — visibilidad de Logs y mención silenciosa (12 Jul 2026)
+
+- Los Logs ahora tienen `published`: los existentes quedan públicos por defecto.
+- Visitantes, búsqueda, comentarios y bloques solo reciben Logs publicados mediante RLS.
+- Los administradores cargan también los Logs ocultos mediante RPC seguras y los ven marcados como **Oculto**.
+- El inspector y el menú contextual permiten **Publicar / Despublicar**.
+- Despublicar encola la eliminación durable del mensaje y el hilo de Discord; volver a publicar crea una publicación nueva.
+- La Edge Function permite `set_log_published` y las lecturas administrativas de Logs.
+- Migración requerida: `sql/migration_022_log_visibility.sql`.
+- El bot ya no escribe `@silent` como texto. Envía `@everyone` con `MessageFlags.SuppressNotifications`.

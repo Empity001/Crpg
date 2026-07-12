@@ -187,10 +187,20 @@ function buildAboutEntries(entries, seen) {
 async function createSearchIndex() {
   const adminCode = isAdmin() ? state.adminMode : null;
 
+  const logsRequest = isAdmin()
+    ? supabaseClient.rpc('list_logs_admin', { input_code: state.adminMode })
+    : supabaseClient.from('logs').select('id,title,description,category,published');
+  const mobsRequest = isAdmin()
+    ? supabaseClient.rpc('list_log_mobs_admin', { input_code: state.adminMode })
+    : supabaseClient.from('log_mobs').select('id,log_id,name,description,location,image_url');
+  const logItemsRequest = isAdmin()
+    ? supabaseClient.rpc('list_log_items_admin', { input_code: state.adminMode })
+    : supabaseClient.from('log_items').select('id,log_id,name,description,item_type,tier,obtained_from,image_url');
+
   const [logs, mobs, logItems, weapons, ranks, tierRows, tierItems, kits] = await Promise.all([
-    safeFetch('logs', supabaseClient.from('logs').select('id,title,description,category')),
-    safeFetch('log_mobs', supabaseClient.from('log_mobs').select('id,log_id,name,description,location,image_url')),
-    safeFetch('log_items', supabaseClient.from('log_items').select('id,log_id,name,description,item_type,tier,obtained_from,image_url')),
+    safeFetch('logs', logsRequest),
+    safeFetch('log_mobs', mobsRequest),
+    safeFetch('log_items', logItemsRequest),
     safeFetch('weapons', supabaseClient.from('weapons').select('id,name,image_url,published,category_id,type_id')),
     safeFetch('weapon_ranks', supabaseClient.from('weapon_ranks').select('id,weapon_id,name,description,image_url,abilities,upgrade_recipe,extra_sections,sort_order').order('sort_order', { ascending: true })),
     safeFetch('tierlist_rows', supabaseClient.from('tierlist_rows').select('id,name,color,sort_order')),
@@ -225,7 +235,7 @@ async function createSearchIndex() {
   }
 
   const logsById = new Map(logs.map(log => [String(log.id), log]));
-  logs.forEach(log => addEntry(entries, seen, {
+  logs.filter(log => isAdmin() || log.published !== false).forEach(log => addEntry(entries, seen, {
     key: `log:${log.id}`,
     title: log.title,
     sectionKey: 'logs',

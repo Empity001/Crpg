@@ -109,6 +109,8 @@ function getLogCollections(logId) {
   return { mobs, items, libres };
 }
 
+function isLogPublished(log) { return log?.published !== false; }
+
 function getLogPreview(log) {
   return safeUrl(log?.cover_image_url || '') || '';
 }
@@ -170,14 +172,16 @@ function buildLogCardHtml(log) {
   const cat = getCategory(log.category);
   const counts = getLogCounts(log.id);
   const selected = selectedLogId === log.id;
+  const published = isLogPublished(log);
   return `
-    <article class="log-card log-list-card ${selected ? 'is-selected' : ''}" data-relevance="${log.relevance}" data-log-id="${log.id}" tabindex="0" aria-selected="${selected ? 'true' : 'false'}">
+    <article class="log-card log-list-card ${selected ? 'is-selected' : ''} ${published ? '' : 'is-unpublished'}" data-relevance="${log.relevance}" data-log-id="${log.id}" tabindex="0" aria-selected="${selected ? 'true' : 'false'}">
       <div class="log-row-media">${buildLogPreviewHtml(log, cat)}</div>
 
       <div class="log-row-content">
         <div class="log-row-kicker">
           <span class="log-category-tag" style="border-color:${cat.color}66;color:${cat.color};background:${cat.color}12;"><span class="log-tag-icon" aria-hidden="true">${escapeHtml(cat.emoji || '📜')}</span><span>${escapeHtml(cat.label)}</span></span>
           <span class="log-relevance-badge"><span>${escapeHtml(RELEVANCE_LABELS[log.relevance] || log.relevance)}</span></span>
+          ${!published ? '<span class="log-unpublished-tag">Oculto</span>' : ''}
         </div>
         <h3 class="log-card-title">${escapeHtml(log.title)}</h3>
         <p class="log-card-desc">${escapeHtml(log.description)}</p>
@@ -352,14 +356,15 @@ function renderInspectorTabBody(log) {
         <div><span>Categoría</span><strong style="color:${cat.color}">${cat.emoji} ${escapeHtml(cat.label)}</strong></div>
         <div><span>Relevancia</span><strong>${RELEVANCE_LABELS[log.relevance] || log.relevance}</strong></div>
         <div><span>Fecha</span><strong>${formatDate(log.created_at)}</strong></div>
+        ${isAdmin() ? `<div><span>Visibilidad</span><strong class="${isLogPublished(log) ? 'log-visibility-public' : 'log-visibility-hidden'}">${isLogPublished(log) ? 'Público' : 'Oculto'}</strong></div>` : ''}
       </section>
 
       <section class="logs-inspector-section inspector-count-grid">
         <div><strong>${mobs.length}</strong><span>Mobs</span></div>
         <div><strong>${items.length}</strong><span>Items</span></div>
         <div><strong>${libres.length}</strong><span>Extras</span></div>
-        <button class="inspector-like-btn ${isLiked ? 'is-liked' : ''}" data-inspector-action="like">
-          <strong><span class="like-heart" aria-hidden="true">${isLiked ? '❤︎' : '♡'}</span> ${log.likes}</strong><span>Me gusta</span>
+        <button class="inspector-like-btn ${isLiked ? 'is-liked' : ''}" data-inspector-action="like" ${isLogPublished(log) ? '' : 'disabled title="Los likes están desactivados mientras el Log esté oculto."'}>
+          <strong><span class="like-heart" aria-hidden="true">${isLiked ? '❤︎' : '♡'}</span> ${log.likes}</strong><span>${isLogPublished(log) ? 'Me gusta' : 'Oculto'}</span>
         </button>
       </section>
 
@@ -369,6 +374,7 @@ function renderInspectorTabBody(log) {
           <div class="logs-inspector-admin-actions">
             <button class="btn-primary" data-inspector-action="edit"><span aria-hidden="true">✎</span><span>Editar log</span></button>
             <button class="btn-secondary-admin" data-inspector-action="duplicate"><span aria-hidden="true">⧉</span><span>Duplicar log</span></button>
+            <button class="${isLogPublished(log) ? 'btn-warning-admin' : 'btn-primary'}" data-inspector-action="toggle-published"><span aria-hidden="true">${isLogPublished(log) ? '🙈' : '👁'}</span><span>${isLogPublished(log) ? 'Despublicar' : 'Publicar'}</span></button>
             <button class="btn-danger" data-inspector-action="delete"><span aria-hidden="true">🗑</span><span>Eliminar log</span></button>
           </div>` : ''}
       </section>
@@ -568,6 +574,7 @@ function renderLogInspector() {
   inspector.querySelector('[data-inspector-action="like"]')?.addEventListener('click', () => toggleLike(log.id));
   inspector.querySelector('[data-inspector-action="edit"]')?.addEventListener('click', () => openEditLogModal(log.id));
   inspector.querySelector('[data-inspector-action="duplicate"]')?.addEventListener('click', () => duplicateLogToEditor(log));
+  inspector.querySelector('[data-inspector-action="toggle-published"]')?.addEventListener('click', () => toggleLogPublished(log.id));
   inspector.querySelector('[data-inspector-action="delete"]')?.addEventListener('click', () => deleteLog(log.id));
 }
 
@@ -673,6 +680,12 @@ function openLogCardActions(anchor, logId) {
           },
         },
         {
+          label: isLogPublished(log) ? 'Despublicar' : 'Publicar',
+          icon: isLogPublished(log) ? '🙈' : '👁',
+          tone: isLogPublished(log) ? 'warning' : 'success',
+          onClick: () => { close(); toggleLogPublished(logId); },
+        },
+        {
           label: 'Borrar', icon: '🗑', tone: 'danger', onClick: () => { close(); deleteLog(logId); },
         },
       ]);
@@ -700,7 +713,8 @@ function renderLoadMoreBtn(grid, remaining) {
 export function renderLogs(changedLogId = null) {
   const grid = document.getElementById('logs-grid');
   if (!grid) return;
-  let filtered = state.activeFilter === 'all' ? state.logs : state.logs.filter(log => log.category === state.activeFilter);
+  let filtered = state.logs.filter(log => isAdmin() || isLogPublished(log));
+  if (state.activeFilter !== 'all') filtered = filtered.filter(log => log.category === state.activeFilter);
   filtered = sortLogs(filtered);
 
   if (filtered.length === 0) {
@@ -736,11 +750,15 @@ export function renderLogs(changedLogId = null) {
 // ---------------------------------------------------------
 
 async function toggleLike(logId) {
+  const log = state.logs.find(item => item.id === logId);
+  if (log && !isLogPublished(log)) {
+    showToast('Los likes están desactivados mientras el Log esté oculto.', 'error');
+    return;
+  }
   const { data, error } = await supabaseClient.rpc('toggle_like', { input_log_id: logId, input_client_id: state.clientId });
   if (error) { console.error(error); showToast('No se pudo procesar el like', 'error'); return; }
   if (state.likedLogIds.has(logId)) state.likedLogIds.delete(logId); else state.likedLogIds.add(logId);
   localStorage.setItem('culones_liked_logs', JSON.stringify([...state.likedLogIds]));
-  const log = state.logs.find(l => l.id === logId);
   if (log) log.likes = data;
   // Actualización granular: sólo re-renderiza la tarjeta afectada
   renderLogs(logId);
@@ -771,6 +789,18 @@ async function openDetailModal(logId) {
 
   const detailContent = document.getElementById('detail-content');
   bindBlockChipEvents(detailContent);
+
+  const commentForm = document.querySelector('#detail-modal .comment-form');
+  if (commentForm) commentForm.classList.toggle('hidden', !isLogPublished(log));
+  let hiddenNotice = document.getElementById('hidden-log-comment-notice');
+  if (!hiddenNotice) {
+    hiddenNotice = document.createElement('p');
+    hiddenNotice.id = 'hidden-log-comment-notice';
+    hiddenNotice.className = 'comments-empty hidden';
+    hiddenNotice.textContent = 'Este Log está oculto. Puedes revisar y moderar comentarios existentes, pero no publicar comentarios nuevos hasta volver a publicarlo.';
+    commentForm?.before(hiddenNotice);
+  }
+  hiddenNotice.classList.toggle('hidden', isLogPublished(log));
 
   document.getElementById('detail-modal').classList.remove('hidden');
   await loadComments(logId);
@@ -898,6 +928,46 @@ export async function submitLog() {
   stopDraftAutosave();
   document.getElementById('log-modal').classList.add('hidden');
   showToast(publishedId ? 'Log actualizado' : 'Log publicado', 'success');
+  suppressNextRealtimeReload();
+  await loadLogs();
+}
+
+
+async function toggleLogPublished(logId) {
+  const log = state.logs.find(item => item.id === logId);
+  if (!log || !state.adminMode) {
+    showToast('Tu sesión de administrador expiró.', 'error');
+    return;
+  }
+
+  const currentlyPublished = isLogPublished(log);
+  if (currentlyPublished) {
+    const confirmed = await confirmAction({
+      title: 'Despublicar log',
+      message: `Ocultar “${log.title}” para los visitantes. También se eliminará su mensaje y su hilo del canal de Logs.`,
+      confirmLabel: 'Despublicar log',
+      danger: true,
+    });
+    if (!confirmed) return;
+  }
+
+  const { data, error } = await supabaseClient.rpc('set_log_published', {
+    input_code: state.adminMode,
+    input_id: logId,
+    input_published: !currentlyPublished,
+  });
+  if (error) {
+    showToast(`No se pudo ${currentlyPublished ? 'despublicar' : 'publicar'} el log: ${error.message}`, 'error');
+    return;
+  }
+
+  log.published = data?.published ?? !currentlyPublished;
+  showToast(
+    currentlyPublished
+      ? 'Log ocultado. El bot eliminará su publicación de Discord.'
+      : 'Log publicado. El bot lo enviará al canal de Logs.',
+    'success',
+  );
   suppressNextRealtimeReload();
   await loadLogs();
 }

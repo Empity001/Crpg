@@ -18,7 +18,7 @@ import { cancelReply, deleteCommentAction, startReplyTo, submitComment, toggleCo
 import { initBeforeUnload, restoreDraft, saveDraft, stopDraftAutosave } from '../features/drafts.js';
 import { loadDraftByKey } from '../features/drafts-store.js';
 import { openFieldConfigModal, saveFieldConfig, setFieldConfigSavedHandler } from '../features/field-config.js';
-import { initDesktopLogInspectorTracking, initSortControl, loadLogs, openEditLogModal, openLogFromSearch, openNewLogModal, renderLogs, submitLog, updateLogCoverPreview } from '../features/logs.js?v=20260712-1';
+import { initDesktopLogInspectorTracking, initSortControl, loadLogs, openEditLogModal, openLogFromSearch, openNewLogModal, renderLogs, submitLog, updateLogCoverPreview } from '../features/logs.js?v=20260712-2';
 import { attachMediaPickerButton, openMediaPicker } from '../features/media-library.js';
 import { state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
@@ -182,7 +182,7 @@ async function init() {
   initLogsModals();
   initSortControl();
   initDesktopLogInspectorTracking();
-  registerAdminUiRefreshHandler(renderLogs);
+  registerAdminUiRefreshHandler(() => { void loadLogs(); });
   setCategoryFiltersChangedHandler(renderLogs);
   setFieldConfigSavedHandler(renderLogs);
   initBeforeUnload();

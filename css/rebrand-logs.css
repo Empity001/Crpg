@@ -1559,3 +1559,73 @@ button[aria-disabled="true"],
   z-index: 1;
 }
 
+
+/* =========================================================
+   Visibilidad pública de Logs
+   ========================================================= */
+.log-card.log-list-card.is-unpublished {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--theme-warning, #f6c453) 42%, var(--border-dim));
+  background:
+    linear-gradient(135deg, rgba(24, 23, 34, .96), rgba(13, 14, 25, .97));
+}
+
+.log-card.log-list-card.is-unpublished::before {
+  background: var(--theme-warning, #f6c453);
+  opacity: .72;
+}
+
+.log-card.log-list-card.is-unpublished .log-row-media,
+.log-card.log-list-card.is-unpublished .log-row-content,
+.log-card.log-list-card.is-unpublished .log-row-metrics {
+  opacity: .72;
+}
+
+.log-unpublished-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--theme-warning, #f6c453) 54%, transparent);
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--theme-warning, #f6c453) 86%, white);
+  background: color-mix(in srgb, var(--theme-warning, #f6c453) 12%, transparent);
+  font: 800 8px/1 var(--font-mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.log-visibility-public { color: var(--theme-confirmation, var(--hud-green)) !important; }
+.log-visibility-hidden { color: var(--theme-warning, #f6c453) !important; }
+
+.logs-inspector-admin-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.btn-warning-admin {
+  appearance: none;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--theme-warning, #f6c453) 58%, transparent);
+  border-radius: 11px;
+  color: color-mix(in srgb, var(--theme-warning, #f6c453) 88%, white);
+  background: color-mix(in srgb, var(--theme-warning, #f6c453) 13%, var(--bg-card));
+  font: 700 12px/1.15 var(--font-body);
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.btn-warning-admin:hover {
+  border-color: var(--theme-warning, #f6c453);
+  color: white;
+  background: color-mix(in srgb, var(--theme-warning, #f6c453) 28%, var(--bg-card));
+  box-shadow: 0 0 20px color-mix(in srgb, var(--theme-warning, #f6c453) 16%, transparent);
+}
+
+.context-action-button.is-warning {
+  color: var(--theme-warning, #f6c453);
+}
+
+@media (max-width: 720px) {
+  .logs-inspector-admin-actions { grid-template-columns: 1fr; }
+}

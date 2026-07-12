@@ -3,10 +3,12 @@
 // =========================================================
 // Carga pura de datos de Logs desde Supabase, sin tocar el DOM. Sirve
 // para la página de Logs y para Herramientas (export/import).
+// Los visitantes reciben únicamente Logs publicados mediante RLS. Los
+// administradores cargan también los ocultos a través de la Edge Function.
 // =========================================================
 
 import { disableQueryRetry, supabaseClient } from '../config.js';
-import { state } from '../core/state.js';
+import { isAdmin, state } from '../core/state.js';
 import { showToast, withTimeout } from '../core/utils.js';
 
 let logsLoadPromise = null;
@@ -17,24 +19,71 @@ function attachSignal(request, signal) {
   return typeof stableRequest?.abortSignal === 'function' ? stableRequest.abortSignal(signal) : stableRequest;
 }
 
+function normalizePublished(rows) {
+  return (rows || []).map(row => ({ ...row, published: row.published !== false }));
+}
+
 async function fetchLogsWithOptionalCover(signal) {
+  if (isAdmin()) {
+    const adminResult = await attachSignal(
+      supabaseClient.rpc('list_logs_admin', { input_code: state.adminMode }),
+      signal,
+    );
+    if (!adminResult.error) {
+      adminResult.data = normalizePublished(adminResult.data)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      return adminResult;
+    }
+    console.warn('[Logs] No se pudo usar list_logs_admin; se cargará la vista pública:', adminResult.error.message);
+  }
+
   let result = await attachSignal(
     supabaseClient.from('logs')
-      .select('id,title,description,category,relevance,likes,created_at,cover_image_url')
+      .select('id,title,description,category,relevance,likes,created_at,cover_image_url,published')
       .order('created_at', { ascending: false }),
     signal,
   );
 
-  if (result.error && /cover_image_url/i.test(`${result.error.message || ''} ${result.error.details || ''}`)) {
+  if (result.error && /published|cover_image_url/i.test(`${result.error.message || ''} ${result.error.details || ''}`)) {
     result = await attachSignal(
       supabaseClient.from('logs')
-        .select('id,title,description,category,relevance,likes,created_at')
+        .select('id,title,description,category,relevance,likes,created_at,cover_image_url')
         .order('created_at', { ascending: false }),
       signal,
     );
-    if (!result.error) result.data = (result.data || []).map(log => ({ ...log, cover_image_url: null }));
   }
+  if (!result.error) result.data = normalizePublished(result.data);
   return result;
+}
+
+function mobsRequest(signal) {
+  if (isAdmin()) {
+    return attachSignal(
+      supabaseClient.rpc('list_log_mobs_admin', { input_code: state.adminMode }),
+      signal,
+    );
+  }
+  return attachSignal(
+    supabaseClient.from('log_mobs')
+      .select('id,log_id,name,health,damage,armor,equipment,location,description,extra_fields,image_url,sort_order')
+      .order('sort_order', { ascending: true }),
+    signal,
+  );
+}
+
+function itemsRequest(signal) {
+  if (isAdmin()) {
+    return attachSignal(
+      supabaseClient.rpc('list_log_items_admin', { input_code: state.adminMode }),
+      signal,
+    );
+  }
+  return attachSignal(
+    supabaseClient.from('log_items')
+      .select('id,log_id,name,tier,item_type,obtained_from,damage,enchantments,description,extra_fields,image_url,sort_order')
+      .order('sort_order', { ascending: true }),
+    signal,
+  );
 }
 
 async function performLogsLoad() {
@@ -45,18 +94,8 @@ async function performLogsLoad() {
   try {
     const request = Promise.all([
       fetchLogsWithOptionalCover(controller.signal),
-      attachSignal(
-        supabaseClient.from('log_mobs')
-          .select('id,log_id,name,health,damage,armor,equipment,location,description,extra_fields,image_url,sort_order')
-          .order('sort_order', { ascending: true }),
-        controller.signal,
-      ),
-      attachSignal(
-        supabaseClient.from('log_items')
-          .select('id,log_id,name,tier,item_type,obtained_from,damage,enchantments,description,extra_fields,image_url,sort_order')
-          .order('sort_order', { ascending: true }),
-        controller.signal,
-      ),
+      mobsRequest(controller.signal),
+      itemsRequest(controller.signal),
     ]);
 
     const [logsRes, mobsRes, itemsRes] = await withTimeout(request, 10000, 'La carga de logs');
@@ -68,7 +107,7 @@ async function performLogsLoad() {
       return false;
     }
 
-    state.logs = logsRes.data || [];
+    state.logs = normalizePublished(logsRes.data);
     state.mobsByLog = {};
     state.itemsByLog = {};
 

@@ -11,7 +11,7 @@ import { localAuditTime } from '../core/audit.js';
 import { escapeHtml, formatDate } from '../core/utils.js';
 
 const ACTION_LOG_ICONS = {
-  log_created: '📜', log_updated: '✏️', log_deleted: '🗑',
+  log_created: '📜', log_updated: '✏️', log_deleted: '🗑', log_published: '👁', log_unpublished: '🙈',
   mob_created: '👾', mob_deleted: '👾',
   item_created: '🗡', item_deleted: '🗡',
   block_created: '📋', block_deleted: '📋',
@@ -78,6 +78,8 @@ function enhanceLegacyDescription(row) {
     weapon_deleted: `Se eliminó el arma${quotedName}.`,
     weapon_published: `Se publicó el arma${quotedName}.`,
     weapon_unpublished: `Se despublicó el arma${quotedName}.`,
+    log_published: `Se publicó el Log${quotedName}; volvió a estar visible y el bot lo enviará al canal de Logs.`,
+    log_unpublished: `Se despublicó el Log${quotedName}; dejó de ser visible y se solicitó eliminarlo de Discord.`,
     weapon_rank_created: `Se creó una versión/rango de arma${quotedName}.`,
     weapon_rank_updated: `Se editó una versión/rango de arma${quotedName}.`,
     weapon_rank_deleted: `Se eliminó una versión/rango de arma${quotedName}.`,

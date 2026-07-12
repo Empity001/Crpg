@@ -15,7 +15,10 @@ export async function loadComments(logId) {
   if (aliasInput && !aliasInput.value.trim() && state.discordProfile?.displayName) aliasInput.value = state.discordProfile.displayName;
   const list = document.getElementById('comments-list');
   list.innerHTML = `<p class="comments-empty">Cargando comentarios...</p>`;
-  const { data, error } = await supabaseClient.from('comments').select('id,log_id,username,comment,likes,hidden,parent_id,created_at').eq('log_id', logId).order('created_at', { ascending: true });
+  const request = isAdmin()
+    ? supabaseClient.rpc('list_comments_admin', { input_code: state.adminMode, input_log_id: logId })
+    : supabaseClient.from('comments').select('id,log_id,username,comment,likes,hidden,parent_id,created_at').eq('log_id', logId).order('created_at', { ascending: true });
+  const { data, error } = await request;
   if (error) { list.innerHTML = `<p class="comments-empty">No se pudieron cargar.</p>`; return; }
   state.commentsFlat = data || [];
   renderCommentsList();

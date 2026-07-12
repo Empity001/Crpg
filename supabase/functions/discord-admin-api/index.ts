@@ -12,9 +12,10 @@ const ADMIN_RPCS = new Set([
   'delete_draft','delete_kit','delete_log','delete_media_asset','delete_tierlist_item',
   'delete_tierlist_row','delete_weapon','delete_weapon_category','delete_weapon_rank',
   'delete_weapon_type','find_media_duplicate','get_draft','list_action_log','list_drafts',
-  'list_kits','list_media_assets','list_media_picker_assets','move_tierlist_item',
+  'list_kits','list_logs_admin','list_log_mobs_admin','list_log_items_admin','list_comments_admin',
+  'list_media_assets','list_media_picker_assets','move_tierlist_item',
   'patch_weapon_rank','record_admin_action','reorder_tierlist_rows','replace_media_asset_file',
-  'set_comment_hidden','set_weapon_published','update_app_setting','update_category',
+  'set_comment_hidden','set_log_published','set_weapon_published','update_app_setting','update_category',
   'update_log','update_media_asset','update_tierlist_row','update_weapon','upsert_draft',
   'upsert_kit','upsert_media_asset','upsert_tierlist_item','upsert_weapon_rank',
   'upsert_weapon_category','upsert_weapon_type','create_weapon_category','update_weapon_category','create_weapon_type','update_weapon_type','create_category','delete_app_setting',
@@ -22,6 +23,7 @@ const ADMIN_RPCS = new Set([
 
 const WRITE_RPCS = new Set([...ADMIN_RPCS].filter(name => ![
   'find_media_duplicate','get_draft','list_action_log','list_drafts','list_kits',
+  'list_logs_admin','list_log_mobs_admin','list_log_items_admin','list_comments_admin',
   'list_media_assets','list_media_picker_assets',
 ].includes(name)));
 
