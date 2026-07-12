@@ -1264,3 +1264,11 @@ Objetivo: mejoras de capa superior una vez cerradas auditoría, multimedia y adm
 - La selección contextual dejó de recorrer todo el DOM en cada clic; solo limpia el elemento anteriormente seleccionado.
 - Se eliminó el `backdrop-filter` de la paleta y se añadió contención de layout/pintura para reducir coste gráfico en equipos modestos.
 - Validado con `node --check` en `command-center.js`, `shell.js` y `global-search.js`.
+
+## Ajustes de integración — 2026-07-12
+
+- Las reacciones del foro de Guías se muestran debajo de Importar en Herramientas.
+- El modal de cuenta de Discord volvió a ser una tarjeta centrada, con fondo visual y adaptación móvil.
+- Los selectores de modo y pestañas del fondo global ahora usan tarjetas y controles visuales consistentes.
+- Los deep links de Logs conservan abierta la ficha objetivo; el estado expandido sobrevive a re-renderizados y actualizaciones Realtime.
+- Se conserva el scroll del inspector cuando el mismo Log y pestaña se vuelven a dibujar.

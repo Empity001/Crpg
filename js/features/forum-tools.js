@@ -59,9 +59,9 @@ function renderPreview(input) {
 }
 
 export async function initForumTools() {
-  const host = document.querySelector('#admin-panel .tab-panel, main .tab-panel, main section');
-  if (!host || document.getElementById('forum-reactions-section')) return;
-  host.insertAdjacentHTML('afterbegin', sectionHtml());
+  const anchor = document.getElementById('forum-reactions-anchor');
+  if (!anchor || document.getElementById('forum-reactions-section')) return;
+  anchor.insertAdjacentHTML('afterend', sectionHtml());
   const input = document.getElementById('forum-reactions-input');
   const errorBox = document.getElementById('forum-reactions-error');
   const status = document.getElementById('forum-reactions-status');

@@ -15,7 +15,7 @@ import { initHeroBannerTool } from './hero-banners.js';
 import { initThemeTool } from './theme.js';
 import { _importConflicts, confirmImport, handleImportFile } from './import.js';
 import { initMediaLibraryPanel } from './media-library.js';
-import { initForumTools } from './forum-tools.js';
+import { initForumTools } from './forum-tools.js?v=20260712-1';
 import { confirmAction, showToast } from '../core/utils.js';
 import { deleteRemoteDraft, listRemoteDrafts } from './drafts-store.js';
 

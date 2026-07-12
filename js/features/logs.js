@@ -19,6 +19,8 @@ import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 
 let selectedLogId = null;
 let inspectorTab = 'summary';
+let expandedEntryId = null;
+let lastInspectorRenderKey = '';
 
 
 // Seguimiento del inspector en escritorio ---------------------------------
@@ -195,11 +197,13 @@ function buildLogCardHtml(log) {
     </article>`;
 }
 
-function selectLog(logId, { resetTab = true } = {}) {
+function selectLog(logId, { resetTab = true, preserveExpanded = false } = {}) {
   if (!state.logs.some(log => log.id === logId)) return;
+  const changedLog = selectedLogId !== logId;
   selectedLogId = logId;
   state.currentDetailLogId = logId;
   if (resetTab) inspectorTab = 'summary';
+  if ((resetTab || changedLog) && !preserveExpanded) expandedEntryId = null;
 
   document.querySelectorAll('.log-list-card').forEach(card => {
     const active = card.dataset.logId === logId;
@@ -227,24 +231,28 @@ export function openLogFromSearch(logId, { tab = 'summary', entryId = null } = {
   document.querySelectorAll('#category-filters .pill').forEach(pill => {
     pill.classList.toggle('is-active', pill.dataset.filter === 'all');
   });
-  renderLogs();
 
   inspectorTab = allowedTabs.has(tab) ? tab : 'summary';
-  selectLog(logId, { resetTab: false });
+  expandedEntryId = entryId && inspectorTab !== 'summary' ? String(entryId) : null;
+  renderLogs();
+  selectLog(logId, { resetTab: false, preserveExpanded: true });
 
   const cardInList = document.querySelector(`.log-list-card[data-log-id="${CSS.escape(String(logId))}"]`);
   cardInList?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-  if (!entryId || inspectorTab === 'summary') return;
-  window.requestAnimationFrame(() => {
+  if (!expandedEntryId) return;
+  const focusEntry = (attempt = 0) => {
     const inspector = document.getElementById('logs-inspector');
-    const card = inspector?.querySelector(`.inspector-entity-card[data-entry-id="${CSS.escape(String(entryId))}"]`);
-    const toggle = card?.querySelector('.inspector-entity-toggle');
-    if (!toggle) return;
-    toggle.click();
+    const card = inspector?.querySelector(`.inspector-entity-card[data-entry-id="${CSS.escape(expandedEntryId)}"]`);
+    if (!card) {
+      if (attempt < 4) window.setTimeout(() => focusEntry(attempt + 1), 70);
+      return;
+    }
     card.classList.add('global-search-target');
-    window.setTimeout(() => card.classList.remove('global-search-target'), 2100);
-  });
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    window.setTimeout(() => card.classList.remove('global-search-target'), 2600);
+  };
+  window.requestAnimationFrame(() => focusEntry());
 }
 
 function bindCardEvents(card) {
@@ -292,9 +300,13 @@ function renderInspectorEntityCard(entry, type, contextKey) {
     facts = parseLibreFields(entry).slice(0, 4).map(field => `${escapeHtml(field.key)}${field.value ? `: ${escapeHtml(field.value)}` : ''}`);
   }
 
+  const isExpanded = expandedEntryId === String(entry.id);
+  const detailHtml = renderLogEntryDetail(entry, type, contextKey)
+    .replace('class="block-detail-panel hidden"', `class="block-detail-panel${isExpanded ? '' : ' hidden'}"`);
+
   return `
-    <article class="inspector-entity-card" data-entry-id="${escapeHtml(String(entry.id))}">
-      <button type="button" class="inspector-entity-toggle" data-panel-id="${panelId}" aria-expanded="false">
+    <article class="inspector-entity-card ${isExpanded ? 'is-expanded' : ''}" data-entry-id="${escapeHtml(String(entry.id))}">
+      <button type="button" class="inspector-entity-toggle ${isExpanded ? 'is-expanded' : ''}" data-panel-id="${panelId}" aria-expanded="${isExpanded ? 'true' : 'false'}">
         <span class="inspector-entity-media">${image}</span>
         <span class="inspector-entity-copy">
           <span class="inspector-entity-title">${icon} ${escapeHtml(entry.name || 'Sin nombre')}</span>
@@ -303,7 +315,7 @@ function renderInspectorEntityCard(entry, type, contextKey) {
         </span>
         <span class="inspector-entity-caret" aria-hidden="true">⌄</span>
       </button>
-      ${renderLogEntryDetail(entry, type, contextKey)}
+      ${detailHtml}
     </article>`;
 }
 
@@ -450,6 +462,7 @@ function resetLogInspectorScroll({ focusTop = false } = {}) {
 function renderLogInspector() {
   const inspector = document.getElementById('logs-inspector');
   if (!inspector) return;
+  const previousScrollTop = inspector.querySelector('.logs-inspector-body')?.scrollTop || 0;
   const log = state.logs.find(item => item.id === selectedLogId);
   if (!log) {
     state.currentDetailLogId = null;
@@ -460,12 +473,15 @@ function renderLogInspector() {
         <p>El resumen, las fichas y las acciones aparecerán aquí sin abrir otra ventana.</p>
       </div>`;
     inspector.classList.remove('has-selection');
+    lastInspectorRenderKey = '';
     document.body.classList.remove('logs-inspector-open');
     return;
   }
 
   const { mobs, items, libres } = getLogCollections(log.id);
   const cat = getCategory(log.category);
+  const renderKey = `${log.id}:${inspectorTab}`;
+  const preserveScroll = renderKey === lastInspectorRenderKey;
   inspector.classList.add('has-selection');
   inspector.innerHTML = `
     <header class="logs-inspector-head">
@@ -486,11 +502,17 @@ function renderLogInspector() {
     <div class="logs-inspector-body">${renderInspectorTabBody(log)}</div>`;
 
   bindInspectorTouchScroll(inspector);
-  requestAnimationFrame(() => resetLogInspectorScroll({ focusTop: true }));
+  lastInspectorRenderKey = renderKey;
+  requestAnimationFrame(() => {
+    const body = inspector.querySelector('.logs-inspector-body');
+    if (preserveScroll && body) body.scrollTop = previousScrollTop;
+    else resetLogInspectorScroll({ focusTop: true });
+  });
 
   inspector.querySelectorAll('[data-inspector-tab]').forEach(button => {
     button.addEventListener('click', () => {
       inspectorTab = button.dataset.inspectorTab;
+      expandedEntryId = null;
       renderLogInspector();
       requestAnimationFrame(() => resetLogInspectorScroll({ focusTop: true }));
     });
@@ -500,14 +522,19 @@ function renderLogInspector() {
     button.addEventListener('click', () => {
       const panel = inspector.querySelector(`#${CSS.escape(button.dataset.panelId)}`);
       if (!panel) return;
-      const shouldOpen = panel.classList.contains('hidden');
+      const card = button.closest('.inspector-entity-card');
+      const entryId = String(card?.dataset.entryId || '');
+      const shouldOpen = expandedEntryId !== entryId || panel.classList.contains('hidden');
       inspector.querySelectorAll('.inspector-entity-card .block-detail-panel').forEach(item => item.classList.add('hidden'));
+      inspector.querySelectorAll('.inspector-entity-card').forEach(item => item.classList.remove('is-expanded'));
       inspector.querySelectorAll('.inspector-entity-toggle').forEach(item => {
         item.classList.remove('is-expanded');
         item.setAttribute('aria-expanded', 'false');
       });
+      expandedEntryId = shouldOpen ? entryId : null;
       if (shouldOpen) {
         panel.classList.remove('hidden');
+        card?.classList.add('is-expanded');
         button.classList.add('is-expanded');
         button.setAttribute('aria-expanded', 'true');
         requestAnimationFrame(() => {
@@ -529,6 +556,7 @@ function renderLogInspector() {
     selectedLogId = null;
     state.currentDetailLogId = null;
     inspectorTab = 'summary';
+    expandedEntryId = null;
     document.body.classList.remove('logs-inspector-open');
     document.querySelectorAll('.log-list-card').forEach(card => {
       card.classList.remove('is-selected');
@@ -682,6 +710,7 @@ export function renderLogs(changedLogId = null) {
     selectedLogId = null;
     state.currentDetailLogId = null;
     inspectorTab = 'summary';
+    expandedEntryId = null;
     document.body.classList.remove('logs-inspector-open');
     renderLogInspector();
     return;
@@ -692,6 +721,7 @@ export function renderLogs(changedLogId = null) {
     selectedLogId = null;
     state.currentDetailLogId = null;
     inspectorTab = 'summary';
+    expandedEntryId = null;
     document.body.classList.remove('logs-inspector-open');
   }
 

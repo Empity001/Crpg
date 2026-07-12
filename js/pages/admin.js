@@ -15,7 +15,7 @@
 import { startPage } from '../app/page-bootstrap.js';
 import { bootShell } from '../app/shell.js';
 import { loadActionLog, openActionLogModal } from '../features/action-log.js';
-import { initAdminPanel } from '../features/admin-panel.js';
+import { initAdminPanel } from '../features/admin-panel.js?v=20260712-1';
 import { isAdmin } from '../core/state.js';
 
 function initToolsModals() {

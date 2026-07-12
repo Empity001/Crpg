@@ -289,3 +289,150 @@
 .forum-reactions-apply-existing { display: flex; gap: .55rem; align-items: center; margin: .75rem 0 1rem; color: var(--text-muted, #aaa2c1); }
 .action-log-actor { display:flex; align-items:center; gap:.45rem; margin-bottom:.25rem; color:#d9ccf6; font-size:.78rem; }
 .action-log-actor img { width:22px; height:22px; border-radius:50%; object-fit:cover; }
+
+/* ======================================================================
+   CONFIGURACIÓN DE FONDO — controles visuales
+   ====================================================================== */
+.bg-mode-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.bg-mode-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 11px;
+  align-items: start;
+  min-height: 112px;
+  padding: 15px;
+  border: 1px solid rgba(151, 119, 226, .24);
+  border-radius: 15px;
+  background:
+    linear-gradient(145deg, rgba(139, 61, 255, .06), transparent 65%),
+    rgba(7, 9, 20, .5);
+  cursor: pointer;
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.bg-mode-option:hover {
+  transform: translateY(-2px);
+  border-color: rgba(181, 141, 255, .48);
+  background:
+    linear-gradient(145deg, rgba(139, 61, 255, .12), transparent 65%),
+    rgba(10, 12, 27, .72);
+}
+
+.bg-mode-option:has(input:checked) {
+  border-color: rgba(180, 108, 255, .72);
+  background:
+    linear-gradient(145deg, rgba(139, 61, 255, .2), rgba(255, 184, 62, .045)),
+    rgba(12, 14, 31, .9);
+  box-shadow: 0 0 0 1px rgba(180, 108, 255, .2) inset, 0 10px 28px rgba(80, 35, 156, .2);
+}
+
+.bg-mode-option input[type="radio"] {
+  appearance: none;
+  width: 19px;
+  height: 19px;
+  margin: 2px 0 0;
+  border: 2px solid rgba(189, 171, 226, .5);
+  border-radius: 50%;
+  background: rgba(4, 6, 15, .72);
+  box-shadow: 0 0 0 3px transparent;
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+
+.bg-mode-option input[type="radio"]:checked {
+  border-color: #cfadff;
+  background: radial-gradient(circle, #cfadff 0 36%, transparent 40%);
+  box-shadow: 0 0 0 3px rgba(139, 61, 255, .16);
+}
+
+.bg-mode-option > div {
+  display: grid;
+  gap: 7px;
+}
+
+.bg-mode-option strong {
+  color: #f2ebff;
+  font-size: .92rem;
+  line-height: 1.25;
+}
+
+.bg-mode-option span {
+  color: var(--ink-400, #aaa2c1);
+  font-size: .78rem;
+  line-height: 1.5;
+}
+
+.bg-tabs-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 8px;
+}
+
+.bg-tab-checkbox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid rgba(151, 119, 226, .22);
+  border-radius: 12px;
+  background: rgba(7, 9, 20, .48);
+  color: #c9c1da;
+  font-size: .82rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, color .16s ease, transform .16s ease;
+}
+
+.bg-tab-checkbox:hover {
+  transform: translateY(-1px);
+  border-color: rgba(180, 108, 255, .5);
+  color: #fff;
+}
+
+.bg-tab-checkbox:has(input:checked) {
+  border-color: rgba(180, 108, 255, .62);
+  background: rgba(139, 61, 255, .14);
+  color: #f4efff;
+}
+
+.bg-tab-checkbox input[type="checkbox"] {
+  appearance: none;
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  border: 1px solid rgba(196, 178, 232, .55);
+  border-radius: 5px;
+  background: rgba(4, 6, 15, .8);
+  display: grid;
+  place-items: center;
+}
+
+.bg-tab-checkbox input[type="checkbox"]::after {
+  content: "✓";
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  transform: scale(0);
+  transition: transform .14s ease;
+}
+
+.bg-tab-checkbox input[type="checkbox"]:checked {
+  border-color: #a766ff;
+  background: linear-gradient(135deg, #7131c9, #a24cff);
+}
+
+.bg-tab-checkbox input[type="checkbox"]:checked::after { transform: scale(1); }
+
+@media (max-width: 900px) {
+  .bg-mode-options { grid-template-columns: 1fr; }
+  .bg-mode-option { min-height: auto; }
+}
