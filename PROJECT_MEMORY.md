@@ -1,4 +1,23 @@
-# Sesión actual — Discord OAuth, autorización segura y publicación de Guías
+# Sesión actual — Auditoría integral web + bot y tema completo (12 Jul 2026)
+
+- Se auditó conjuntamente la web y `culones-bot-main/culones-bot-main`: sintaxis, imports, referencias HTML, CSS, módulos de runtime y contratos compartidos.
+- `discord-admin-api` distingue RPC modernas sin `input_code` de firmas legacy. Esto corrige la carga administrativa de Logs y `set_log_published` tras `migration_022`.
+- Publicar/despublicar Logs y Guías usa el mismo lenguaje, tono visual, confirmación al ocultar y feedback sobre Discord.
+- El editor de tema cubre fondos, superficies, transparencias, sombras, textos, bordes, selección, botones, estados, Multimedia, Kits, Tierlist, Guías y centro de comandos mediante variables RGB derivadas.
+- Los colores definidos por contenido, como categorías, conservan su configuración propia. Los colores técnicos de máscaras y pruebas `@supports` no forman parte de la paleta visible.
+- Se retiraron aliases de autenticación y helpers administrativos sin consumidores.
+- El bot reintenta publicaciones de Logs hasta tres veces y el barrido de integridad recupera también Logs públicos que nunca llegaron a crear un mapeo en Discord.
+- Los embeds de Logs toman la paleta de la web y respetan márgenes seguros. Un Log sintético extremo generó 66 mensajes válidos sin exceder límites de Discord.
+- Se eliminó la implementación legacy sin consumidores (`src/utils/logEmbeds.js` y el antiguo `buildLogEmbed`); el publicador activo es `src/utils/logMessages.js`.
+- QA local: cinco páginas principales cargan sin errores de consola ni overflow; Guías también fue revisada a 390×844. JS, CSS e imports del bot pasan validación.
+
+## Pendiente externo
+
+- Desplegar `discord-admin-api` actualizado.
+- Desplegar/reiniciar el bot actualizado.
+- Confirmar en Discord real una publicación extensa y publicar/despublicar Log/Guía.
+
+# Sesión anterior — Discord OAuth, autorización segura y publicación de Guías
 
 - La web inicia sesión con Discord mediante Supabase Auth, muestra identidad y solo permite activar modo administrador al rol configurado.
 - Toda escritura administrativa se enruta por `discord-admin-api`, que valida sesión, servidor y rol antes de usar service_role.

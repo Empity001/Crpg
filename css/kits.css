@@ -47,7 +47,7 @@
   gap: 12px;
   padding: 14px 14px 12px;
   border-bottom: 1px solid var(--border-soft);
-  background: rgba(124, 58, 237, 0.08);
+  background: rgb(var(--theme-primary-rgb) / 0.08);
 }
 
 .kit-card-title {
@@ -75,7 +75,7 @@
   height: 30px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-soft);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgb(var(--theme-text-primary-rgb) / 0.05);
   color: var(--ink-300);
   cursor: pointer;
   transition: transform 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -95,7 +95,7 @@
 .kit-table {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  border-top: 1px solid rgb(var(--theme-text-primary-rgb) / 0.03);
 }
 
 .kit-column {
@@ -113,7 +113,7 @@
   font-family: var(--font-display);
   font-size: 11px;
   color: var(--ink-100);
-  background: rgba(0, 0, 0, 0.2);
+  background: rgb(var(--theme-page-rgb) / 0.2);
   border-bottom: 1px solid var(--border-soft);
 }
 
@@ -123,7 +123,7 @@
   justify-content: center;
   min-height: 86px;
   padding: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgb(var(--theme-text-primary-rgb) / 0.07);
 }
 
 .kit-slot:last-child {
@@ -194,7 +194,7 @@
 .kit-editor-column {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
-  background: rgba(0, 0, 0, 0.16);
+  background: rgb(var(--theme-page-rgb) / 0.16);
   padding: 10px;
 }
 
@@ -217,7 +217,7 @@
 .kit-row-btn {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
-  background: rgba(124, 58, 237, 0.12);
+  background: rgb(var(--theme-primary-rgb) / 0.12);
   color: var(--ink-200);
   font-size: 12px;
   cursor: pointer;
@@ -274,7 +274,7 @@
 
 .kit-item-link:hover .kit-item {
   border-color: var(--purple);
-  background: rgba(124,58,237,0.12);
+  background: rgb(var(--theme-primary-rgb) / 0.12);
 }
 
 .kit-guide-select {
@@ -318,7 +318,7 @@
 .kit-editor-column {
   min-width: 0;
   padding: 14px;
-  background: rgba(7, 9, 20, 0.35);
+  background: rgb(var(--theme-page-rgb) / 0.35);
 }
 
 .kit-editor-head {
@@ -357,7 +357,7 @@
   padding: 12px;
   border: 1px solid var(--border-soft);
   border-radius: 12px;
-  background: rgba(17, 21, 40, 0.72);
+  background: rgb(var(--theme-panel-rgb) / 0.72);
 }
 
 .kit-editor-item-head {
@@ -379,10 +379,10 @@
 .kit-remove-item-btn {
   min-height: 28px;
   padding: 5px 9px;
-  border: 1px solid rgba(255, 61, 141, .25);
+  border: 1px solid rgb(var(--theme-event-rgb) / .25);
   border-radius: 8px;
-  color: #ff78ad;
-  background: rgba(255, 61, 141, .08);
+  color: var(--theme-event);
+  background: rgb(var(--theme-event-rgb) / .08);
   font-size: 10px;
   cursor: pointer;
 }
@@ -431,7 +431,7 @@
   border: 1px solid var(--border-soft);
   border-radius: 10px;
   color: var(--ink-600);
-  background: #090c1a;
+  background: var(--theme-sidebar-bg);
   font-size: 9px;
   text-align: center;
 }

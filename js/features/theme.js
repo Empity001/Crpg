@@ -191,10 +191,33 @@ function set(root, name, value) {
   root.style.setProperty(name, value);
 }
 
+function rgbChannels(hex) {
+  const color = rgb(hex);
+  return `${color.r} ${color.g} ${color.b}`;
+}
+
 export function applyThemeConfig(config = state.themeConfig) {
   const colors = normalizeThemeConfig(config);
   const root = document.documentElement;
   const variables = {
+    '--theme-page-rgb': rgbChannels(colors.pageBackground),
+    '--theme-sidebar-rgb': rgbChannels(colors.sidebarBackground),
+    '--theme-panel-rgb': rgbChannels(colors.panelBackground),
+    '--theme-elevated-rgb': rgbChannels(colors.elevatedBackground),
+    '--theme-input-rgb': rgbChannels(colors.inputBackground),
+    '--theme-text-primary-rgb': rgbChannels(colors.textPrimary),
+    '--theme-text-secondary-rgb': rgbChannels(colors.textSecondary),
+    '--theme-text-muted-rgb': rgbChannels(colors.textMuted),
+    '--theme-border-rgb': rgbChannels(colors.border),
+    '--theme-selection-rgb': rgbChannels(colors.selection),
+    '--theme-primary-rgb': rgbChannels(colors.primary),
+    '--theme-primary-soft-rgb': rgbChannels(colors.primarySoft),
+    '--theme-accent-rgb': rgbChannels(colors.accent),
+    '--theme-event-rgb': rgbChannels(colors.event),
+    '--theme-info-rgb': rgbChannels(colors.info),
+    '--theme-confirmation-rgb': rgbChannels(colors.confirmation),
+    '--theme-warning-rgb': rgbChannels(colors.warning),
+    '--theme-danger-rgb': rgbChannels(colors.danger),
     '--bg': colors.pageBackground,
     '--bg-deep': mix(colors.pageBackground, '#000000', 0.32),
     '--bg-panel': colors.sidebarBackground,
@@ -320,6 +343,10 @@ export function applyThemeConfig(config = state.themeConfig) {
     '--theme-panel-bg': colors.panelBackground,
     '--theme-elevated-bg': colors.elevatedBackground,
     '--theme-input-bg': colors.inputBackground,
+    '--theme-text-primary': colors.textPrimary,
+    '--theme-text-secondary': colors.textSecondary,
+    '--theme-text-muted': colors.textMuted,
+    '--theme-border': colors.border,
     '--theme-primary': colors.primary,
     '--theme-primary-soft': colors.primarySoft,
     '--theme-primary-text': colors.primaryText,
@@ -339,6 +366,13 @@ export function applyThemeConfig(config = state.themeConfig) {
     '--theme-warning-text': colors.warningText,
     '--theme-danger': colors.danger,
     '--theme-danger-text': colors.dangerText,
+    '--text': colors.textPrimary,
+    '--text-muted': colors.textSecondary,
+    '--accent': colors.primarySoft,
+    '--success': colors.confirmation,
+    '--warning': colors.warning,
+    '--danger': colors.danger,
+    '--info': colors.info,
     '--glow-gold': `0 0 26px ${rgba(colors.accent, 0.18)}`,
     '--glow-magenta': `0 0 26px ${rgba(colors.event, 0.18)}`,
     '--glow-admin': `0 0 30px ${rgba(colors.primary, 0.24)}`,

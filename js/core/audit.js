@@ -17,7 +17,7 @@ export function localAuditTime(date = new Date()) {
   }).format(date);
 }
 
-export function compactAuditText(text, fallback = 'dato no disponible') {
+function compactAuditText(text, fallback = 'dato no disponible') {
   const clean = String(text || '').replace(/\s+/g, ' ').trim();
   if (!clean) return fallback;
   return clean.length > MAX_AUDIT_DESCRIPTION
@@ -25,7 +25,7 @@ export function compactAuditText(text, fallback = 'dato no disponible') {
     : clean;
 }
 
-export function quotedAuditName(name, fallback = 'recurso sin nombre') {
+function quotedAuditName(name, fallback = 'recurso sin nombre') {
   return `"${compactAuditText(name, fallback)}"`;
 }
 

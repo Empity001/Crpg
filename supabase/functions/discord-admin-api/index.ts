@@ -18,7 +18,7 @@ const ADMIN_RPCS = new Set([
   'set_comment_hidden','set_log_published','set_weapon_published','update_app_setting','update_category',
   'update_log','update_media_asset','update_tierlist_row','update_weapon','upsert_draft',
   'upsert_kit','upsert_media_asset','upsert_tierlist_item','upsert_weapon_rank',
-  'upsert_weapon_category','upsert_weapon_type','create_weapon_category','update_weapon_category','create_weapon_type','update_weapon_type','create_category','delete_app_setting',
+  'update_weapon_category','update_weapon_type','create_category',
 ]);
 
 const WRITE_RPCS = new Set([...ADMIN_RPCS].filter(name => ![
@@ -26,6 +26,18 @@ const WRITE_RPCS = new Set([...ADMIN_RPCS].filter(name => ![
   'list_logs_admin','list_log_mobs_admin','list_log_items_admin','list_comments_admin',
   'list_media_assets','list_media_picker_assets',
 ].includes(name)));
+
+// Estas RPC nacieron después de retirar el código compartido y no conservan
+// `input_code` en su firma. Las demás siguen usando la firma legacy mientras
+// migran gradualmente; service_role supera validate_admin_code sin exponer
+// ninguna credencial al navegador.
+const CODELESS_RPCS = new Set([
+  'list_logs_admin',
+  'list_log_mobs_admin',
+  'list_log_items_admin',
+  'list_comments_admin',
+  'set_log_published',
+]);
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -205,7 +217,9 @@ async function handleRpc(ctx: any, body: any) {
   requireAdmin(ctx);
   const name = safeText(body.rpc_name, 100);
   if (!ADMIN_RPCS.has(name)) throw Object.assign(new Error('La operación solicitada no está permitida.'), { code: 'RPC_NOT_ALLOWED', status: 403 });
-  const params = { ...(body.params || {}), input_code: null };
+  const params = { ...(body.params || {}) };
+  delete params.input_code;
+  if (!CODELESS_RPCS.has(name)) params.input_code = null;
 
   if (name === 'delete_weapon' && params.input_id) {
     const existing = await ctx.service.from('guide_forum_publications').select('thread_id,status').eq('guide_id', params.input_id).maybeSingle();

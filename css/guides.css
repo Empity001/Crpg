@@ -83,7 +83,7 @@
   letter-spacing: 0.5px;
   color: var(--magenta);
   border: 1px solid var(--magenta);
-  background: rgba(255,61,142,0.1);
+  background: rgb(var(--theme-event-rgb) / 0.1);
   padding: 1px 5px;
   border-radius: 4px;
   text-transform: uppercase;
@@ -128,7 +128,7 @@
   border-radius: 999px;
   border: 1px solid var(--border-soft);
 }
-.weapon-type-badge { color: var(--ink-300); background: rgba(255,255,255,0.05); }
+.weapon-type-badge { color: var(--ink-300); background: rgb(var(--theme-text-primary-rgb) / 0.05); }
 
 .weapon-detail-admin-actions {
   display: flex;
@@ -150,7 +150,7 @@
 }
 .weapon-rank-pill-wrap { display: flex; align-items: center; gap: 2px; }
 .weapon-rank-admin-mini {
-  background: rgba(255,255,255,0.05);
+  background: rgb(var(--theme-text-primary-rgb) / 0.05);
   border: 1px solid var(--border-soft);
   color: var(--ink-600);
   font-size: 9px;
@@ -198,7 +198,7 @@
 /* ---------- Habilidades ---------- */
 .weapon-abilities-list { display: flex; flex-direction: column; gap: 14px; }
 .weapon-ability-card {
-  background: rgba(255,255,255,0.03);
+  background: rgb(var(--theme-text-primary-rgb) / 0.03);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
   padding: 14px 16px;
@@ -230,7 +230,7 @@
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  background: rgba(0,0,0,0.2);
+  background: rgb(var(--theme-page-rgb) / 0.2);
   border-radius: 4px;
   padding: 6px 10px;
   font-size: 12px;
@@ -261,7 +261,7 @@
 .weapon-recipe-method {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
-  background: rgba(255,255,255,0.025);
+  background: rgb(var(--theme-text-primary-rgb) / 0.025);
   padding: 14px;
 }
 .weapon-recipe-method-title {
@@ -279,9 +279,9 @@
   grid-template-rows: repeat(3, 48px);
   gap: 4px;
   padding: 12px;
-  border: 2px solid rgba(255,255,255,0.12);
-  background: #b9b9b9;
-  box-shadow: inset 2px 2px 0 rgba(255,255,255,0.35), inset -2px -2px 0 rgba(0,0,0,0.25);
+  border: 2px solid rgb(var(--theme-text-primary-rgb) / 0.12);
+  background: var(--theme-text-secondary);
+  box-shadow: inset 2px 2px 0 rgb(var(--theme-text-primary-rgb) / 0.35), inset -2px -2px 0 rgb(var(--theme-page-rgb) / 0.25);
 }
 .weapon-furnace-machine {
   display: grid;
@@ -289,23 +289,23 @@
   justify-items: center;
   gap: 7px;
   padding: 12px 14px;
-  border: 2px solid rgba(255,255,255,0.12);
-  background: #b9b9b9;
-  box-shadow: inset 2px 2px 0 rgba(255,255,255,0.35), inset -2px -2px 0 rgba(0,0,0,0.25);
+  border: 2px solid rgb(var(--theme-text-primary-rgb) / 0.12);
+  background: var(--theme-text-secondary);
+  box-shadow: inset 2px 2px 0 rgb(var(--theme-text-primary-rgb) / 0.35), inset -2px -2px 0 rgb(var(--theme-page-rgb) / 0.25);
 }
 .weapon-smithing-machine {
   display: grid;
   grid-template-columns: repeat(3, 48px);
   gap: 4px;
   padding: 12px;
-  border: 2px solid rgba(255,255,255,0.12);
-  background: #b9b9b9;
-  box-shadow: inset 2px 2px 0 rgba(255,255,255,0.35), inset -2px -2px 0 rgba(0,0,0,0.25);
+  border: 2px solid rgb(var(--theme-text-primary-rgb) / 0.12);
+  background: var(--theme-text-secondary);
+  box-shadow: inset 2px 2px 0 rgb(var(--theme-text-primary-rgb) / 0.35), inset -2px -2px 0 rgb(var(--theme-page-rgb) / 0.25);
 }
 .weapon-furnace-label {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: #2a2a2a;
+  color: var(--theme-elevated-bg);
   text-align: center;
 }
 .weapon-furnace-flame {
@@ -317,9 +317,9 @@
   position: relative;
   width: 48px;
   height: 48px;
-  border: 2px solid #5c5c5c;
-  background: #8f8f8f;
-  box-shadow: inset 2px 2px 0 rgba(255,255,255,0.22), inset -2px -2px 0 rgba(0,0,0,0.35);
+  border: 2px solid var(--theme-text-muted);
+  background: var(--theme-text-muted);
+  box-shadow: inset 2px 2px 0 rgb(var(--theme-text-primary-rgb) / 0.22), inset -2px -2px 0 rgb(var(--theme-page-rgb) / 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -329,7 +329,7 @@
 .weapon-recipe-slot.is-result {
   width: 60px;
   height: 60px;
-  border-color: #4a4a4a;
+  border-color: var(--theme-input-bg);
 }
 .weapon-recipe-slot-link {
   display: inline-flex;
@@ -342,7 +342,7 @@
 .weapon-recipe-slot-link:hover .weapon-recipe-slot,
 .weapon-recipe-slot-link:focus-visible .weapon-recipe-slot {
   border-color: var(--purple);
-  box-shadow: inset 2px 2px 0 rgba(255,255,255,0.22), inset -2px -2px 0 rgba(0,0,0,0.35), 0 0 0 1px rgba(124,58,237,0.35);
+  box-shadow: inset 2px 2px 0 rgb(var(--theme-text-primary-rgb) / 0.22), inset -2px -2px 0 rgb(var(--theme-page-rgb) / 0.35), 0 0 0 1px rgb(var(--theme-primary-rgb) / 0.35);
   transform: translateY(-1px);
 }
 .weapon-recipe-slot img {
@@ -360,17 +360,17 @@
   min-width: max-content;
   max-width: 220px;
   padding: 7px 9px;
-  border: 2px solid #7C3AED;
+  border: 2px solid var(--theme-primary);
   border-radius: 3px;
-  background: rgba(16, 4, 28, 0.96);
-  color: #f7f2ff;
+  background: rgb(var(--theme-sidebar-rgb) / 0.96);
+  color: var(--theme-text-primary);
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.25;
   opacity: 0;
   pointer-events: none;
   z-index: 30;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.45);
+  box-shadow: 0 0 0 1px rgb(var(--theme-text-primary-rgb) / 0.08), 0 8px 24px rgb(var(--theme-page-rgb) / 0.45);
   transition: opacity 0.12s ease, transform 0.12s ease;
 }
 .weapon-recipe-slot:hover::after,
@@ -394,7 +394,7 @@
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--ink-100);
-  background: rgba(0,0,0,0.65);
+  background: rgb(var(--theme-page-rgb) / 0.65);
   border-radius: 3px;
   padding: 0 3px;
 }
@@ -439,14 +439,14 @@
   align-content: flex-start;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
-  background: rgba(255,255,255,0.03);
+  background: rgb(var(--theme-text-primary-rgb) / 0.03);
   padding: 8px;
 }
 #weapon-recipe-materials-list[data-recipe-mode="smithing"] .weapon-material-row {
   align-content: flex-start;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
-  background: rgba(255,255,255,0.03);
+  background: rgb(var(--theme-text-primary-rgb) / 0.03);
   padding: 8px;
 }
 #weapon-recipe-materials-list[data-recipe-mode="crafting"] .weapon-material-slot-label,
@@ -493,8 +493,8 @@
 
 /* ─── Mensaje de error cuando faltan tablas (armas) ─── */
 .logs-empty code {
-  background: rgba(77,212,232,0.1);
-  border: 1px solid rgba(77,212,232,0.3);
+  background: rgb(var(--theme-info-rgb) / 0.1);
+  border: 1px solid rgb(var(--theme-info-rgb) / 0.3);
   color: var(--cyan);
   font-family: var(--font-mono);
   font-size: 12px;
@@ -538,7 +538,7 @@
   padding: 7px 10px;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
-  background: rgba(255,255,255,0.035);
+  background: rgb(var(--theme-text-primary-rgb) / 0.035);
   color: var(--ink-200);
   text-decoration: none;
 }
@@ -569,7 +569,7 @@
   padding: 10px;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
-  background: rgba(255,255,255,0.025);
+  background: rgb(var(--theme-text-primary-rgb) / 0.025);
 }
 .weapon-info-visual-media-row {
   display: grid;
@@ -586,29 +586,29 @@
   align-items: center;
   margin: 0 0 1rem;
   padding: 1rem;
-  border: 1px solid rgba(164, 126, 255, .26);
+  border: 1px solid rgb(var(--theme-primary-soft-rgb) / .26);
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(51, 31, 88, .62), rgba(14, 10, 30, .76));
+  background: linear-gradient(135deg, rgb(var(--theme-input-rgb) / .62), rgb(var(--theme-sidebar-rgb) / .76));
 }
-.guide-forum-panel.is-loading { display: block; color: var(--text-muted, #aaa2c1); }
+.guide-forum-panel.is-loading { display: block; color: var(--text-muted, var(--theme-text-secondary)); }
 .guide-forum-panel-copy { display: grid; gap: .2rem; min-width: 0; }
-.guide-forum-panel-copy > span { color: #a98cff; font-size: .7rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
-.guide-forum-panel-copy > strong { color: #f6f1ff; font-size: 1rem; }
-.guide-forum-panel-copy p { margin: 0; color: #aaa2c1; font-size: .82rem; line-height: 1.45; }
+.guide-forum-panel-copy > span { color: var(--theme-primary-soft); font-size: .7rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.guide-forum-panel-copy > strong { color: var(--theme-text-primary); font-size: 1rem; }
+.guide-forum-panel-copy p { margin: 0; color: var(--theme-text-secondary); font-size: .82rem; line-height: 1.45; }
 .guide-forum-panel-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .55rem; }
-.guide-forum-panel .is-attention { box-shadow: 0 0 0 1px rgba(190, 150, 255, .45), 0 0 22px rgba(130, 81, 255, .28); }
+.guide-forum-panel .is-attention { box-shadow: 0 0 0 1px rgb(var(--theme-primary-soft-rgb) / .45), 0 0 22px rgb(var(--theme-primary-rgb) / .28); }
 .guide-forum-error {
   grid-column: 1 / -1;
   display: grid;
   gap: .25rem;
   padding: .8rem;
-  border: 1px solid rgba(255, 98, 119, .36);
+  border: 1px solid rgb(var(--theme-event-rgb) / .36);
   border-radius: 12px;
-  background: rgba(93, 20, 38, .28);
-  color: #ffd8de;
+  background: rgb(var(--theme-input-rgb) / .28);
+  color: var(--theme-text-primary);
 }
 .guide-forum-error span { font-size: .84rem; line-height: 1.45; }
-.guide-forum-error small { color: #d9a5af; }
+.guide-forum-error small { color: var(--theme-text-secondary); }
 @media (max-width: 720px) {
   .guide-forum-panel { grid-template-columns: 1fr; }
   .guide-forum-panel-actions { justify-content: stretch; }
@@ -617,7 +617,7 @@
 
 
 .guide-forum-error.is-warning {
-  border-color: color-mix(in srgb, var(--warning, #d6b56f) 55%, transparent);
-  background: color-mix(in srgb, var(--warning, #d6b56f) 10%, var(--surface, #120d20));
+  border-color: color-mix(in srgb, var(--warning, var(--theme-warning)) 55%, transparent);
+  background: color-mix(in srgb, var(--warning, var(--theme-warning)) 10%, var(--surface, var(--theme-sidebar-bg)));
 }
 .guide-forum-error .btn-compact { align-self: flex-start; margin-top: .25rem; }

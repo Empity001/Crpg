@@ -106,9 +106,37 @@ async function submitWeapon() {
 export async function toggleWeaponPublished(weaponId) {
   const w = state.weapons.find(x => x.id === weaponId);
   if (!w) return;
-  const { error } = await supabaseClient.rpc('set_weapon_published', { input_code: state.adminMode, input_id: weaponId, input_published: !w.published });
-  if (error) { showToast('No se pudo actualizar: ' + error.message, 'error'); return; }
-  showToast(!w.published ? 'Arma publicada' : 'Arma despublicada', 'success');
+  if (!state.adminMode) {
+    showToast('Tu sesión de administrador expiró.', 'error');
+    return;
+  }
+
+  const currentlyPublished = w.published !== false;
+  if (currentlyPublished) {
+    const confirmed = await confirmAction({
+      title: 'Despublicar guía',
+      message: `Ocultar “${w.name}” para los visitantes. Si está publicada en Discord, el bot también retirará su hilo del foro.`,
+      confirmLabel: 'Despublicar guía',
+      danger: true,
+    });
+    if (!confirmed) return;
+  }
+
+  const { error } = await supabaseClient.rpc('set_weapon_published', {
+    input_code: state.adminMode,
+    input_id: weaponId,
+    input_published: !currentlyPublished,
+  });
+  if (error) {
+    showToast(`No se pudo ${currentlyPublished ? 'despublicar' : 'publicar'} la guía: ${error.message}`, 'error');
+    return;
+  }
+  showToast(
+    currentlyPublished
+      ? 'Guía ocultada. El bot retirará su publicación de Discord.'
+      : 'Guía publicada en la web. Puedes enviarla al foro desde su detalle.',
+    'success',
+  );
   suppressNextWeaponsReload();
   await reloadWeaponData();
 }

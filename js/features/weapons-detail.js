@@ -398,7 +398,7 @@ function openWeaponActions(anchor, weapon) {
           close();
           await openWeaponAsNew(payload);
         } },
-        { label: weapon.published ? 'Despublicar' : 'Publicar', icon: weapon.published ? '🙈' : '👁', onClick: async () => {
+        { label: weapon.published ? 'Despublicar' : 'Publicar', icon: weapon.published ? '🙈' : '👁', tone: weapon.published ? 'warning' : 'success', onClick: async () => {
           close();
           const adminActions = await loadWeaponAdminActions();
           adminActions.toggleWeaponPublished(weapon.id);

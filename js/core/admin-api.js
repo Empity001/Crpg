@@ -27,7 +27,7 @@ async function normalizedError(error, fallback = 'No se pudo completar la operac
   };
 }
 
-export async function invokeAdminApi(action, payload = {}) {
+async function invokeAdminApi(action, payload = {}) {
   try {
     const { data, error } = await supabaseClient.functions.invoke(DISCORD_ADMIN_FUNCTION, {
       body: { ...payload, action },
@@ -42,12 +42,6 @@ export async function invokeAdminApi(action, payload = {}) {
 
 export function getDiscordAdminStatus() {
   return invokeAdminApi('status');
-}
-
-export function adminRpc(rpcName, params = {}) {
-  const clean = { ...params };
-  delete clean.input_code;
-  return invokeAdminApi('rpc', { rpc_name: rpcName, params: clean });
 }
 
 export function enqueueGuideForumJob(guideId, jobAction, payload = {}) {
@@ -86,8 +80,4 @@ export function deleteStorageObjects(bucket, paths) {
     bucket,
     paths: Array.isArray(paths) ? paths : [paths],
   });
-}
-
-export function recordDetailedAdminAction(payload) {
-  return invokeAdminApi('record_action', { audit: payload });
 }

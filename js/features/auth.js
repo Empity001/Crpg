@@ -224,12 +224,7 @@ export function closeAdminLoginModal() {
   document.getElementById('discord-auth-error')?.classList.add('hidden');
 }
 
-// Alias de compatibilidad temporal para módulos que importaban los nombres
-// antiguos. Ya no aceptan ni validan códigos.
 export function prepareAdminLoginModal() { updateAccountModal(); }
-export function skipAdminLoginIntro() { return false; }
-export function submitAdminCode() { return signInWithDiscord(); }
-export function logoutAdmin() { return toggleAdminMode(); }
 
 export async function initializeDiscordAuth() {
   if (initialized) return;

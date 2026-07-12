@@ -149,6 +149,7 @@ Aplicar en orden desde Supabase SQL Editor:
 19. `sql/migration_019_replace_media_asset.sql`
 20. `sql/migration_020_update_log_category.sql`
 21. `sql/migration_021_discord_auth_and_forum.sql`
+22. `sql/migration_022_log_visibility.sql`
 
 Las migraciones nuevas reemplazan algunas RPC conservando sus firmas públicas. No deben ejecutarse fuera de orden.
 
@@ -179,7 +180,9 @@ El bot vive en un repositorio independiente y utiliza la misma aplicación de Di
 
 ## Estado de mantenimiento
 
-La auditoría del 11 de julio de 2026 confirmó sintaxis válida, imports resueltos, IDs HTML únicos, CSS balanceado y cero ciclos estáticos. La página antigua `weapons.html` fue eliminada: Guías usa `guides.html`, `js/pages/guides.js` y `css/guides.css`. Multimedia separa helpers, usos y orquestación; Mesas de trabajo vive en `weapons-recipes-admin.js` y el resto del CRUD en `weapons-admin.js`.
+La auditoría conjunta del 12 de julio de 2026 confirmó sintaxis válida, imports resueltos, IDs HTML únicos, CSS balanceado y carga local sin errores de las cinco páginas principales. La paleta global alcanza todas las familias de color visibles mediante tokens y canales RGB derivados; categorías y otros colores de contenido siguen siendo configurables por separado. `discord-admin-api` mantiene compatibilidad explícita entre RPC legacy y las RPC sin `input_code` de `migration_022`.
+
+La página antigua `weapons.html` fue eliminada: Guías usa `guides.html`, `js/pages/guides.js` y `css/guides.css`. Multimedia separa helpers, usos y orquestación; Mesas de trabajo vive en `weapons-recipes-admin.js` y el resto del CRUD en `weapons-admin.js`.
 
 
 > Los comandos que configuran el canal de Logs o el foro de Guías requieren que el bot tenga **Gestionar roles** y **Gestionar canales**, además de los permisos de mensajes, hilos, embeds y archivos. Discord exige Gestionar roles para editar los overwrites del canal.
