@@ -27,7 +27,6 @@ import { loadAppSettings } from '../features/field-config.js';
 import { isAdmin, state } from '../core/state.js';
 import { openAssetFullscreen } from '../core/storage.js';
 import { registerModalLifecycleCleanup, setupModalLifecycleObserver, withTimeout } from '../core/utils.js';
-import { initCommandCenter } from '../features/command-center.js';
 
 let modalVisualCleanupsRegistered = false;
 let shellBootPromise = null;
@@ -35,6 +34,7 @@ let shellListenersController = null;
 let globalSearchModulePromise = null;
 let visitorPreferencesModulePromise = null;
 let notificationsModulePromise = null;
+let commandCenterModulePromise = null;
 
 const PAGE_HERO_COPY = {
   logs: {
@@ -228,6 +228,30 @@ function wireAssetFullscreenDelegation() {
 // (header/footer inyectados, admin UI actualizada, app_settings
 // cargados). Cada página debe `await`earla antes de cablear lo suyo.
 
+
+function loadCommandCenterModule(pageKey) {
+  if (!commandCenterModulePromise) {
+    commandCenterModulePromise = import('../features/command-center.js')
+      .then(module => {
+        module.initCommandCenter(pageKey);
+        return module;
+      })
+      .catch(error => {
+        commandCenterModulePromise = null;
+        console.warn('[CommandCenter] No se pudo iniciar:', error);
+      });
+  }
+  return commandCenterModulePromise;
+}
+
+function scheduleCommandCenter(pageKey) {
+  // La paleta de comandos es útil, pero no forma parte del primer render.
+  // Se descarga cuando el navegador queda libre para no competir con los
+  // datos de la sección que el visitante acaba de abrir.
+  const schedule = window.requestIdleCallback || (callback => window.setTimeout(callback, 1800));
+  schedule(() => { void loadCommandCenterModule(pageKey); }, { timeout: 4200 });
+}
+
 function initVisitorTools() {
   if (!visitorPreferencesModulePromise) {
     visitorPreferencesModulePromise = import('../features/user-preferences.js')
@@ -316,15 +340,15 @@ export function bootShell(pageKey) {
     wireAdminModal();
     wireAssetFullscreenDelegation();
     wireLazyGlobalSearch();
-    initCommandCenter(pageKey);
+    scheduleCommandCenter(pageKey);
     initVisitorTools();
-    await initializeDiscordAuth();
+    await initializeDiscordAuth({ awaitValidation: pageKey === 'admin' });
     updateAdminUI();
 
     // Los valores locales/predeterminados se aplican de forma síncrona al
     // iniciar loadAppSettings(). La consulta remota continúa en segundo plano:
     // nunca debe bloquear el header, la navegación ni la carga de la página.
-    void loadAppSettings().catch(error => {
+    void loadAppSettings(pageKey).catch(error => {
       console.warn('[Boot] Se usará la configuración visual local:', error);
     });
 

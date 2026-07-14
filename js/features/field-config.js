@@ -7,7 +7,6 @@
 // =========================================================
 
 import { disableQueryRetry, supabaseClient } from '../config.js';
-import { renderAboutContent } from './about.js';
 import { applyCustomBackground, normalizeBackgroundOpacity, normalizeBackgroundPresentation, populateBackgroundForm } from './background.js';
 import { applyFavicon, applySiteLogo, populateFaviconForm } from './favicon.js';
 import { applyHeroBanner, normalizeHeroBannerConfig, populateHeroBannerForm } from './hero-banners.js';
@@ -17,6 +16,20 @@ import { escapeHtml, showToast, withTimeout } from '../core/utils.js';
 
 let onFieldConfigSaved = () => {};
 let appSettingsLoadPromise = null;
+
+const VISUAL_SETTING_KEYS = [
+  'background_config', 'favicon_url', 'hero_banner_config', 'site_logo_url', 'theme_config',
+];
+
+function appSettingKeysForPage(pageKey = '') {
+  const keys = new Set(VISUAL_SETTING_KEYS);
+  if (pageKey === 'logs' || pageKey === 'admin') {
+    keys.add('mob_fields');
+    keys.add('item_fields');
+  }
+  if (pageKey === 'about' || pageKey === 'admin') keys.add('about_blocks');
+  return [...keys];
+}
 
 export function setFieldConfigSavedHandler(handler) {
   onFieldConfigSaved = typeof handler === 'function' ? handler : () => {};
@@ -39,11 +52,11 @@ function applyDefaultAppSettings() {
   populateThemeForm(state.themeConfig);
 }
 
-async function fetchAppSettings() {
+async function fetchAppSettings(keys) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 7500);
   try {
-    let request = disableQueryRetry(supabaseClient.from('app_settings').select('key,value'));
+    let request = disableQueryRetry(supabaseClient.from('app_settings').select('key,value').in('key', keys));
     if (typeof request?.abortSignal === 'function') request = request.abortSignal(controller.signal);
     return await withTimeout(request, 8000, 'La configuración del sitio');
   } finally {
@@ -51,13 +64,13 @@ async function fetchAppSettings() {
   }
 }
 
-async function performLoadAppSettings() {
+async function performLoadAppSettings(pageKey = '') {
   applyDefaultAppSettings();
 
   let data = null;
   let error = null;
   try {
-    ({ data, error } = await fetchAppSettings());
+    ({ data, error } = await fetchAppSettings(appSettingKeysForPage(pageKey)));
   } catch (loadError) {
     error = loadError;
   }
@@ -98,7 +111,10 @@ async function performLoadAppSettings() {
   if (faviRow && typeof faviRow.value === 'string') state.faviconUrl = faviRow.value;
   else if (faviRow && faviRow.value && typeof faviRow.value === 'object') state.faviconUrl = faviRow.value.url || '';
 
-  renderAboutContent();
+  if (aboutRow) {
+    const { renderAboutContent } = await import('./about.js');
+    renderAboutContent();
+  }
   populateBackgroundForm();
   applyCustomBackground();
   applyThemeConfig(state.themeConfig);
@@ -111,9 +127,9 @@ async function performLoadAppSettings() {
   return true;
 }
 
-export function loadAppSettings() {
+export function loadAppSettings(pageKey = '') {
   if (!appSettingsLoadPromise) {
-    appSettingsLoadPromise = performLoadAppSettings().finally(() => {
+    appSettingsLoadPromise = performLoadAppSettings(pageKey).finally(() => {
       // El resultado queda aplicado en state; una llamada futura puede volver
       // a consultar, pero varias llamadas simultáneas comparten la misma red.
       window.setTimeout(() => { appSettingsLoadPromise = null; }, 1000);

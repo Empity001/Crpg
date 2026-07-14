@@ -6,7 +6,7 @@ async function fetchTextWithTimeout(url, timeoutMs = 4500) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { cache: 'no-cache', signal: controller.signal });
+    const response = await fetch(url, { cache: 'force-cache', signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.text();
   } finally {
@@ -32,8 +32,8 @@ let sharedShellPromise = null;
 export function loadSharedShell() {
   if (!sharedShellPromise) {
     sharedShellPromise = Promise.all([
-      loadPartial('partials/header.html?v=20260711-19', 'shell-header'),
-      loadPartial('partials/footer.html?v=20260711-19', 'shell-footer'),
+      loadPartial('partials/header.html?v=20260714-1', 'shell-header'),
+      loadPartial('partials/footer.html?v=20260714-1', 'shell-footer'),
     ]).then(([headerLoaded, footerLoaded]) => ({ headerLoaded, footerLoaded }));
   }
   return sharedShellPromise;

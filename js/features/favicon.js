@@ -2,7 +2,7 @@ import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { initGenericImageDropzone, syncGenericDropzoneState } from '../core/storage.js';
 import { safeUrl, showToast } from '../core/utils.js';
-import { attachMediaPickerButton } from './media-library.js';
+import { attachMediaPickerButton } from './media-library-lazy.js';
 function preview(box,url,fallback,alt=''){if(!box)return;const safe=safeUrl(url);box.replaceChildren();if(!safe){box.textContent=fallback;return;}const img=document.createElement('img');img.src=safe;img.alt=alt;img.loading='lazy';img.addEventListener('error',()=>box.textContent=fallback,{once:true});box.appendChild(img);}
 export function applyFavicon(url){const safe=safeUrl(url);let link=document.querySelector("link[rel~='icon'][data-custom-favicon]");if(!safe){link?.remove();return;}if(!link){link=document.createElement('link');link.rel='icon';link.dataset.customFavicon='true';document.head.appendChild(link);}link.href=safe;}
 export function applySiteLogo(url){const safe=safeUrl(url),imgs=[...document.querySelectorAll('.js-site-logo-image')],falls=[...document.querySelectorAll('.js-site-logo-fallback')];const fallback=()=>{imgs.forEach(i=>i.classList.add('hidden'));falls.forEach(f=>f.classList.remove('hidden'));};imgs.forEach(img=>{img.onerror=fallback;if(safe){img.src=safe;img.classList.remove('hidden');}else{img.removeAttribute('src');img.classList.add('hidden');}});falls.forEach(f=>f.classList.toggle('hidden',!!safe));}

@@ -10,7 +10,7 @@ import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { uploadImageToStorage } from '../core/storage.js';
 import { cloneData, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, showToast } from '../core/utils.js';
-import { openMediaPicker } from './media-library.js';
+import { openMediaPicker } from './media-library-lazy.js';
 import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 
 const ABOUT_BLOCK_KINDS = {

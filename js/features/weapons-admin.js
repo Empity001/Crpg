@@ -9,8 +9,8 @@ import { supabaseClient } from '../config.js';
 import { renderExtraFieldsEditor } from './blocks-editor.js';
 import { state, suppressNextWeaponsReload } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
-import { asArray, cloneData, confirmAction, copyEditorPayload, debounce, escapeHtml, getEditorPayload, hasEditorPayload, showToast } from '../core/utils.js';
-import { attachMediaPickerButton, openMediaPicker } from './media-library.js';
+import { asArray, cloneData, confirmAction, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, showToast } from '../core/utils.js';
+import { attachMediaPickerButton, openMediaPicker } from './media-library-lazy.js';
 import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 import { hydrateGuideLinkSelect, normalizeGuideLink, parseGuideLinkValue } from './guide-links.js';
 import { renderWeaponsGrid } from './weapons-catalog.js';
@@ -589,12 +589,6 @@ export async function deleteSection(rankId, idx) {
 // ---------------------------------------------------------
 
 export function initWeaponModals() {
-  document.getElementById('weapon-search-input').addEventListener('input', debounce((e) => {
-    state.weaponSearchTerm = e.target.value.trim();
-    renderWeaponsGrid();
-  }, 250));
-  document.getElementById('weapon-back-btn').addEventListener('click', closeWeaponDetail);
-
   document.getElementById('open-new-weapon-btn').addEventListener('click', () => openWeaponModal(null));
   document.getElementById('close-weapon-modal').addEventListener('click', () => document.getElementById('weapon-modal').classList.add('hidden'));
   document.getElementById('submit-weapon-btn').addEventListener('click', submitWeapon);

@@ -1,10 +1,10 @@
 // =========================================================
 // logs-data.js
 // =========================================================
-// Carga pura de datos de Logs desde Supabase, sin tocar el DOM. Sirve
-// para la página de Logs y para Herramientas (export/import).
-// Los visitantes reciben únicamente Logs publicados mediante RLS. Los
-// administradores cargan también los ocultos a través de la Edge Function.
+// Carga de datos de Logs desde Supabase. Para visitantes, el arranque solo
+// descarga los Logs y metadatos mínimos de conteo; las fichas completas de
+// mobs/items se solicitan cuando se selecciona un Log. En modo administrador
+// se conserva la carga completa porque el editor y las exportaciones la usan.
 // =========================================================
 
 import { disableQueryRetry, supabaseClient } from '../config.js';
@@ -12,7 +12,9 @@ import { isAdmin, state } from '../core/state.js';
 import { showToast, withTimeout } from '../core/utils.js';
 
 let logsLoadPromise = null;
+let activeLogsLoadAdminMode = null;
 let logsLoadGeneration = 0;
+const logBlocksLoadPromises = new Map();
 
 function attachSignal(request, signal) {
   const stableRequest = disableQueryRetry(request);
@@ -23,8 +25,8 @@ function normalizePublished(rows) {
   return (rows || []).map(row => ({ ...row, published: row.published !== false }));
 }
 
-async function fetchLogsWithOptionalCover(signal) {
-  if (isAdmin()) {
+async function fetchLogsWithOptionalCover(signal, adminLoad = isAdmin()) {
+  if (adminLoad) {
     const adminResult = await attachSignal(
       supabaseClient.rpc('list_logs_admin', { input_code: state.adminMode }),
       signal,
@@ -56,8 +58,8 @@ async function fetchLogsWithOptionalCover(signal) {
   return result;
 }
 
-function mobsRequest(signal) {
-  if (isAdmin()) {
+function fullMobsRequest(signal, adminLoad) {
+  if (adminLoad) {
     return attachSignal(
       supabaseClient.rpc('list_log_mobs_admin', { input_code: state.adminMode }),
       signal,
@@ -71,8 +73,8 @@ function mobsRequest(signal) {
   );
 }
 
-function itemsRequest(signal) {
-  if (isAdmin()) {
+function fullItemsRequest(signal, adminLoad) {
+  if (adminLoad) {
     return attachSignal(
       supabaseClient.rpc('list_log_items_admin', { input_code: state.adminMode }),
       signal,
@@ -86,17 +88,72 @@ function itemsRequest(signal) {
   );
 }
 
-async function performLogsLoad() {
+function summaryMobsRequest(signal) {
+  return attachSignal(supabaseClient.from('log_mobs').select('log_id'), signal);
+}
+
+function summaryItemsRequest(signal) {
+  return attachSignal(supabaseClient.from('log_items').select('log_id,item_type'), signal);
+}
+
+function resetBlockState() {
+  state.mobsByLog = {};
+  state.itemsByLog = {};
+  state.logBlockCounts = {};
+  state.logBlocksLoaded = new Set();
+  logBlocksLoadPromises.clear();
+}
+
+function ensureCount(logId) {
+  const key = String(logId || '');
+  if (!state.logBlockCounts[key]) state.logBlockCounts[key] = { mobs: 0, items: 0, libres: 0 };
+  return state.logBlockCounts[key];
+}
+
+function applyFullBlockRows(mobs = [], items = [], { markAllLogsLoaded = false } = {}) {
+  (mobs || []).forEach(mob => {
+    const logId = String(mob.log_id);
+    if (!state.mobsByLog[logId]) state.mobsByLog[logId] = [];
+    state.mobsByLog[logId].push(mob);
+    ensureCount(logId).mobs += 1;
+  });
+  (items || []).forEach(item => {
+    const logId = String(item.log_id);
+    if (!state.itemsByLog[logId]) state.itemsByLog[logId] = [];
+    state.itemsByLog[logId].push(item);
+    if (item.item_type === '_libre') ensureCount(logId).libres += 1;
+    else ensureCount(logId).items += 1;
+  });
+  if (markAllLogsLoaded) {
+    state.logs.forEach(log => state.logBlocksLoaded.add(String(log.id)));
+  }
+}
+
+function applyBlockSummaries(mobs = [], items = []) {
+  (mobs || []).forEach(mob => { ensureCount(mob.log_id).mobs += 1; });
+  (items || []).forEach(item => {
+    if (item.item_type === '_libre') ensureCount(item.log_id).libres += 1;
+    else ensureCount(item.log_id).items += 1;
+  });
+}
+
+async function performLogsLoad(adminLoad) {
   const generation = ++logsLoadGeneration;
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 9500);
 
   try {
-    const request = Promise.all([
-      fetchLogsWithOptionalCover(controller.signal),
-      mobsRequest(controller.signal),
-      itemsRequest(controller.signal),
-    ]);
+    const request = adminLoad
+      ? Promise.all([
+          fetchLogsWithOptionalCover(controller.signal, true),
+          fullMobsRequest(controller.signal, true),
+          fullItemsRequest(controller.signal, true),
+        ])
+      : Promise.all([
+          fetchLogsWithOptionalCover(controller.signal, false),
+          summaryMobsRequest(controller.signal),
+          summaryItemsRequest(controller.signal),
+        ]);
 
     const [logsRes, mobsRes, itemsRes] = await withTimeout(request, 10000, 'La carga de logs');
     if (generation !== logsLoadGeneration) return false;
@@ -108,20 +165,19 @@ async function performLogsLoad() {
     }
 
     state.logs = normalizePublished(logsRes.data);
-    state.mobsByLog = {};
-    state.itemsByLog = {};
+    resetBlockState();
 
-    if (!mobsRes.error) {
-      (mobsRes.data || []).forEach(mob => {
-        if (!state.mobsByLog[mob.log_id]) state.mobsByLog[mob.log_id] = [];
-        state.mobsByLog[mob.log_id].push(mob);
-      });
-    }
-    if (!itemsRes.error) {
-      (itemsRes.data || []).forEach(item => {
-        if (!state.itemsByLog[item.log_id]) state.itemsByLog[item.log_id] = [];
-        state.itemsByLog[item.log_id].push(item);
-      });
+    if (adminLoad) {
+      applyFullBlockRows(
+        mobsRes.error ? [] : (mobsRes.data || []),
+        itemsRes.error ? [] : (itemsRes.data || []),
+        { markAllLogsLoaded: true },
+      );
+    } else {
+      applyBlockSummaries(
+        mobsRes.error ? [] : (mobsRes.data || []),
+        itemsRes.error ? [] : (itemsRes.data || []),
+      );
     }
 
     return true;
@@ -135,10 +191,91 @@ async function performLogsLoad() {
 }
 
 export function loadLogsData() {
-  // Realtime puede disparar varios eventos de una sola operación. Todos
-  // comparten una única carga para no acumular consultas ni memoria.
-  if (!logsLoadPromise) {
-    logsLoadPromise = performLogsLoad().finally(() => { logsLoadPromise = null; });
+  const requestedAdminMode = isAdmin();
+
+  // Realtime puede disparar varios eventos de una sola operación. Todos los
+  // eventos del mismo modo comparten carga. Si Discord termina de validar el
+  // rol mientras había una carga pública en curso, encadenamos una carga
+  // administrativa después para no conservar datos públicos incompletos.
+  if (logsLoadPromise) {
+    if (activeLogsLoadAdminMode === requestedAdminMode) return logsLoadPromise;
+    return logsLoadPromise.then(() => loadLogsData());
   }
+
+  activeLogsLoadAdminMode = requestedAdminMode;
+  logsLoadPromise = performLogsLoad(requestedAdminMode).finally(() => {
+    logsLoadPromise = null;
+    activeLogsLoadAdminMode = null;
+  });
   return logsLoadPromise;
+}
+
+export function isLogBlocksLoading(logId) {
+  return logBlocksLoadPromises.has(String(logId));
+}
+
+export function getLogBlockCounts(logId) {
+  return state.logBlockCounts[String(logId)] || { mobs: 0, items: 0, libres: 0 };
+}
+
+export function loadLogBlocksData(logId, { force = false } = {}) {
+  const key = String(logId || '');
+  if (!key) return Promise.resolve(false);
+  if (!force && state.logBlocksLoaded.has(key)) return Promise.resolve(true);
+  if (logBlocksLoadPromises.has(key)) return logBlocksLoadPromises.get(key);
+
+  // El modo administrador ya carga todas las fichas para editar/exportar.
+  // Si el rol cambió mientras la página estaba abierta, recargamos el conjunto
+  // administrativo una sola vez en lugar de intentar leer un Log oculto por RLS.
+  if (isAdmin()) {
+    const promise = loadLogsData().then(ok => ok && state.logBlocksLoaded.has(key));
+    logBlocksLoadPromises.set(key, promise);
+    return promise.finally(() => logBlocksLoadPromises.delete(key));
+  }
+
+  const promise = (async () => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 7500);
+    try {
+      const [mobsRes, itemsRes] = await withTimeout(Promise.all([
+        attachSignal(
+          supabaseClient.from('log_mobs')
+            .select('id,log_id,name,health,damage,armor,equipment,location,description,extra_fields,image_url,sort_order')
+            .eq('log_id', key)
+            .order('sort_order', { ascending: true }),
+          controller.signal,
+        ),
+        attachSignal(
+          supabaseClient.from('log_items')
+            .select('id,log_id,name,tier,item_type,obtained_from,damage,enchantments,description,extra_fields,image_url,sort_order')
+            .eq('log_id', key)
+            .order('sort_order', { ascending: true }),
+          controller.signal,
+        ),
+      ]), 8000, 'Las fichas del Log');
+
+      if (mobsRes.error || itemsRes.error) {
+        console.warn('[Logs] No se pudieron cargar las fichas:', (mobsRes.error || itemsRes.error).message);
+        return false;
+      }
+
+      state.mobsByLog[key] = mobsRes.data || [];
+      state.itemsByLog[key] = itemsRes.data || [];
+      state.logBlockCounts[key] = {
+        mobs: state.mobsByLog[key].length,
+        items: state.itemsByLog[key].filter(item => item.item_type !== '_libre').length,
+        libres: state.itemsByLog[key].filter(item => item.item_type === '_libre').length,
+      };
+      state.logBlocksLoaded.add(key);
+      return true;
+    } catch (error) {
+      if (error?.name !== 'AbortError') console.warn('[Logs] Fichas del Log:', error);
+      return false;
+    } finally {
+      window.clearTimeout(timer);
+    }
+  })();
+
+  logBlocksLoadPromises.set(key, promise);
+  return promise.finally(() => logBlocksLoadPromises.delete(key));
 }

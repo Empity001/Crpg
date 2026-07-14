@@ -4,7 +4,7 @@ import { state, suppressNextWeaponsReload } from '../core/state.js';
 import { asArray, cloneData, confirmAction, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast } from '../core/utils.js';
 import { appendActionGrid, appendDisclosure, openContextPanel } from '../core/context-actions.js';
 import { hydrateGuideLinkSelect, normalizeGuideLink, parseGuideLinkValue } from './guide-links.js';
-import { openMediaPicker } from './media-library.js';
+import { openMediaPicker } from './media-library-lazy.js';
 import { renderWeaponDetail, saveRankPatch } from './weapons-detail.js';
 import { getWeaponRanks } from './weapons-state.js';
 

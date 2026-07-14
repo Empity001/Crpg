@@ -9,10 +9,10 @@
 import { startPage } from '../app/page-bootstrap.js';
 import { bootShell } from '../app/shell.js';
 import { initTierlistRealtime } from '../app/realtime.js';
-import { state } from '../core/state.js';
+import { isAdmin, state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
 import { registerAdminUiRefreshHandler } from '../features/auth.js';
-import { attachMediaPickerButton } from '../features/media-library.js';
+import { attachMediaPickerButton } from '../features/media-library-lazy.js';
 import {
   initTierItemClipboardActions, initTierItemDropzone, loadTierlist, openTierItemModal, openTierRowModal,
   renderTierlist, submitTierItem, submitTierMove, submitTierRow, syncTierDropzoneState,
@@ -31,7 +31,11 @@ function focusLinkedTierItem() {
   });
 }
 
+let tierlistAdminInitialized = false;
+
 function initTierlistModals() {
+  if (tierlistAdminInitialized || !isAdmin()) return;
+  tierlistAdminInitialized = true;
   document.getElementById('open-new-tier-row-btn').addEventListener('click', () => openTierRowModal(null));
   document.getElementById('close-tier-row-modal').addEventListener('click', () => document.getElementById('tier-row-modal').classList.add('hidden'));
   document.getElementById('submit-tier-row-btn').addEventListener('click', submitTierRow);
@@ -66,8 +70,11 @@ function initTierlistModals() {
 
 async function init() {
   await bootShell('tierlist');
-  initTierlistModals();
-  registerAdminUiRefreshHandler(() => { if (state.tierlistLoaded) renderTierlist(); });
+  if (isAdmin()) initTierlistModals();
+  registerAdminUiRefreshHandler((admin) => {
+    if (admin) initTierlistModals();
+    if (state.tierlistLoaded) renderTierlist();
+  });
   const tierlistLoaded = await loadTierlist();
   if (tierlistLoaded) {
     focusLinkedTierItem();

@@ -12,7 +12,7 @@ import { renderDraftBlocksList } from './blocks-editor.js';
 import { renderCategorySelectOptions } from './categories.js';
 import { cancelReply, loadComments } from './comments.js';
 import { checkAndShowDraftBanner, clearDraft, startDraftAutosave, stopDraftAutosave } from './drafts.js';
-import { loadLogsData } from './logs-data.js';
+import { getLogBlockCounts, isLogBlocksLoading, loadLogBlocksData, loadLogsData } from './logs-data.js';
 import { PAGE_SIZE, RELEVANCE_LABELS, RELEVANCE_ORDER, TIER_COLUMNS, getCategory, isAdmin, state, suppressNextRealtimeReload } from '../core/state.js';
 import { asArray, cloneData, confirmAction, copyEditorPayload, escapeHtml, formatDate, getEditorPayload, hasEditorPayload, safeUrl, showToast, toDatetimeLocalValue } from '../core/utils.js';
 import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
@@ -116,8 +116,25 @@ function getLogPreview(log) {
 }
 
 function getLogCounts(logId) {
-  const { mobs, items, libres } = getLogCollections(logId);
+  const key = String(logId || '');
+  if (!state.logBlocksLoaded.has(key)) return getLogBlockCounts(key);
+  const { mobs, items, libres } = getLogCollections(key);
   return { mobs: mobs.length, items: items.length, libres: libres.length };
+}
+
+async function ensureLogBlocksLoaded(logId) {
+  const key = String(logId || '');
+  if (!key || state.logBlocksLoaded.has(key)) return true;
+
+  // La primera selección muestra el resumen inmediatamente y carga las fichas
+  // completas en segundo plano. `loadLogBlocksData` deduplica clics rápidos.
+  if (!isLogBlocksLoading(key)) renderLogInspector();
+  const ok = await loadLogBlocksData(key);
+  if (ok && selectedLogId === key) {
+    renderLogs();
+    renderLogInspector();
+  }
+  return ok;
 }
 
 function buildLogPreviewHtml(log, cat) {
@@ -158,7 +175,10 @@ export function initSortControl() {
 
 export async function loadLogs() {
   const ok = await loadLogsData();
-  if (ok) renderLogs();
+  if (ok) {
+    renderLogs();
+    if (selectedLogId) void ensureLogBlocksLoaded(selectedLogId);
+  }
   return ok;
 }
 
@@ -216,6 +236,7 @@ function selectLog(logId, { resetTab = true, preserveExpanded = false } = {}) {
   });
 
   renderLogInspector();
+  void ensureLogBlocksLoaded(logId);
   if (window.matchMedia('(max-width: 1180px)').matches) {
     document.body.classList.add('logs-inspector-open');
   }
@@ -245,9 +266,10 @@ export function openLogFromSearch(logId, { tab = 'summary', entryId = null } = {
   cardInList?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
   if (!expandedEntryId) return;
+  const targetEntryId = expandedEntryId;
   const focusEntry = (attempt = 0) => {
     const inspector = document.getElementById('logs-inspector');
-    const card = inspector?.querySelector(`.inspector-entity-card[data-entry-id="${CSS.escape(expandedEntryId)}"]`);
+    const card = inspector?.querySelector(`.inspector-entity-card[data-entry-id="${CSS.escape(targetEntryId)}"]`);
     if (!card) {
       if (attempt < 4) window.setTimeout(() => focusEntry(attempt + 1), 70);
       return;
@@ -256,7 +278,9 @@ export function openLogFromSearch(logId, { tab = 'summary', entryId = null } = {
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     window.setTimeout(() => card.classList.remove('global-search-target'), 2600);
   };
-  window.requestAnimationFrame(() => focusEntry());
+  void ensureLogBlocksLoaded(logId).then(ok => {
+    if (ok) window.requestAnimationFrame(() => focusEntry());
+  });
 }
 
 function bindCardEvents(card) {
@@ -325,9 +349,15 @@ function renderInspectorEntityCard(entry, type, contextKey) {
 
 function renderInspectorTabBody(log) {
   const { mobs, items, libres } = getLogCollections(log.id);
+  const counts = getLogCounts(log.id);
+  const blocksLoaded = state.logBlocksLoaded.has(String(log.id));
   const cat = getCategory(log.category);
   const isLiked = state.likedLogIds.has(log.id);
   const contextKey = `inspector-${log.id}-${inspectorTab}`;
+
+  if (inspectorTab !== 'summary' && !blocksLoaded) {
+    return '<div class="logs-inspector-tab-empty">Cargando fichas del log…</div>';
+  }
 
   if (inspectorTab === 'mobs') {
     return mobs.length
@@ -360,9 +390,9 @@ function renderInspectorTabBody(log) {
       </section>
 
       <section class="logs-inspector-section inspector-count-grid">
-        <div><strong>${mobs.length}</strong><span>Mobs</span></div>
-        <div><strong>${items.length}</strong><span>Items</span></div>
-        <div><strong>${libres.length}</strong><span>Extras</span></div>
+        <div><strong>${counts.mobs}</strong><span>Mobs</span></div>
+        <div><strong>${counts.items}</strong><span>Items</span></div>
+        <div><strong>${counts.libres}</strong><span>Extras</span></div>
         <button class="inspector-like-btn ${isLiked ? 'is-liked' : ''}" data-inspector-action="like" ${isLogPublished(log) ? '' : 'disabled title="Los likes están desactivados mientras el Log esté oculto."'}>
           <strong><span class="like-heart" aria-hidden="true">${isLiked ? '❤︎' : '♡'}</span> ${log.likes}</strong><span>${isLogPublished(log) ? 'Me gusta' : 'Oculto'}</span>
         </button>
@@ -484,9 +514,9 @@ function renderLogInspector() {
     return;
   }
 
-  const { mobs, items, libres } = getLogCollections(log.id);
+  const counts = getLogCounts(log.id);
   const cat = getCategory(log.category);
-  const renderKey = `${log.id}:${inspectorTab}`;
+  const renderKey = `${log.id}:${inspectorTab}:${state.logBlocksLoaded.has(String(log.id)) ? 'loaded' : 'summary'}`;
   const preserveScroll = renderKey === lastInspectorRenderKey;
   inspector.classList.add('has-selection');
   inspector.innerHTML = `
@@ -500,9 +530,9 @@ function renderLogInspector() {
 
     <nav class="logs-inspector-tabs" aria-label="Secciones del log">
       <button class="${inspectorTab === 'summary' ? 'is-active' : ''}" data-inspector-tab="summary">Resumen</button>
-      <button class="${inspectorTab === 'mobs' ? 'is-active' : ''}" data-inspector-tab="mobs">Mobs <span>${mobs.length}</span></button>
-      <button class="${inspectorTab === 'items' ? 'is-active' : ''}" data-inspector-tab="items">Items <span>${items.length}</span></button>
-      <button class="${inspectorTab === 'blocks' ? 'is-active' : ''}" data-inspector-tab="blocks">Extras <span>${libres.length}</span></button>
+      <button class="${inspectorTab === 'mobs' ? 'is-active' : ''}" data-inspector-tab="mobs">Mobs <span>${counts.mobs}</span></button>
+      <button class="${inspectorTab === 'items' ? 'is-active' : ''}" data-inspector-tab="items">Items <span>${counts.items}</span></button>
+      <button class="${inspectorTab === 'blocks' ? 'is-active' : ''}" data-inspector-tab="blocks">Extras <span>${counts.libres}</span></button>
     </nav>
 
     <div class="logs-inspector-body">${renderInspectorTabBody(log)}</div>`;
@@ -520,6 +550,7 @@ function renderLogInspector() {
       inspectorTab = button.dataset.inspectorTab;
       expandedEntryId = null;
       renderLogInspector();
+      if (inspectorTab !== 'summary') void ensureLogBlocksLoaded(log.id);
       requestAnimationFrame(() => resetLogInspectorScroll({ focusTop: true }));
     });
   });
@@ -771,12 +802,24 @@ async function toggleLike(logId) {
 async function openDetailModal(logId) {
   const log = state.logs.find(l => l.id === logId);
   if (!log) return;
+
+  const detailModal = document.getElementById('detail-modal');
+  const detailContent = document.getElementById('detail-content');
+  detailContent.innerHTML = '<div class="logs-inspector-tab-empty">Cargando log completo…</div>';
+  detailModal.classList.remove('hidden');
+
+  const blocksLoaded = await loadLogBlocksData(logId);
+  if (!blocksLoaded) {
+    detailContent.innerHTML = '<div class="logs-inspector-tab-empty">No se pudieron cargar las fichas de este log.</div>';
+    showToast('No se pudieron cargar las fichas de este log.', 'error');
+    return;
+  }
   state.currentDetailLogId = logId;
   cancelReply();
   const cat = getCategory(log.category);
   const ctx = `modal-${logId}`;
 
-  document.getElementById('detail-content').innerHTML = `
+  detailContent.innerHTML = `
     <span class="detail-category">${cat.emoji} ${escapeHtml(cat.label)}</span>
     <h2 class="detail-title">${escapeHtml(log.title)}</h2>
     <p class="detail-desc">${escapeHtml(log.description)}</p>
@@ -787,7 +830,6 @@ async function openDetailModal(logId) {
       <span>⚡ Relevancia: ${RELEVANCE_LABELS[log.relevance]}</span>
     </div>`;
 
-  const detailContent = document.getElementById('detail-content');
   bindBlockChipEvents(detailContent);
 
   const commentForm = document.querySelector('#detail-modal .comment-form');
@@ -802,7 +844,6 @@ async function openDetailModal(logId) {
   }
   hiddenNotice.classList.toggle('hidden', isLogPublished(log));
 
-  document.getElementById('detail-modal').classList.remove('hidden');
   await loadComments(logId);
 }
 

@@ -11,7 +11,7 @@ import { normalizePageKeys } from '../core/pages.js';
 import { DEFAULT_MEDIA_PRESENTATION } from '../core/media.js';
 import { initGenericImageDropzone, syncGenericDropzoneState, updateAssetPreview } from '../core/storage.js';
 import { confirmAction, showToast } from '../core/utils.js';
-import { attachMediaPickerButton } from './media-library.js';
+import { attachMediaPickerButton } from './media-library-lazy.js';
 
 export function normalizeBackgroundOpacity(value) {
   const n = Number(value);

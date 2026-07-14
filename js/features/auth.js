@@ -11,10 +11,47 @@ import { showToast } from '../core/utils.js';
 
 const adminUiRefreshHandlers = new Set();
 const ROLE_RECHECK_MS = 3 * 60 * 1000;
+const AUTH_STATUS_CACHE_KEY = 'culones_discord_status_cache_v1';
 let initialized = false;
 let validationPromise = null;
 let authSubscription = null;
 let visibilityHandler = null;
+let authInitializationPromise = null;
+let lastObservedSessionToken = null;
+
+
+function clearCachedDiscordStatus() {
+  try { sessionStorage.removeItem(AUTH_STATUS_CACHE_KEY); } catch { /* almacenamiento no disponible */ }
+}
+
+function readCachedDiscordStatus(session) {
+  if (!session?.user?.id) return false;
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(AUTH_STATUS_CACHE_KEY) || 'null');
+    const checkedAt = Number(cached?.checkedAt || 0);
+    if (!cached || cached.userId !== session.user.id || Date.now() - checkedAt >= ROLE_RECHECK_MS) return false;
+    state.discordProfile = cached.profile || null;
+    state.discordAdminEligible = !!cached.isAdmin;
+    state.discordMembership = cached.isMember ? 'member' : 'not_member';
+    state.discordAuthCheckedAt = checkedAt;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function cacheDiscordStatus(data, session = state.authSession) {
+  if (!session?.user?.id) return;
+  try {
+    sessionStorage.setItem(AUTH_STATUS_CACHE_KEY, JSON.stringify({
+      userId: session.user.id,
+      isAdmin: !!data?.isAdmin,
+      isMember: !!data?.isMember,
+      profile: data?.profile || null,
+      checkedAt: state.discordAuthCheckedAt || Date.now(),
+    }));
+  } catch { /* almacenamiento no disponible */ }
+}
 
 function setAdminMode(enabled) {
   const next = !!(enabled && state.discordAdminEligible && state.authSession);
@@ -23,13 +60,14 @@ function setAdminMode(enabled) {
   else sessionStorage.removeItem('culones_admin_mode');
 }
 
-function resetIdentity() {
+function resetIdentity({ clearCache = true } = {}) {
   state.authSession = null;
   state.discordProfile = null;
   state.discordAdminEligible = false;
   state.discordMembership = 'unknown';
   state.discordAuthCheckedAt = 0;
   setAdminMode(false);
+  if (clearCache) clearCachedDiscordStatus();
 }
 
 function profileName(profile) {
@@ -172,6 +210,7 @@ export async function revalidateDiscordAccess({ force = false, silent = false, r
   validationPromise = (async () => {
     const { data, error } = await getDiscordAdminStatus();
     if (error) {
+      clearCachedDiscordStatus();
       state.discordAdminEligible = false;
       state.discordMembership = 'unknown';
       setAdminMode(false);
@@ -184,6 +223,7 @@ export async function revalidateDiscordAccess({ force = false, silent = false, r
     state.discordAdminEligible = !!data?.isAdmin;
     state.discordMembership = data?.isMember ? 'member' : 'not_member';
     state.discordAuthCheckedAt = now;
+    cacheDiscordStatus(data);
     if (!state.discordAdminEligible) setAdminMode(false);
     updateAdminUI();
     return data;
@@ -226,32 +266,75 @@ export function closeAdminLoginModal() {
 
 export function prepareAdminLoginModal() { updateAccountModal(); }
 
-export async function initializeDiscordAuth() {
-  if (initialized) return;
-  initialized = true;
-  const { data: { session }, error } = await supabaseClient.auth.getSession();
-  if (error) console.warn('[Auth] No se pudo recuperar la sesión:', error.message);
-  state.authSession = session || null;
-  if (!session) resetIdentity();
-  else await revalidateDiscordAccess({ force: true, silent: true, reason: 'page_load' });
-  updateAdminUI();
+export function initializeDiscordAuth({ awaitValidation = false } = {}) {
+  if (authInitializationPromise) return authInitializationPromise;
 
-  const listener = supabaseClient.auth.onAuthStateChange((_event, nextSession) => {
-    state.authSession = nextSession || null;
-    if (!nextSession) {
-      resetIdentity();
-      updateAdminUI();
-    } else {
-      queueMicrotask(() => void revalidateDiscordAccess({ force: true, silent: true, reason: 'auth_change' }));
+  authInitializationPromise = (async () => {
+    if (initialized) {
+      if (awaitValidation && state.authSession) {
+        await revalidateDiscordAccess({ force: false, silent: true, reason: 'page_resume' });
+      }
+      return;
     }
-  });
-  authSubscription = listener?.data?.subscription || null;
 
-  visibilityHandler = () => {
-    if (document.visibilityState !== 'visible' || !state.authSession) return;
-    void revalidateDiscordAccess({ force: false, silent: true, reason: 'visibility' });
-  };
-  document.addEventListener('visibilitychange', visibilityHandler);
+    initialized = true;
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
+    if (error) console.warn('[Auth] No se pudo recuperar la sesión:', error.message);
+
+    state.authSession = session || null;
+    lastObservedSessionToken = session?.access_token || null;
+    if (!session) resetIdentity();
+    else readCachedDiscordStatus(session);
+    updateAdminUI();
+
+    const listener = supabaseClient.auth.onAuthStateChange((event, nextSession) => {
+      const nextToken = nextSession?.access_token || null;
+
+      // Supabase emite INITIAL_SESSION justo después de registrar el listener.
+      // La sesión ya se leyó arriba con getSession(), por lo que repetir aquí la
+      // validación remota provocaba dos consultas consecutivas a Discord.
+      if (event === 'INITIAL_SESSION' && nextToken === lastObservedSessionToken) return;
+
+      const sessionChanged = nextToken !== lastObservedSessionToken;
+      lastObservedSessionToken = nextToken;
+      state.authSession = nextSession || null;
+
+      if (!nextSession) {
+        resetIdentity();
+        updateAdminUI();
+        return;
+      }
+
+      if (sessionChanged) readCachedDiscordStatus(nextSession);
+      updateAdminUI();
+      if (sessionChanged || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        queueMicrotask(() => void revalidateDiscordAccess({
+          force: event === 'SIGNED_IN',
+          silent: true,
+          reason: `auth_${String(event || 'change').toLowerCase()}`,
+        }));
+      }
+    });
+    authSubscription = listener?.data?.subscription || null;
+
+    visibilityHandler = () => {
+      if (document.visibilityState !== 'visible' || !state.authSession) return;
+      void revalidateDiscordAccess({ force: false, silent: true, reason: 'visibility' });
+    };
+    document.addEventListener('visibilitychange', visibilityHandler);
+
+    if (session) {
+      const validation = revalidateDiscordAccess({ force: false, silent: true, reason: 'page_load' });
+      if (awaitValidation) await validation;
+      else void validation;
+    }
+  })().finally(() => {
+    // Conservamos una promesa resuelta mientras la instancia siga inicializada.
+    // Así varias páginas/módulos que llamen a la función comparten el mismo arranque.
+    if (!initialized) authInitializationPromise = null;
+  });
+
+  return authInitializationPromise;
 }
 
 export function destroyDiscordAuth() {
@@ -259,5 +342,7 @@ export function destroyDiscordAuth() {
   authSubscription = null;
   if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler);
   visibilityHandler = null;
+  lastObservedSessionToken = null;
   initialized = false;
+  authInitializationPromise = null;
 }

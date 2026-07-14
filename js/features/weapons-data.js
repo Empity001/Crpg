@@ -7,7 +7,7 @@
 // =========================================================
 
 import { disableQueryRetry, supabaseClient } from '../config.js';
-import { state } from '../core/state.js';
+import { isAdmin, state } from '../core/state.js';
 import { withTimeout } from '../core/utils.js';
 import { renderWeaponCategoryFilters, renderWeaponTypeFilters, renderWeaponsGrid } from './weapons-catalog.js';
 import { renderWeaponDetail } from './weapons-detail.js';
@@ -20,7 +20,7 @@ function attachSignal(request, signal) {
   return typeof stableRequest?.abortSignal === 'function' ? stableRequest.abortSignal(signal) : stableRequest;
 }
 
-async function renderWeaponAdminMetaControls() {
+export async function renderWeaponAdminMetaControls() {
   const {
     renderWeaponCategoryManageList,
     renderWeaponCategorySelectOptions,
@@ -53,7 +53,8 @@ async function performLoadWeaponMeta() {
     state.weaponTypes = !typesRes.error ? (typesRes.data || []) : [];
     renderWeaponCategoryFilters();
     renderWeaponTypeFilters();
-    await renderWeaponAdminMetaControls();
+    if (state.weapons.length) renderWeaponsGrid();
+    if (isAdmin()) await renderWeaponAdminMetaControls();
     return true;
   } catch (error) {
     if (error?.name !== 'AbortError') console.error('[Weapons meta]', error);
@@ -110,11 +111,16 @@ export function reloadWeaponData() {
 }
 
 export async function loadWeaponsCatalog() {
-  const metaOk = await loadWeaponMeta();
-  if (!metaOk) return false;
-  const dataOk = await reloadWeaponData();
-  if (!dataOk) return false;
+  // Categorías/tipos y catálogo/rangos son consultas independientes.
+  // Arrancarlas juntas elimina un viaje de red completo del primer render.
+  const [metaOk, dataOk] = await Promise.all([
+    loadWeaponMeta(),
+    reloadWeaponData(),
+  ]);
+  if (!metaOk || !dataOk) return false;
   state.weaponsLoaded = true;
+  renderWeaponsGrid();
+  if (state.currentWeaponId) renderWeaponDetail();
   return true;
 }
 

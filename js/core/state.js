@@ -79,6 +79,8 @@ export const state = {
   categories: [],
   mobsByLog: {},
   itemsByLog: {},
+  logBlockCounts: {},
+  logBlocksLoaded: new Set(),
   activeFilter: 'all',
   sortMode: 'date_desc',
   adminMode: sessionStorage.getItem('culones_admin_mode') === '1',

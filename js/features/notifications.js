@@ -11,13 +11,15 @@ import { escapeHtml, safeUrl, withTimeout } from '../core/utils.js';
 
 const SNAPSHOT_KEY = 'culones_notifications_snapshot_v1';
 const ITEMS_KEY = 'culones_notifications_v1';
+const LAST_REFRESH_KEY = 'culones_notifications_last_refresh_v1';
 const MAX_ITEMS = 60;
-const REFRESH_COOLDOWN = 45_000;
+const REFRESH_COOLDOWN = 5 * 60 * 1000;
 
 let initialized = false;
 let controller = null;
 let refreshPromise = null;
-let lastRefreshAt = 0;
+let lastRefreshAt = Number(localStorage.getItem(LAST_REFRESH_KEY) || 0) || 0;
+let versionsRpcAvailable = true;
 
 function readJson(key, fallback) {
   try {
@@ -76,14 +78,55 @@ async function safeFetch(label, request) {
   }
 }
 
-async function buildSnapshot() {
+async function tryBuildVersionSnapshot() {
+  if (!versionsRpcAvailable) return null;
+
+  const abortController = new AbortController();
+  const timer = window.setTimeout(() => abortController.abort(), 4500);
+  try {
+    let request = disableQueryRetry(supabaseClient.rpc('get_site_content_versions'));
+    if (typeof request?.abortSignal === 'function') request = request.abortSignal(abortController.signal);
+    const { data, error } = await withTimeout(request, 5000, 'El índice de novedades');
+    if (error) {
+      const message = `${error.message || ''} ${error.details || ''}`;
+      if (/get_site_content_versions|schema cache|could not find the function/i.test(message)) {
+        versionsRpcAvailable = false;
+      } else {
+        console.warn('[Notifications] Índice de versiones:', error.message || error);
+      }
+      return null;
+    }
+
+    const sections = {};
+    normalizeList(data).forEach(row => {
+      const section = String(row.section || '').trim();
+      if (!section) return;
+      sections[section] = {
+        version: Number(row.version) || 0,
+        updatedAt: row.updated_at || '',
+        latestId: row.latest_id ? String(row.latest_id) : '',
+        latestTitle: String(row.latest_title || ''),
+        changeKind: String(row.change_kind || 'updated'),
+      };
+    });
+    if (!Object.keys(sections).length) return null;
+    return { version: 2, generatedAt: new Date().toISOString(), sections };
+  } catch (error) {
+    if (error?.name !== 'AbortError') console.warn('[Notifications] Índice de versiones:', error?.message || error);
+    return null;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+async function buildLegacySnapshot() {
   const [logs, guides, tierRows, tierItems, kits, aboutRows] = await Promise.all([
-    safeFetch('Logs', supabaseClient.from('logs').select('id,title,created_at').order('created_at', { ascending: false }).limit(100)),
-    safeFetch('Guías', supabaseClient.from('weapons').select('id,name,published,updated_at').eq('published', true).order('updated_at', { ascending: false }).limit(250)),
+    safeFetch('Logs', supabaseClient.from('logs').select('id,title,created_at').order('created_at', { ascending: false }).limit(30)),
+    safeFetch('Guías', supabaseClient.from('weapons').select('id,name,published,updated_at').eq('published', true).order('updated_at', { ascending: false }).limit(50)),
     safeFetch('Tierlist', supabaseClient.from('tierlist_rows').select('id,name,color,sort_order,created_at').order('sort_order')),
-    safeFetch('Tierlist', supabaseClient.from('tierlist_items').select('id,row_id,column_key,name,image_url,extra_fields,sort_order,created_at').order('sort_order')),
-    safeFetch('Kits', supabaseClient.rpc('list_kits', { input_code: null })),
-    safeFetch('Acerca del servidor', supabaseClient.from('app_settings').select('key,value,updated_at').eq('key', 'about_blocks').limit(1)),
+    safeFetch('Tierlist', supabaseClient.from('tierlist_items').select('id,row_id,column_key,name,sort_order,created_at').order('sort_order')),
+    safeFetch('Kits', supabaseClient.from('kits').select('id,name,published,sort_order,updated_at').eq('published', true).order('sort_order')),
+    safeFetch('Acerca del servidor', supabaseClient.from('app_settings').select('key,updated_at').eq('key', 'about_blocks').limit(1)),
   ]);
 
   // Si todo falló no reemplazamos la última instantánea válida.
@@ -100,8 +143,12 @@ async function buildSnapshot() {
     guides: publicGuides === null ? null : publicGuides.map(item => ({ id: String(item.id), title: String(item.name || 'Nueva guía'), updatedAt: item.updated_at || '' })),
     tierlistHash: tierRows === null || tierItems === null ? null : hashValue({ rows: normalizeList(tierRows), items: normalizeList(tierItems) }),
     kitsHash: publicKits === null ? null : hashValue(publicKits),
-    aboutHash: aboutRows === null ? null : hashValue(aboutRow ? { value: aboutRow.value, updatedAt: aboutRow.updated_at } : null),
+    aboutHash: aboutRows === null ? null : hashValue(aboutRow ? { updatedAt: aboutRow.updated_at } : null),
   };
+}
+
+async function buildSnapshot() {
+  return (await tryBuildVersionSnapshot()) || buildLegacySnapshot();
 }
 
 function createNotification({ id, type, entityId = '', title, description, url }) {
@@ -117,9 +164,80 @@ function createNotification({ id, type, entityId = '', title, description, url }
   };
 }
 
+function compareVersionSnapshots(previous, current, existingItems) {
+  let items = normalizeList(existingItems).filter(item => item && item.id);
+  const previousSections = previous?.sections || {};
+  const currentSections = current?.sections || {};
+
+  const addSectionChange = ({ section, type, singular, plural, description, urlBuilder }) => {
+    const currentEntry = currentSections[section];
+    const previousEntry = previousSections[section];
+    if (!currentEntry || !previousEntry || currentEntry.version === previousEntry.version) return;
+
+    const isPublished = currentEntry.changeKind === 'published' && currentEntry.latestId;
+    const isSpecificUpdate = currentEntry.changeKind === 'updated' && currentEntry.latestId;
+    const url = urlBuilder(isPublished || isSpecificUpdate ? currentEntry.latestId : '');
+    const id = isPublished
+      ? `${type}:${currentEntry.latestId}:v${currentEntry.version}`
+      : `${type}:version:${currentEntry.version}`;
+    if (items.some(item => item.id === id)) return;
+
+    let title = `${plural} actualizados`;
+    let detail = description;
+    if (isPublished) {
+      title = currentEntry.latestTitle || `Nuevo ${singular}`;
+      detail = `Nuevo ${singular.toLocaleLowerCase('es')} publicado`;
+    } else if (isSpecificUpdate && currentEntry.latestTitle) {
+      title = `${singular} actualizado: ${currentEntry.latestTitle}`;
+    } else if (currentEntry.changeKind === 'removed') {
+      detail = `Se retiró contenido de ${plural.toLocaleLowerCase('es')}.`;
+    }
+
+    items.unshift(createNotification({
+      id,
+      type,
+      entityId: isPublished || isSpecificUpdate ? currentEntry.latestId : '',
+      title,
+      description: detail,
+      url,
+    }));
+  };
+
+  addSectionChange({
+    section: 'logs', type: 'logs', singular: 'Log', plural: 'Logs',
+    description: 'Hay cambios nuevos en los Logs.',
+    urlBuilder: id => id ? `index.html?log=${encodeURIComponent(id)}` : 'index.html',
+  });
+  addSectionChange({
+    section: 'guides', type: 'guides', singular: 'Guía', plural: 'Guías',
+    description: 'Hay cambios nuevos en las Guías.',
+    urlBuilder: id => id ? `guides.html?weapon=${encodeURIComponent(id)}` : 'guides.html',
+  });
+  addSectionChange({
+    section: 'tierlist', type: 'tierlist', singular: 'Tierlist', plural: 'Tierlist',
+    description: 'Hay cambios nuevos en la clasificación.',
+    urlBuilder: () => 'tierlist.html',
+  });
+  addSectionChange({
+    section: 'kits', type: 'kits', singular: 'Kit', plural: 'Kits',
+    description: 'Hay combinaciones nuevas o modificadas.',
+    urlBuilder: id => id ? `kits.html?kit=${encodeURIComponent(id)}` : 'kits.html',
+  });
+  addSectionChange({
+    section: 'about', type: 'about', singular: 'Sección', plural: 'Acerca del servidor',
+    description: 'La información pública del servidor cambió.',
+    urlBuilder: () => 'about.html',
+  });
+  return items.slice(0, MAX_ITEMS);
+}
+
 function compareSnapshots(previous, current, existingItems) {
   let items = normalizeList(existingItems).filter(item => item && item.id);
   if (!previous) return items;
+  if (previous.version === 2 && current.version === 2) {
+    return compareVersionSnapshots(previous, current, items);
+  }
+  if (previous.version !== current.version) return items;
 
   if (Array.isArray(previous.logs) && Array.isArray(current.logs)) {
     const previousLogIds = new Set(previous.logs.map(item => String(item.id)));
@@ -257,7 +375,7 @@ function setPanelOpen(open) {
   document.querySelectorAll('[data-notification-toggle]').forEach(button => button.setAttribute('aria-expanded', open ? 'true' : 'false'));
   if (open) {
     markAllRead();
-    void refreshNotifications({ force: true, render: true });
+    void refreshNotifications({ render: true });
   }
 }
 
@@ -275,7 +393,7 @@ export async function refreshNotifications({ force = false, render = false } = {
     if (document.getElementById('site-notification-panel')?.classList.contains('is-open')) {
       items = items.map(item => ({ ...item, read: true }));
     }
-    const mergedSnapshot = previous ? {
+    const mergedSnapshot = previous && previous.version === 1 && current.version === 1 ? {
       ...previous,
       ...Object.fromEntries(Object.entries(current).filter(([, value]) => value !== null)),
       generatedAt: current.generatedAt,
@@ -284,6 +402,7 @@ export async function refreshNotifications({ force = false, render = false } = {
     writeJson(SNAPSHOT_KEY, mergedSnapshot);
     saveItems(items);
     lastRefreshAt = Date.now();
+    try { localStorage.setItem(LAST_REFRESH_KEY, String(lastRefreshAt)); } catch { /* almacenamiento no disponible */ }
     updateBadges(items);
     if (render || document.getElementById('site-notification-panel')?.classList.contains('is-open')) renderPanel(items);
     return items;
@@ -321,8 +440,10 @@ export function initSiteNotifications() {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) void refreshNotifications();
   }, { signal });
-  window.addEventListener('focus', () => void refreshNotifications(), { signal });
   window.addEventListener('storage', event => {
+    if (event.key === LAST_REFRESH_KEY) {
+      lastRefreshAt = Number(event.newValue || 0) || lastRefreshAt;
+    }
     if (event.key === ITEMS_KEY) {
       updateBadges();
       renderPanel();

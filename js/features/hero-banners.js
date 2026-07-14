@@ -10,7 +10,7 @@ import { normalizePageKey } from '../core/pages.js';
 import { state } from '../core/state.js';
 import { initGenericImageDropzone, syncGenericDropzoneState, updateAssetPreview } from '../core/storage.js';
 import { confirmAction, showToast } from '../core/utils.js';
-import { attachMediaPickerButton } from './media-library.js';
+import { attachMediaPickerButton } from './media-library-lazy.js';
 
 export const HERO_BANNER_PAGES = [
   { key: 'logs', label: 'Logs' },

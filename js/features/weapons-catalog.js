@@ -6,10 +6,20 @@
 // =========================================================
 
 import { isAdmin, state } from '../core/state.js';
-import { initialsOf } from './tierlist.js';
 import { escapeHtml, safeUrl } from '../core/utils.js';
 import { openWeaponDetail } from './weapons-detail.js';
 import { getWeaponCategory, getWeaponType, isWeaponVisible } from './weapons-state.js';
+
+function initialsOf(value) {
+  return String(value || '?')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join('')
+    .toUpperCase() || '?';
+}
 
 function weaponMatchesFilters(w) {
   if (!isWeaponVisible(w)) return false;
@@ -115,7 +125,7 @@ export function renderWeaponsGrid() {
     const safe = safeUrl(w.image_url);
     const type = getWeaponType(w.type_id);
     const thumb = safe
-      ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(w.name)}" class="pixel-art" />`
+      ? `<img src="${escapeHtml(safe)}" alt="${escapeHtml(w.name)}" class="pixel-art" loading="lazy" decoding="async" />`
       : `<span class="tier-chip-initials">${escapeHtml(initialsOf(w.name))}</span>`;
     return `
       <div class="weapon-card ${!w.published ? 'is-unpublished' : ''}" data-weapon-id="${w.id}">

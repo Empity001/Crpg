@@ -10,7 +10,17 @@
 import { startPage } from '../app/page-bootstrap.js';
 import { bootShell } from '../app/shell.js';
 import { initAboutEditor } from '../features/about.js';
+import { isAdmin } from '../core/state.js';
+import { registerAdminUiRefreshHandler } from '../features/auth.js';
 
+
+let aboutEditorInitialized = false;
+
+function ensureAboutEditor() {
+  if (aboutEditorInitialized || !isAdmin()) return;
+  aboutEditorInitialized = true;
+  initAboutEditor();
+}
 
 function focusLinkedAboutBlock() {
   const blockIndex = new URLSearchParams(window.location.search).get('block');
@@ -26,7 +36,8 @@ function focusLinkedAboutBlock() {
 
 async function init() {
   await bootShell('about');
-  initAboutEditor();
+  ensureAboutEditor();
+  registerAdminUiRefreshHandler((admin) => { if (admin) ensureAboutEditor(); });
   focusLinkedAboutBlock();
 }
 

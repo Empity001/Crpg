@@ -1,7 +1,7 @@
 import { disableQueryRetry, supabaseClient } from '../config.js';
 import { KIT_COLUMNS, isAdmin, state, suppressNextKitsReload } from '../core/state.js';
 import { cloneData, confirmAction, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast, withTimeout } from '../core/utils.js';
-import { openMediaPicker } from './media-library.js';
+import { openMediaPicker } from './media-library-lazy.js';
 import { appendActionGrid, appendDisclosure, openContextPanel } from '../core/context-actions.js';
 import { guideLinkUrl, hydrateGuideLinkSelect, parseGuideLinkValue } from './guide-links.js';
 

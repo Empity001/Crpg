@@ -118,8 +118,8 @@ function collectNamedRecipeValues(value, result = [], seen = new Set()) {
   return result;
 }
 
-function buildAboutEntries(entries, seen) {
-  const blocks = Array.isArray(state.aboutBlocks) ? state.aboutBlocks : [];
+function buildAboutEntries(entries, seen, sourceBlocks = state.aboutBlocks) {
+  const blocks = Array.isArray(sourceBlocks) ? sourceBlocks : [];
   let currentHeading = 'Acerca del servidor';
 
   blocks.forEach((block, index) => {
@@ -197,7 +197,7 @@ async function createSearchIndex() {
     ? supabaseClient.rpc('list_log_items_admin', { input_code: state.adminMode })
     : supabaseClient.from('log_items').select('id,log_id,name,description,item_type,tier,obtained_from,image_url');
 
-  const [logs, mobs, logItems, weapons, ranks, tierRows, tierItems, kits] = await Promise.all([
+  const [logs, mobs, logItems, weapons, ranks, tierRows, tierItems, kits, aboutSettings] = await Promise.all([
     safeFetch('logs', logsRequest),
     safeFetch('log_mobs', mobsRequest),
     safeFetch('log_items', logItemsRequest),
@@ -206,6 +206,7 @@ async function createSearchIndex() {
     safeFetch('tierlist_rows', supabaseClient.from('tierlist_rows').select('id,name,color,sort_order')),
     safeFetch('tierlist_items', supabaseClient.from('tierlist_items').select('id,row_id,column_key,name,image_url,extra_fields,sort_order')),
     safeFetch('kits', supabaseClient.rpc('list_kits', { input_code: adminCode })),
+    safeFetch('about', supabaseClient.from('app_settings').select('value').eq('key', 'about_blocks').limit(1)),
   ]);
 
   const entries = [];
@@ -394,7 +395,7 @@ async function createSearchIndex() {
     });
   });
 
-  buildAboutEntries(entries, seen);
+  buildAboutEntries(entries, seen, aboutSettings[0]?.value);
   return entries;
 }
 

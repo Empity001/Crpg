@@ -18,11 +18,40 @@ import { cancelReply, deleteCommentAction, startReplyTo, submitComment, toggleCo
 import { initBeforeUnload, restoreDraft, saveDraft, stopDraftAutosave } from '../features/drafts.js';
 import { loadDraftByKey } from '../features/drafts-store.js';
 import { openFieldConfigModal, saveFieldConfig, setFieldConfigSavedHandler } from '../features/field-config.js';
-import { initDesktopLogInspectorTracking, initSortControl, loadLogs, openEditLogModal, openLogFromSearch, openNewLogModal, renderLogs, submitLog, updateLogCoverPreview } from '../features/logs.js?v=20260712-2';
-import { attachMediaPickerButton, openMediaPicker } from '../features/media-library.js';
-import { state } from '../core/state.js';
+import { initDesktopLogInspectorTracking, initSortControl, loadLogs, openEditLogModal, openLogFromSearch, openNewLogModal, renderLogs, submitLog, updateLogCoverPreview } from '../features/logs.js?v=20260714-1';
+import { attachMediaPickerButton, openMediaPicker } from '../features/media-library-lazy.js';
+import { isAdmin, state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
 import { registerModalLifecycleCleanup } from '../core/utils.js';
+
+
+let logsMediaToolsInitialized = false;
+
+function initLogsAdminMediaTools() {
+  if (logsMediaToolsInitialized || !isAdmin()) return;
+  logsMediaToolsInitialized = true;
+
+  void Promise.all([
+    attachMediaPickerButton({
+      targetInputId: 'mob-image-input',
+      insertAfterId: 'mob-image-upload-btn',
+      title: 'Seleccionar imagen de mob',
+      onSelect: ({ url }) => updateAssetPreview('mob', url),
+    }),
+    attachMediaPickerButton({
+      targetInputId: 'item-image-input',
+      insertAfterId: 'item-image-upload-btn',
+      title: 'Seleccionar imagen de item',
+      onSelect: ({ url }) => updateAssetPreview('item', url),
+    }),
+    attachMediaPickerButton({
+      targetInputId: 'libre-image-input',
+      insertAfterId: 'libre-image-upload-btn',
+      title: 'Seleccionar imagen de Extra',
+      onSelect: ({ url }) => updateAssetPreview('libre', url),
+    }),
+  ]).catch(error => console.warn('[Logs] Biblioteca multimedia:', error));
+}
 
 function initLogsModals() {
   registerModalLifecycleCleanup('log-modal', { onClose: stopDraftAutosave });
@@ -69,12 +98,6 @@ function initLogsModals() {
     const mob = state.editingMobIndex != null ? state.draftMobs[state.editingMobIndex] : null;
     return mob ? (mob.image_url || '') : '';
   });
-  attachMediaPickerButton({
-    targetInputId: 'mob-image-input',
-    insertAfterId: 'mob-image-upload-btn',
-    title: 'Seleccionar imagen de mob',
-    onSelect: ({ url }) => updateAssetPreview('mob', url),
-  });
   document.getElementById('mob-image-clear-btn').addEventListener('click', () => {
     document.getElementById('mob-image-input').value = '';
     updateAssetPreview('mob', '');
@@ -90,12 +113,6 @@ function initLogsModals() {
     const item = state.editingItemIndex != null ? state.draftItems[state.editingItemIndex] : null;
     return item ? (item.image_url || '') : '';
   });
-  attachMediaPickerButton({
-    targetInputId: 'item-image-input',
-    insertAfterId: 'item-image-upload-btn',
-    title: 'Seleccionar imagen de item',
-    onSelect: ({ url }) => updateAssetPreview('item', url),
-  });
   document.getElementById('item-image-clear-btn').addEventListener('click', () => {
     document.getElementById('item-image-input').value = '';
     updateAssetPreview('item', '');
@@ -109,12 +126,6 @@ function initLogsModals() {
   initImageUploader('libre', 'items', () => {
     const lib = state.editingLibreIndex != null ? state.draftLibres[state.editingLibreIndex] : null;
     return lib ? (lib.image_url || '') : '';
-  });
-  attachMediaPickerButton({
-    targetInputId: 'libre-image-input',
-    insertAfterId: 'libre-image-upload-btn',
-    title: 'Seleccionar imagen de Extra',
-    onSelect: ({ url }) => updateAssetPreview('libre', url),
   });
   document.getElementById('libre-image-clear-btn').addEventListener('click', () => {
     document.getElementById('libre-image-input').value = '';
@@ -182,7 +193,14 @@ async function init() {
   initLogsModals();
   initSortControl();
   initDesktopLogInspectorTracking();
-  registerAdminUiRefreshHandler(() => { void loadLogs(); });
+  let previousAdminState = isAdmin();
+  if (previousAdminState) initLogsAdminMediaTools();
+  registerAdminUiRefreshHandler((admin) => {
+    if (admin) initLogsAdminMediaTools();
+    if (admin === previousAdminState) return;
+    previousAdminState = admin;
+    void loadLogs();
+  });
   setCategoryFiltersChangedHandler(renderLogs);
   setFieldConfigSavedHandler(renderLogs);
   initBeforeUnload();

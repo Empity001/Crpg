@@ -14,7 +14,6 @@ import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 import { guideLinkUrl } from './guide-links.js';
 import { getInfoVisuals, visibleRankSections } from './weapons-rank-extras.js';
 import { getCurrentWeapon, getWeaponCategory, getWeaponRanks, getWeaponType, replaceWeaponRank } from './weapons-state.js';
-import { bindGuideForumControls, renderGuideForumControls } from './guide-forum.js';
 
 function loadWeaponAdminActions() {
   return import('./weapons-admin.js');
@@ -95,8 +94,11 @@ export function renderWeaponDetail() {
   container.innerHTML = headerHtml + forumHtml + rankSelectorHtml + bodyHtml;
   bindWeaponDetailEvents(container);
   if (admin) {
-    bindGuideForumControls(container, getCurrentWeapon);
-    void renderGuideForumControls(weapon);
+    void import('./guide-forum.js').then(({ bindGuideForumControls, renderGuideForumControls }) => {
+      if (!isAdmin() || state.currentWeaponId !== weapon.id || !container.isConnected) return;
+      bindGuideForumControls(container, getCurrentWeapon);
+      return renderGuideForumControls(weapon);
+    }).catch(error => console.warn('[Guides] Controles del foro:', error));
   }
 }
 

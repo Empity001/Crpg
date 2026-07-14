@@ -1,7 +1,7 @@
 import { startPage } from '../app/page-bootstrap.js';
 import { initKitsRealtime } from '../app/realtime.js';
 import { bootShell } from '../app/shell.js';
-import { state } from '../core/state.js';
+import { isAdmin, state } from '../core/state.js';
 import { registerAdminUiRefreshHandler } from '../features/auth.js';
 import { loadKits, openKitModal, renderKits, submitKit } from '../features/kits.js';
 
@@ -24,7 +24,11 @@ function focusLinkedKit() {
   });
 }
 
+let kitAdminInitialized = false;
+
 function initKitModals() {
+  if (kitAdminInitialized || !isAdmin()) return;
+  kitAdminInitialized = true;
   document.getElementById('open-new-kit-btn')?.addEventListener('click', () => openKitModal(null));
   document.getElementById('close-kit-modal')?.addEventListener('click', () => {
     document.getElementById('kit-modal')?.classList.add('hidden');
@@ -35,7 +39,10 @@ function initKitModals() {
 async function init() {
   await bootShell('kits');
   initKitModals();
-  registerAdminUiRefreshHandler(() => { if (state.kitsLoaded) renderKits(); });
+  registerAdminUiRefreshHandler((admin) => {
+    if (admin) initKitModals();
+    if (state.kitsLoaded) renderKits();
+  });
   const kitsLoaded = await loadKits();
   if (kitsLoaded) {
     focusLinkedKit();
