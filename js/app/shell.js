@@ -196,9 +196,10 @@ function wireHeaderNav(pageKey) {
 
 function wireAdminModal() {
   document.getElementById('admin-toggle-btn')?.addEventListener('click', () => {
-    if (!state.authSession || !state.discordAdminEligible) openAdminLoginModal();
+    if (!state.authSession) openAdminLoginModal();
     else void toggleAdminMode();
   });
+  document.getElementById('sidebar-account-manage-btn')?.addEventListener('click', openAdminLoginModal);
   document.getElementById('close-admin-modal')?.addEventListener('click', closeAdminLoginModal);
   document.getElementById('discord-login-btn')?.addEventListener('click', () => {
     void signInWithDiscord().catch(error => console.error('[Auth] OAuth:', error));

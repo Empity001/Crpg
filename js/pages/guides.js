@@ -5,12 +5,14 @@ import { initWeaponsRealtime } from '../app/realtime.js';
 import { bootShell } from '../app/shell.js';
 import { isAdmin, state } from '../core/state.js';
 import { registerAdminUiRefreshHandler } from '../features/auth.js';
+import { clearGuideRelations } from '../features/guide-relations.js';
 import { renderWeaponsGrid } from '../features/weapons-catalog.js';
 import { debounce } from '../core/utils.js';
 import { loadWeaponsCatalog, renderWeaponAdminMetaControls } from '../features/weapons-data.js';
 import { closeWeaponDetail, openWeaponDetail, renderWeaponDetail } from '../features/weapons-detail.js';
 
 let weaponAdminPromise = null;
+let previousAdminState = null;
 
 function initWeaponsPublicControls() {
   document.getElementById('weapon-search-input')?.addEventListener('input', debounce((event) => {
@@ -65,8 +67,11 @@ function syncGuideViewFromUrl() {
 
 async function init() {
   await bootShell('guides');
+  previousAdminState = isAdmin();
   initWeaponsPublicControls();
   registerAdminUiRefreshHandler((admin) => {
+    if (previousAdminState !== null && admin !== previousAdminState) clearGuideRelations();
+    previousAdminState = admin;
     if (admin) void ensureWeaponAdminLoaded();
     if (!state.weaponsLoaded) return;
     renderWeaponsGrid();

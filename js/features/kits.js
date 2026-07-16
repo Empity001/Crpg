@@ -44,7 +44,7 @@ function initialsOf(name) {
   return parts.map(part => part[0]).join('').toUpperCase() || '?';
 }
 
-function renderKitItem(item) {
+function renderKitItem(item, { columnKey = '', index = 0 } = {}) {
   const url = safeUrl(item.image_url);
   const guideUrl = guideLinkUrl(item.guide_link);
   const thumb = url
@@ -52,7 +52,7 @@ function renderKitItem(item) {
     : `<span class="tier-chip-initials">${escapeHtml(initialsOf(item.name))}</span>`;
 
   const body = `
-    <div class="kit-item">
+    <div class="kit-item" data-kit-column="${escapeHtml(columnKey)}" data-kit-slot-index="${index}">
       <div class="kit-item-thumb">${thumb}</div>
       <span class="kit-item-name">${escapeHtml(item.name || 'Item sin nombre')}</span>
     </div>`;
@@ -65,8 +65,8 @@ function renderKitColumn(column, items, maxRows) {
   for (let index = 0; index < maxRows; index += 1) {
     const item = items[index];
     rows.push(`
-      <div class="kit-slot">
-        ${item ? renderKitItem(item) : '<span class="kit-empty-slot">-</span>'}
+      <div class="kit-slot" data-kit-column="${escapeHtml(column.key)}" data-kit-slot-index="${index}">
+        ${item ? renderKitItem(item, { columnKey: column.key, index }) : '<span class="kit-empty-slot">-</span>'}
       </div>
     `);
   }
@@ -269,7 +269,7 @@ function openKitItemContext(anchor, columnKey, index) {
           const guide = document.createElement('label');
           const selectId = `kit-context-guide-${crypto.randomUUID()}`;
           guide.className = 'context-field';
-          guide.innerHTML = `<span>Enlazar con Guías</span><select class="modal-select" id="${selectId}"></select>`;
+          guide.innerHTML = `<span>Asociar a una guía</span><select class="modal-select" id="${selectId}"></select>`;
           content.appendChild(guide);
           hydrateGuideLinkSelect(selectId, item.guide_link || null);
           guide.querySelector('select').addEventListener('change', event => {

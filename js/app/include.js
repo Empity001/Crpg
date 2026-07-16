@@ -32,8 +32,8 @@ let sharedShellPromise = null;
 export function loadSharedShell() {
   if (!sharedShellPromise) {
     sharedShellPromise = Promise.all([
-      loadPartial('partials/header.html?v=20260714-1', 'shell-header'),
-      loadPartial('partials/footer.html?v=20260714-1', 'shell-footer'),
+      loadPartial('partials/header.html?v=20260716-2', 'shell-header'),
+      loadPartial('partials/footer.html?v=20260716-2', 'shell-footer'),
     ]).then(([headerLoaded, footerLoaded]) => ({ headerLoaded, footerLoaded }));
   }
   return sharedShellPromise;

@@ -308,7 +308,7 @@ function openRecipeResultContext(anchor) {
           const guideField = document.createElement('label');
           guideField.className = 'context-field';
           const selectId = `recipe-result-guide-${crypto.randomUUID()}`;
-          guideField.innerHTML = `<span>Enlazar con Guías</span><select class="modal-select" id="${selectId}"></select>`;
+          guideField.innerHTML = `<span>Asociar a una guía</span><select class="modal-select" id="${selectId}"></select>`;
           content.appendChild(guideField);
           hydrateGuideLinkSelect(selectId, result.guide_link || null);
           guideField.querySelector('select').addEventListener('change', (event) => {
@@ -432,7 +432,7 @@ function openRecipeSlotContext(anchor, index) {
           const guideField = document.createElement('label');
           guideField.className = 'context-field';
           const selectId = `recipe-context-guide-${crypto.randomUUID()}`;
-          guideField.innerHTML = `<span>Enlazar con Guías</span><select class="modal-select" id="${selectId}"></select>`;
+          guideField.innerHTML = `<span>Asociar a una guía</span><select class="modal-select" id="${selectId}"></select>`;
           content.appendChild(guideField);
           hydrateGuideLinkSelect(selectId, slot.guide_link || null);
           guideField.querySelector('select').addEventListener('change', (event) => {

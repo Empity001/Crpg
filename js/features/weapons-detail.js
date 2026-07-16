@@ -12,6 +12,7 @@ import { isAdmin, state } from '../core/state.js';
 import { asArray, cloneData, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast } from '../core/utils.js';
 import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 import { guideLinkUrl } from './guide-links.js';
+import { getGuideRelationsStatus, loadGuideRelations, renderGuideRelations } from './guide-relations.js';
 import { getInfoVisuals, visibleRankSections } from './weapons-rank-extras.js';
 import { getCurrentWeapon, getWeaponCategory, getWeaponRanks, getWeaponType, replaceWeaponRank } from './weapons-state.js';
 
@@ -118,8 +119,15 @@ export function renderWeaponDetail() {
     ? renderWeaponRankBody(weapon, rank, admin)
     : `<p class="comments-empty">${admin ? 'Esta arma no tiene rangos todavía. Agrega el primero con "+ Rango".' : 'Esta arma no tiene información todavía.'}</p>`;
 
-  container.innerHTML = headerHtml + forumHtml + rankSelectorHtml + bodyHtml;
+  const relationsHtml = renderGuideRelations(weapon.id, rank?.id || null);
+
+  container.innerHTML = headerHtml + forumHtml + rankSelectorHtml + bodyHtml + relationsHtml;
   bindWeaponDetailEvents(container);
+  if (getGuideRelationsStatus(weapon.id) === 'idle') {
+    void loadGuideRelations(weapon.id).then(() => {
+      if (state.currentWeaponId === weapon.id && container.isConnected) renderWeaponDetail();
+    });
+  }
   if (admin) {
     void import('./guide-forum.js').then(({ bindGuideForumControls, renderGuideForumControls }) => {
       if (!isAdmin() || state.currentWeaponId !== weapon.id || !container.isConnected) return;

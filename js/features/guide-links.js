@@ -57,7 +57,7 @@ export function openGuideLink(link = null) {
 export function renderGuideLinkButton(link = null) {
   const url = guideLinkUrl(link);
   if (!url) return '';
-  return `<a class="guide-link-btn" href="${escapeHtml(url)}">Ver en Guias</a>`;
+  return `<a class="guide-link-btn" href="${escapeHtml(url)}">Abrir guía</a>`;
 }
 
 export async function ensureGuideOptions() {
@@ -90,17 +90,17 @@ export async function ensureGuideOptions() {
 export function renderGuideLinkOptions(selected = null) {
   const selectedValue = guideLinkValue(selected);
   const weapons = [...state.weapons].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'es'));
-  const options = ['<option value="">Sin enlace a Guias</option>'];
+  const options = ['<option value="">Sin asociación</option>'];
   weapons.forEach((weapon) => {
     const ranks = asArray(state.weaponRanksByWeapon[weapon.id]);
     if (!ranks.length) {
       const value = `${weapon.id}|`;
-      options.push(`<option value="${escapeHtml(value)}" ${value === selectedValue ? 'selected' : ''}>${escapeHtml(weapon.name || 'Guia sin nombre')}</option>`);
+      options.push(`<option value="${escapeHtml(value)}" ${value === selectedValue ? 'selected' : ''}>${escapeHtml(weapon.name || 'Guía sin nombre')}</option>`);
       return;
     }
     ranks.forEach((rank) => {
       const value = `${weapon.id}|${rank.id}`;
-      options.push(`<option value="${escapeHtml(value)}" ${value === selectedValue ? 'selected' : ''}>${escapeHtml(weapon.name || 'Guia sin nombre')} / ${escapeHtml(rank.name || 'Rango')}</option>`);
+      options.push(`<option value="${escapeHtml(value)}" ${value === selectedValue ? 'selected' : ''}>${escapeHtml(weapon.name || 'Guía sin nombre')} / ${escapeHtml(rank.name || 'Rango')}</option>`);
     });
   });
   return options.join('');
@@ -109,11 +109,11 @@ export function renderGuideLinkOptions(selected = null) {
 export async function hydrateGuideLinkSelect(selectId, selected = null) {
   const select = document.getElementById(selectId);
   if (!select) return;
-  select.innerHTML = '<option value="">Cargando Guias...</option>';
+  select.innerHTML = '<option value="">Cargando guías...</option>';
   const ok = await ensureGuideOptions();
   select.innerHTML = ok
     ? renderGuideLinkOptions(selected)
-    : '<option value="">No se pudieron cargar Guias</option>';
+    : '<option value="">No se pudieron cargar las guías</option>';
 }
 
 export function readGuideLinkSelect(selectId) {

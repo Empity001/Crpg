@@ -19,10 +19,11 @@
 <link rel="stylesheet" href="css/rebrand-editors.css?v=20260711-21" />
 <link rel="stylesheet" href="css/rebrand-logs.css?v=20260711-21" />
 <link rel="stylesheet" href="css/rebrand-extras.css?v=20260711-21" />
-<link rel="stylesheet" href="css/rebrand-controls.css?v=20260712-1" />
+<link rel="stylesheet" href="css/rebrand-controls.css?v=20260716-2" />
 <link rel="stylesheet" href="css/command-center.css?v=20260711-21" />
 <link rel="stylesheet" href="css/admin-entry-cards.css?v=20260716-1" />
 <link rel="stylesheet" href="css/theme-system.css?v=20260712-1" />
+<link rel="stylesheet" href="css/guide-connections.css?v=20260716-2" />
 </head>
 <body>
 
@@ -33,20 +34,33 @@
 
     <!-- Vista de catálogo: buscador + filtros dinámicos + grid -->
     <div id="weapons-catalog-view">
-      <div class="weapons-toolbar">
-        <input type="text" id="weapon-search-input" class="modal-input weapons-search-input" placeholder="🔍 Buscar arma por nombre..." />
-        <div class="weapons-toolbar-actions">
-          <button class="btn-secondary-admin hidden" id="open-weapon-category-manage-btn" type="button">🏷 Categorías</button>
-          <button class="btn-secondary-admin hidden" id="open-weapon-type-manage-btn" type="button">🏷 Tipos</button>
-          <button class="btn-new-log hidden admin-create-toolbar-fallback" id="open-new-weapon-btn" type="button">+ Nueva arma</button>
+      <div class="guides-catalog-controls">
+        <div class="weapons-toolbar">
+          <label class="guides-search-field" for="weapon-search-input">
+            <span class="guides-search-icon" aria-hidden="true"></span>
+            <input type="search" id="weapon-search-input" class="modal-input weapons-search-input" placeholder="Buscar por nombre…" autocomplete="off" />
+          </label>
+          <div class="weapons-toolbar-actions">
+            <button class="btn-secondary-admin hidden" id="open-weapon-category-manage-btn" type="button">Gestionar categorías</button>
+            <button class="btn-secondary-admin hidden" id="open-weapon-type-manage-btn" type="button">Gestionar tipos</button>
+            <button class="btn-new-log hidden admin-create-toolbar-fallback" id="open-new-weapon-btn" type="button">+ Nueva arma</button>
+          </div>
         </div>
-      </div>
 
-      <div class="filter-pills weapon-filter-row" id="weapon-category-filters">
-        <button class="pill is-active" data-wcat="all">Todas las categorías</button>
-      </div>
-      <div class="filter-pills weapon-filter-row" id="weapon-type-filters">
-        <button class="pill is-active" data-wtype="all">Todos los tipos</button>
+        <div class="guide-filter-bar" aria-label="Filtros del catálogo">
+          <div class="guide-filter-group">
+            <span class="guide-filter-label">Categoría</span>
+            <div class="filter-pills weapon-filter-row" id="weapon-category-filters">
+              <button class="pill is-active" data-wcat="all">Todas</button>
+            </div>
+          </div>
+          <div class="guide-filter-group">
+            <span class="guide-filter-label">Tipo</span>
+            <div class="filter-pills weapon-filter-row" id="weapon-type-filters">
+              <button class="pill is-active" data-wtype="all">Todos</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="weapons-grid" id="weapons-grid">
@@ -349,6 +363,6 @@
 
 <script src="js/boot-watchdog.js?v=20260711-11"></script>
 <script src="js/vendor/supabase.js?v=20260711-11"></script>
-<script type="module" src="js/pages/guides.js?v=20260716-1"></script>
+<script type="module" src="js/pages/guides.js?v=20260716-2"></script>
 </body>
 </html>

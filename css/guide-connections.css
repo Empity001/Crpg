@@ -1,0 +1,482 @@
+/* ======================================================================
+   Guías compactas + conexiones inversas
+   ====================================================================== */
+
+body[data-page="guides"] .app-main {
+  padding-top: 20px;
+}
+
+body[data-page="guides"] .page-hero {
+  min-height: 148px;
+  margin-bottom: 15px;
+  padding: 25px 32px;
+}
+
+body[data-page="guides"] .page-hero h1 {
+  font-size: clamp(31px, 3.5vw, 44px);
+}
+
+body[data-page="guides"] .page-hero p {
+  margin-top: 9px;
+  font-size: clamp(13px, 1.2vw, 15px);
+}
+
+body[data-page="guides"] .page-hero-art {
+  opacity: .68;
+}
+
+.guides-catalog-controls {
+  margin-bottom: 10px;
+  padding: 10px 12px 8px;
+  border: 1px solid rgb(var(--theme-border-rgb) / .18);
+  border-radius: 15px;
+  background: rgb(var(--theme-panel-rgb) / .55);
+  box-shadow: inset 0 1px rgb(var(--theme-text-primary-rgb) / .025);
+}
+
+.guides-catalog-controls .weapons-toolbar {
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.guides-search-field {
+  position: relative;
+  width: min(420px, 100%);
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+}
+
+.guides-search-icon {
+  position: absolute;
+  left: 13px;
+  z-index: 1;
+  width: 13px;
+  height: 13px;
+  border: 1.8px solid var(--theme-text-muted);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.guides-search-icon::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  bottom: -3px;
+  width: 6px;
+  height: 1.8px;
+  border-radius: 2px;
+  background: var(--theme-text-muted);
+  transform: rotate(45deg);
+  transform-origin: left center;
+}
+
+.guides-search-field .weapons-search-input {
+  width: 100%;
+  max-width: none;
+  min-height: 38px;
+  padding: 8px 12px 8px 38px;
+}
+
+.guides-catalog-controls .weapons-toolbar-actions {
+  gap: 7px;
+}
+
+.guides-catalog-controls .weapons-toolbar-actions .btn-secondary-admin {
+  min-height: 34px;
+  padding: 7px 11px;
+  font-size: 10px;
+}
+
+.guide-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+  gap: 8px;
+}
+
+.guide-filter-group {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid rgb(var(--theme-border-rgb) / .12);
+  border-radius: 10px;
+  background: rgb(var(--theme-page-rgb) / .18);
+}
+
+.guide-filter-label {
+  color: var(--theme-text-muted);
+  font: 700 8px/1 var(--font-mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.guide-filter-group .weapon-filter-row,
+.guide-filter-group #weapon-category-filters,
+.guide-filter-group #weapon-type-filters {
+  gap: 6px;
+  margin: 0;
+  padding: 0 0 3px;
+  scrollbar-width: thin;
+}
+
+.guide-filter-group .pill {
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 10.5px;
+  line-height: 1.1;
+}
+
+.guide-filter-group .weapon-filter-row::-webkit-scrollbar,
+.guide-filter-group #weapon-category-filters::-webkit-scrollbar,
+.guide-filter-group #weapon-type-filters::-webkit-scrollbar {
+  height: 5px !important;
+}
+
+body[data-page="guides"] .weapons-grid {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+body[data-page="guides"] .weapon-card {
+  min-height: 178px;
+  gap: 7px;
+  padding: 11px 9px 10px;
+  border-radius: 15px;
+}
+
+body[data-page="guides"] .weapon-card-thumb {
+  width: 76px;
+  height: 76px;
+  border-radius: 11px;
+}
+
+body[data-page="guides"] .weapon-card-name {
+  font-size: 12.5px;
+}
+
+body[data-page="guides"] .weapon-back-btn {
+  margin-bottom: 9px;
+}
+
+body[data-page="guides"] .weapon-detail-header {
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 11px;
+  padding: 14px 16px;
+  border-radius: 15px;
+}
+
+body[data-page="guides"] .weapon-detail-image {
+  width: 78px;
+  height: 78px;
+  border-radius: 11px;
+}
+
+body[data-page="guides"] .weapon-detail-name {
+  margin-bottom: 6px;
+  font-size: 23px;
+}
+
+body[data-page="guides"] .weapon-detail-admin-actions {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+body[data-page="guides"] .weapon-rank-selector {
+  gap: 6px;
+  margin-bottom: 11px;
+}
+
+body[data-page="guides"] .weapon-rank-selector .pill {
+  min-height: 34px;
+  padding: 7px 13px;
+}
+
+body[data-page="guides"] .weapon-section-block {
+  margin-bottom: 11px;
+  padding: 14px 16px;
+  border-radius: 15px;
+}
+
+body[data-page="guides"] .weapon-section-head {
+  margin-bottom: 9px;
+  padding-bottom: 8px;
+}
+
+/* Relaciones de la Guía ------------------------------------------------ */
+.guide-relations-section {
+  overflow: hidden;
+}
+
+.guide-relations-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.guide-relations-eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--theme-primary-soft);
+  font: 700 8px/1.2 var(--font-mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.guide-relations-heading h3 {
+  margin: 0;
+  color: var(--theme-text-primary);
+  font-size: 15px;
+}
+
+.guide-relations-count {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 1px solid rgb(var(--theme-primary-soft-rgb) / .22);
+  border-radius: 999px;
+  color: var(--theme-text-secondary);
+  background: rgb(var(--theme-primary-rgb) / .08);
+  font: 600 9px/1 var(--font-mono);
+}
+
+.guide-relations-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(180px, .75fr));
+  gap: 10px;
+}
+
+.guide-relation-panel {
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid rgb(var(--theme-border-rgb) / .14);
+  border-radius: 12px;
+  background: rgb(var(--theme-page-rgb) / .2);
+}
+
+.guide-relation-panel > header {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+.guide-relation-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgb(var(--theme-primary-soft-rgb) / .2);
+  border-radius: 8px;
+  color: var(--theme-primary-soft);
+  background: rgb(var(--theme-primary-rgb) / .08);
+  font-family: var(--font-mono);
+}
+
+.guide-relation-panel h4 {
+  margin: 0;
+  color: var(--theme-text-primary);
+  font-size: 11.5px;
+}
+
+.guide-relation-panel header small {
+  display: block;
+  margin-top: 2px;
+  color: var(--theme-text-muted);
+  font-size: 9.5px;
+}
+
+.guide-relation-panel header b {
+  color: var(--theme-text-muted);
+  font: 600 10px/1 var(--font-mono);
+}
+
+.guide-change-list,
+.guide-compact-links,
+.guide-tier-links {
+  display: grid;
+  gap: 6px;
+}
+
+.guide-change-card,
+.guide-compact-link,
+.guide-tier-link {
+  min-width: 0;
+  display: grid;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: inherit;
+  background: rgb(var(--theme-panel-rgb) / .55);
+  text-decoration: none;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.guide-change-card:hover,
+.guide-compact-link:hover,
+.guide-tier-link:hover {
+  transform: translateY(-1px);
+  border-color: rgb(var(--theme-primary-soft-rgb) / .3);
+  background: rgb(var(--theme-primary-rgb) / .1);
+}
+
+.guide-change-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+  color: var(--theme-text-muted);
+  font: 500 8px/1.2 var(--font-mono);
+  text-transform: uppercase;
+}
+
+.guide-change-card strong,
+.guide-compact-link strong,
+.guide-tier-link strong {
+  overflow: hidden;
+  color: var(--theme-text-primary);
+  font-size: 10.5px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-change-card small,
+.guide-compact-link small,
+.guide-tier-link small {
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--theme-text-muted);
+  font-size: 9px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-tier-link {
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.guide-tier-link > span:last-child {
+  min-width: 0;
+  display: grid;
+}
+
+.guide-tier-rank {
+  min-height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--guide-tier-color) 55%, transparent);
+  border-radius: 8px;
+  color: color-mix(in srgb, var(--guide-tier-color) 82%, white 18%);
+  background: color-mix(in srgb, var(--guide-tier-color) 18%, transparent);
+  font: 800 10px/1 var(--font-mono);
+}
+
+.guide-relation-empty,
+.guide-relation-more,
+.guide-relations-warning {
+  margin: 0;
+  color: var(--theme-text-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.guide-relation-empty {
+  padding: 10px 5px;
+  text-align: center;
+}
+
+.guide-relation-more {
+  margin-top: 7px;
+  text-align: center;
+}
+
+.guide-relations-warning {
+  margin-top: 9px;
+  color: var(--theme-warning, var(--theme-accent));
+}
+
+.guide-relations-loading {
+  display: grid;
+  grid-template-columns: 1.35fr .75fr .75fr;
+  gap: 10px;
+}
+
+.guide-relations-loading span {
+  min-height: 92px;
+  border-radius: 12px;
+  background: linear-gradient(100deg,
+    rgb(var(--theme-page-rgb) / .2) 20%,
+    rgb(var(--theme-primary-rgb) / .08) 45%,
+    rgb(var(--theme-page-rgb) / .2) 70%);
+  background-size: 240% 100%;
+  animation: guide-relations-shimmer 1.5s linear infinite;
+}
+
+@keyframes guide-relations-shimmer {
+  to { background-position: -240% 0; }
+}
+
+@media (max-width: 1080px) {
+  .guide-filter-bar { grid-template-columns: 1fr; }
+  .guide-relations-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .guide-relation-changes { grid-column: 1 / -1; }
+  .guide-relations-loading { grid-template-columns: 1fr 1fr; }
+  .guide-relations-loading span:first-child { grid-column: 1 / -1; }
+}
+
+@media (max-width: 720px) {
+  body[data-page="guides"] .app-main { padding-top: 14px; }
+  body[data-page="guides"] .page-hero {
+    min-height: 125px;
+    margin-bottom: 11px;
+    padding: 20px;
+  }
+  body[data-page="guides"] .page-hero p { max-width: 92%; }
+  .guides-catalog-controls { padding: 9px; }
+  .guides-catalog-controls .weapons-toolbar { gap: 7px; }
+  .guides-search-field { width: 100%; min-width: 0; }
+  .guide-filter-group {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+  .guide-filter-label { padding-left: 2px; }
+  body[data-page="guides"] .weapons-grid { gap: 9px; }
+  body[data-page="guides"] .weapon-card { min-height: 164px; }
+  body[data-page="guides"] .weapon-detail-header {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+  }
+  body[data-page="guides"] .weapon-detail-admin-actions { width: 100%; }
+  .guide-relations-grid,
+  .guide-relations-loading { grid-template-columns: 1fr; }
+  .guide-relation-changes,
+  .guide-relations-loading span:first-child { grid-column: auto; }
+}
+
+@media (max-width: 480px) {
+  body[data-page="guides"] .weapon-detail-header { align-items: flex-start; }
+  body[data-page="guides"] .weapon-detail-image { width: 64px; height: 64px; }
+  body[data-page="guides"] .weapon-detail-name { font-size: 19px; }
+  .guide-relations-heading { align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-relations-loading span { animation: none; }
+}

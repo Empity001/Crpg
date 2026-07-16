@@ -123,8 +123,10 @@ export function updateAdminUI() {
   const subtitle = document.getElementById('hud-subtitle');
   const mobileIndicator = document.getElementById('mobile-admin-indicator');
   const accountAvatar = document.getElementById('sidebar-account-avatar');
-  const accountName = document.getElementById('sidebar-account-name');
+  const accountFallback = document.getElementById('sidebar-account-fallback');
   const accountWrap = document.getElementById('sidebar-account');
+  const accountAction = document.getElementById('admin-toggle-action');
+  const accountManage = document.getElementById('sidebar-account-manage-btn');
   const admin = isAdmin();
   const loggedIn = !!state.authSession;
   const eligible = !!state.discordAdminEligible;
@@ -134,24 +136,33 @@ export function updateAdminUI() {
   mobileIndicator?.classList.toggle('hidden', !admin);
   document.body?.classList.toggle('is-admin-mode', admin);
   document.body?.classList.toggle('has-discord-session', loggedIn);
+  document.body?.classList.toggle('has-admin-role', eligible);
+  accountWrap?.classList.toggle('is-connected', loggedIn);
+  accountWrap?.classList.toggle('is-eligible', eligible);
+  accountWrap?.classList.toggle('is-active', admin);
 
   if (label) {
-    if (!loggedIn) label.textContent = 'Iniciar sesión con Discord';
-    else if (!eligible) label.textContent = profileName(state.discordProfile);
-    else label.textContent = admin ? 'Desactivar Modo Admin' : 'Activar Modo Admin';
+    if (!loggedIn) label.textContent = 'Iniciar sesión';
+    else label.textContent = profileName(state.discordProfile);
   }
   if (sublabel) {
-    if (!loggedIn) sublabel.textContent = 'Cuenta y acceso administrativo';
+    if (!loggedIn) sublabel.textContent = 'Discord y administración';
+    else if (!eligible && state.discordMembership === 'not_member') sublabel.textContent = 'Cuenta fuera del servidor';
     else if (!eligible) sublabel.textContent = 'Sesión de visitante';
-    else sublabel.textContent = admin ? 'Edición habilitada' : 'Rol administrativo verificado';
+    else sublabel.textContent = admin ? 'Rol verificado · Edición activa' : 'Rol administrativo verificado';
+  }
+  if (accountAction) {
+    if (!loggedIn) accountAction.textContent = 'Conectar cuenta';
+    else if (!eligible) accountAction.textContent = 'Revisar acceso';
+    else accountAction.textContent = admin ? 'Desactivar edición' : 'Activar edición';
   }
   if (subtitle) subtitle.textContent = admin ? 'Panel de Administración' : 'Página oficial';
-  if (accountName) accountName.textContent = loggedIn ? profileName(state.discordProfile) : '';
   if (accountAvatar) {
     accountAvatar.src = state.discordProfile?.avatarUrl || '';
     accountAvatar.classList.toggle('hidden', !state.discordProfile?.avatarUrl);
   }
-  accountWrap?.classList.toggle('hidden', !loggedIn);
+  accountFallback?.classList.toggle('hidden', !!state.discordProfile?.avatarUrl);
+  accountManage?.classList.toggle('hidden', !loggedIn);
 
   const adminOnlyIds = [
     'open-new-log-btn', 'open-field-config-btn', 'open-action-log-btn',

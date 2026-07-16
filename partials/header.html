@@ -103,24 +103,29 @@
   </nav>
 
   <div class="sidebar-footer">
-    <div class="sidebar-account hidden" id="sidebar-account">
-      <img class="sidebar-account-avatar hidden" id="sidebar-account-avatar" alt="" />
-      <span class="sidebar-account-name" id="sidebar-account-name"></span>
-    </div>
-    <div class="admin-mode-badge hidden" id="admin-mode-badge" aria-live="polite">
-      <span class="admin-mode-pulse"></span>
-      <span>Sesión administrativa activa</span>
-    </div>
+    <div class="sidebar-session-card" id="sidebar-account">
+      <button id="admin-toggle-btn" class="btn-admin-toggle" type="button">
+        <span class="admin-toggle-emblem" aria-hidden="true">
+          <img class="sidebar-account-avatar hidden" id="sidebar-account-avatar" alt="" />
+          <span class="sidebar-account-fallback" id="sidebar-account-fallback">◆</span>
+        </span>
+        <span class="admin-toggle-copy">
+          <strong id="admin-toggle-label">Iniciar sesión</strong>
+          <small id="admin-toggle-sublabel">Discord y administración</small>
+          <span class="admin-toggle-action" id="admin-toggle-action">Conectar cuenta</span>
+        </span>
+        <span class="admin-toggle-arrow" aria-hidden="true">→</span>
+        <span class="dot-offline" id="admin-dot" aria-hidden="true"></span>
+      </button>
 
-    <button id="admin-toggle-btn" class="btn-admin-toggle" type="button">
-      <span class="admin-toggle-emblem" aria-hidden="true">◆</span>
-      <span class="admin-toggle-copy">
-        <strong id="admin-toggle-label">Entrar a Modo Admin</strong>
-        <small id="admin-toggle-sublabel">Acceso para administradores</small>
-      </span>
-      <span class="admin-toggle-arrow" aria-hidden="true">→</span>
-      <span class="dot-offline" id="admin-dot" aria-hidden="true"></span>
-    </button>
+      <div class="sidebar-session-meta">
+        <div class="admin-mode-badge hidden" id="admin-mode-badge" aria-live="polite">
+          <span class="admin-mode-pulse"></span>
+          <span>Edición administrativa activa</span>
+        </div>
+        <button class="sidebar-account-manage hidden" id="sidebar-account-manage-btn" type="button">Ver cuenta</button>
+      </div>
+    </div>
   </div>
 </aside>
 

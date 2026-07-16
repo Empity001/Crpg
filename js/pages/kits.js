@@ -14,11 +14,16 @@ function focusLinkedKit() {
     const card = document.querySelector(`.kit-card[data-kit-id="${CSS.escape(kitId)}"]`);
     if (!card) return;
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const columnKey = params.get('column');
+    const slotIndex = params.get('slot');
+    const exactItem = columnKey && slotIndex !== null
+      ? card.querySelector(`.kit-item[data-kit-column="${CSS.escape(columnKey)}"][data-kit-slot-index="${CSS.escape(slotIndex)}"]`)
+      : null;
     const itemName = params.get('item');
     const matchingItem = itemName
       ? [...card.querySelectorAll('.kit-item-name')].find(el => el.textContent.trim().toLocaleLowerCase('es') === itemName.trim().toLocaleLowerCase('es'))
       : null;
-    const target = matchingItem?.closest('.kit-item, .kit-slot') || card;
+    const target = exactItem || matchingItem?.closest('.kit-item, .kit-slot') || card;
     target.classList.add('global-search-target');
     window.setTimeout(() => target.classList.remove('global-search-target'), 2100);
   });
