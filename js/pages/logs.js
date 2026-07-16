@@ -18,7 +18,7 @@ import { cancelReply, deleteCommentAction, startReplyTo, submitComment, toggleCo
 import { initBeforeUnload, restoreDraft, saveDraft, stopDraftAutosave } from '../features/drafts.js';
 import { loadDraftByKey } from '../features/drafts-store.js';
 import { openFieldConfigModal, saveFieldConfig, setFieldConfigSavedHandler } from '../features/field-config.js';
-import { initDesktopLogInspectorTracking, initSortControl, loadLogs, openEditLogModal, openLogFromSearch, openNewLogModal, renderLogs, submitLog, updateLogCoverPreview } from '../features/logs.js?v=20260714-1';
+import { initDesktopLogInspectorTracking, initSortControl, loadLogs, openEditLogModal, openLogFromSearch, openNewLogModal, renderLogs, submitLog, updateLogCoverPreview } from '../features/logs.js?v=20260716-1';
 import { attachMediaPickerButton, openMediaPicker } from '../features/media-library-lazy.js';
 import { isAdmin, state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
@@ -58,6 +58,11 @@ function initLogsModals() {
   registerModalLifecycleCleanup('detail-modal', { onClose: cancelReply });
 
   document.getElementById('open-new-log-btn').addEventListener('click', openNewLogModal);
+  document.getElementById('logs-grid')?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest('[data-admin-create="log"]') || !isAdmin()) return;
+    openNewLogModal();
+  });
   document.getElementById('close-log-modal').addEventListener('click', () => {
     stopDraftAutosave();
     document.getElementById('log-modal').classList.add('hidden');

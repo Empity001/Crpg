@@ -103,6 +103,28 @@ function renderKitCard(kit) {
   `;
 }
 
+function renderCreateKitCard() {
+  if (!isAdmin()) return '';
+  return `
+    <button type="button" class="kit-card admin-create-card admin-create-kit-card" data-admin-create="kit" aria-label="Agregar un nuevo kit">
+      <span class="kit-card-head">
+        <span>
+          <span class="admin-create-eyebrow">Administración</span>
+          <span class="kit-card-title">Agregar nuevo kit</span>
+          <span class="kit-card-desc">Combina arma, accesorio y sub-arma sin salir del formato de los kits existentes.</span>
+        </span>
+        <span class="admin-create-kit-callout" aria-hidden="true">Crear kit</span>
+      </span>
+      <span class="admin-create-kit-slots" aria-hidden="true">
+        ${KIT_COLUMNS.map(column => `
+          <span class="admin-create-kit-slot">
+            <span class="admin-create-plus">+</span>
+            <span>${escapeHtml(column.label)}</span>
+          </span>`).join('')}
+      </span>
+    </button>`;
+}
+
 async function performKitsLoad() {
   const grid = document.getElementById('kits-grid');
   const requestId = ++kitsLoadRequestId;
@@ -151,13 +173,14 @@ export function loadKits() {
 export function renderKits() {
   const grid = document.getElementById('kits-grid');
   if (!grid) return;
+  const createCard = renderCreateKitCard();
 
   if (!state.kits.length) {
-    grid.innerHTML = `<div class="logs-empty"><p>Todavía no hay kits recomendados.${isAdmin() ? ' Crea el primero con "+ Nuevo kit".' : ''}</p></div>`;
+    grid.innerHTML = `${createCard}<div class="logs-empty"><p>Todavía no hay kits recomendados.</p></div>`;
     return;
   }
 
-  grid.innerHTML = state.kits.map(renderKitCard).join('');
+  grid.innerHTML = createCard + state.kits.map(renderKitCard).join('');
   grid.querySelectorAll('[data-action="kit-actions"]').forEach(btn => {
     btn.addEventListener('click', () => openKitCardActions(btn, btn.dataset.kitId));
   });

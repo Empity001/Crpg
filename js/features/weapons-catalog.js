@@ -110,17 +110,32 @@ export function renderWeaponTypeFilters() {
 // GRID DE CATÁLOGO
 // ---------------------------------------------------------
 
+function buildCreateGuideCardHtml() {
+  if (!isAdmin()) return '';
+  return `
+    <button type="button" class="weapon-card admin-create-card admin-create-guide-card" data-admin-create="guide" aria-label="Agregar una nueva guía">
+      <span class="weapon-card-thumb admin-create-plus" aria-hidden="true">+</span>
+      <span class="weapon-card-name">Agregar nueva guía</span>
+      <span class="weapon-card-badges">
+        <span class="weapon-cat-dot" style="background:var(--theme-primary-soft, var(--admin-purple-light));"></span>
+        <span class="weapon-card-type">Siempre primero</span>
+      </span>
+    </button>`;
+}
+
 export function renderWeaponsGrid() {
   const grid = document.getElementById('weapons-grid');
   if (!grid) return;
   const list = state.weapons.filter(weaponMatchesFilters).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  const createCard = buildCreateGuideCardHtml();
 
   if (list.length === 0) {
-    grid.innerHTML = `<div class="weapons-empty"><p>No hay armas que coincidan con la búsqueda/filtros.${isAdmin() ? ' Crea la primera con "+ Nueva arma".' : ''}</p></div>`;
+    grid.innerHTML = `${createCard}<div class="weapons-empty"><p>No hay armas que coincidan con la búsqueda o los filtros.</p></div>`;
+    bindWeaponsGridEvents(grid);
     return;
   }
 
-  grid.innerHTML = list.map(w => {
+  grid.innerHTML = createCard + list.map(w => {
     const cat = getWeaponCategory(w.category_id);
     const safe = safeUrl(w.image_url);
     const type = getWeaponType(w.type_id);

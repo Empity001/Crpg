@@ -241,6 +241,16 @@ export function initialsOf(name) {
   return s || '?';
 }
 
+function tierControlIcon(kind) {
+  const paths = {
+    up: '<path d="M4 10l4-4 4 4"/><path d="M8 6v7"/>',
+    down: '<path d="M4 6l4 4 4-4"/><path d="M8 10V3"/>',
+    edit: '<path d="M3 11.5V14h2.5L13 6.5 9.5 3 2 10.5z"/><path d="M8.8 3.7l3.5 3.5"/>',
+    delete: '<path d="M3 4.5h10"/><path d="M6 4.5V2.8h4v1.7"/><path d="M4.5 4.5l.7 9h5.6l.7-9"/><path d="M7 7v4M9 7v4"/>',
+  };
+  return `<svg class="tier-control-icon" viewBox="0 0 16 16" aria-hidden="true">${paths[kind] || ''}</svg>`;
+}
+
 
 export function renderTierlist() {
   const board = document.getElementById('tierlist-board');
@@ -261,10 +271,10 @@ export function renderTierlist() {
             <span class="tier-row-name">${escapeHtml(row.name)}</span>
             ${isAdmin() ? `
               <div class="tier-row-admin-controls">
-                <button type="button" class="tier-row-ctrl-btn" data-action="move-row-up" data-row-id="${row.id}" title="Subir fila">▲</button>
-                <button type="button" class="tier-row-ctrl-btn" data-action="move-row-down" data-row-id="${row.id}" title="Bajar fila">▼</button>
-                <button type="button" class="tier-row-ctrl-btn" data-action="edit-row" data-row-id="${row.id}" title="Editar">✏️</button>
-                <button type="button" class="tier-row-ctrl-btn danger" data-action="delete-row" data-row-id="${row.id}" title="Eliminar">🗑️</button>
+                <button type="button" class="tier-row-ctrl-btn" data-action="move-row-up" data-row-id="${row.id}" title="Subir fila" aria-label="Subir fila">${tierControlIcon('up')}</button>
+                <button type="button" class="tier-row-ctrl-btn" data-action="move-row-down" data-row-id="${row.id}" title="Bajar fila" aria-label="Bajar fila">${tierControlIcon('down')}</button>
+                <button type="button" class="tier-row-ctrl-btn" data-action="edit-row" data-row-id="${row.id}" title="Editar fila" aria-label="Editar fila">${tierControlIcon('edit')}</button>
+                <button type="button" class="tier-row-ctrl-btn danger" data-action="delete-row" data-row-id="${row.id}" title="Eliminar fila" aria-label="Eliminar fila">${tierControlIcon('delete')}</button>
               </div>
             ` : ''}
           </div>

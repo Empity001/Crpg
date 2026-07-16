@@ -221,6 +221,20 @@ function buildLogCardHtml(log) {
     </article>`;
 }
 
+function buildCreateLogCardHtml() {
+  if (!isAdmin()) return '';
+  return `
+    <button type="button" class="admin-create-card admin-create-log-card" data-admin-create="log" aria-label="Agregar un nuevo log">
+      <span class="admin-create-plus admin-create-log-media" aria-hidden="true">+</span>
+      <span class="admin-create-log-copy">
+        <span class="admin-create-eyebrow">Administración</span>
+        <strong>Agregar nuevo log</strong>
+        <small>Crea un registro con mobs, ítems, extras y enlaces a Guías.</small>
+      </span>
+      <span class="admin-create-log-action" aria-hidden="true">Crear registro</span>
+    </button>`;
+}
+
 function selectLog(logId, { resetTab = true, preserveExpanded = false } = {}) {
   if (!state.logs.some(log => log.id === logId)) return;
   const changedLog = selectedLogId !== logId;
@@ -744,12 +758,13 @@ function renderLoadMoreBtn(grid, remaining) {
 export function renderLogs(changedLogId = null) {
   const grid = document.getElementById('logs-grid');
   if (!grid) return;
+  const createCard = buildCreateLogCardHtml();
   let filtered = state.logs.filter(log => isAdmin() || isLogPublished(log));
   if (state.activeFilter !== 'all') filtered = filtered.filter(log => log.category === state.activeFilter);
   filtered = sortLogs(filtered);
 
   if (filtered.length === 0) {
-    grid.innerHTML = `<div class="logs-empty"><p>No hay logs en esta categoría todavía.</p></div>`;
+    grid.innerHTML = `${createCard}<div class="logs-empty"><p>No hay logs en esta categoría todavía.</p></div>`;
     const existingBtn = document.getElementById('load-more-btn');
     if (existingBtn) existingBtn.remove();
     selectedLogId = null;
@@ -770,7 +785,7 @@ export function renderLogs(changedLogId = null) {
     document.body.classList.remove('logs-inspector-open');
   }
 
-  grid.innerHTML = visible.map(log => buildLogCardHtml(log)).join('');
+  grid.innerHTML = createCard + visible.map(log => buildLogCardHtml(log)).join('');
   grid.querySelectorAll('.log-list-card').forEach(card => bindCardEvents(card));
   renderLoadMoreBtn(grid, filtered.length - visible.length);
   renderLogInspector();

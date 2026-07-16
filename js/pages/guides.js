@@ -17,7 +17,16 @@ function initWeaponsPublicControls() {
     state.weaponSearchTerm = event.target.value.trim();
     renderWeaponsGrid();
   }, 250));
-  document.getElementById('weapon-back-btn')?.addEventListener('click', closeWeaponDetail);
+  document.getElementById('weapons-grid')?.addEventListener('click', async (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest('[data-admin-create="guide"]') || !isAdmin()) return;
+    const adminModule = await ensureWeaponAdminLoaded();
+    adminModule?.openWeaponModal(null);
+  });
+  document.getElementById('weapon-back-btn')?.addEventListener('click', () => {
+    if (window.history.state?.culonesGuideFromCatalog) window.history.back();
+    else closeWeaponDetail();
+  });
 }
 
 function ensureWeaponAdminLoaded() {
@@ -38,17 +47,20 @@ function ensureWeaponAdminLoaded() {
   return weaponAdminPromise;
 }
 
-function openLinkedGuideFromUrl() {
+function syncGuideViewFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const weaponId = params.get('weapon');
   const rankId = params.get('rank');
-  const weapon = state.weapons.find(item => item.id === weaponId);
-  if (!weapon || (!weapon.published && !isAdmin())) return;
-  openWeaponDetail(weaponId);
-  if (rankId && state.weaponRanksByWeapon[weaponId]?.some(rank => rank.id === rankId)) {
-    state.currentWeaponRankId = rankId;
-    renderWeaponDetail();
+  if (!weaponId) {
+    closeWeaponDetail({ historyMode: 'none' });
+    return;
   }
+  const weapon = state.weapons.find(item => item.id === weaponId);
+  if (!weapon || (!weapon.published && !isAdmin())) {
+    closeWeaponDetail({ historyMode: 'replace' });
+    return;
+  }
+  openWeaponDetail(weaponId, { rankId, historyMode: 'none' });
 }
 
 async function init() {
@@ -63,7 +75,14 @@ async function init() {
   if (isAdmin()) void ensureWeaponAdminLoaded();
   const guidesLoaded = await loadWeaponsCatalog();
   if (guidesLoaded) {
-    openLinkedGuideFromUrl();
+    const hasLinkedGuide = new URLSearchParams(window.location.search).has('weapon');
+    window.history.replaceState({
+      ...(window.history.state || {}),
+      culonesGuideView: hasLinkedGuide ? 'detail' : 'catalog',
+      culonesGuideFromCatalog: false,
+    }, '', window.location.href);
+    syncGuideViewFromUrl();
+    window.addEventListener('popstate', syncGuideViewFromUrl);
     initWeaponsRealtime();
   }
 }

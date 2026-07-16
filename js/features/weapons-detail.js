@@ -19,21 +19,48 @@ function loadWeaponAdminActions() {
   return import('./weapons-admin.js');
 }
 
-export function openWeaponDetail(weaponId) {
+function guideViewUrl(weaponId = null, rankId = null) {
+  const url = new URL(window.location.href);
+  url.hash = '';
+  if (weaponId) url.searchParams.set('weapon', weaponId);
+  else url.searchParams.delete('weapon');
+  if (weaponId && rankId) url.searchParams.set('rank', rankId);
+  else url.searchParams.delete('rank');
+  return `${url.pathname.split('/').pop() || 'guides.html'}${url.search}`;
+}
+
+function writeGuideHistory(mode, weaponId = null, rankId = null, { fromCatalog = false } = {}) {
+  if (mode === 'none') return;
+  const method = mode === 'push' ? 'pushState' : 'replaceState';
+  window.history[method]({
+    ...(window.history.state || {}),
+    culonesGuideView: weaponId ? 'detail' : 'catalog',
+    culonesGuideFromCatalog: !!fromCatalog,
+  }, '', guideViewUrl(weaponId, rankId));
+}
+
+export function openWeaponDetail(weaponId, { rankId = null, historyMode = 'push' } = {}) {
+  const wasCatalog = !state.currentWeaponId;
   state.currentWeaponId = weaponId;
   const ranks = getWeaponRanks(weaponId);
-  state.currentWeaponRankId = ranks[0] ? ranks[0].id : null;
+  state.currentWeaponRankId = rankId && ranks.some(rank => rank.id === rankId)
+    ? rankId
+    : (ranks[0] ? ranks[0].id : null);
+  writeGuideHistory(historyMode, weaponId, state.currentWeaponRankId, {
+    fromCatalog: historyMode === 'push' && wasCatalog,
+  });
   document.getElementById('weapons-catalog-view').classList.add('hidden');
   document.getElementById('weapon-detail-view').classList.remove('hidden');
   renderWeaponDetail();
 }
 
 
-export function closeWeaponDetail() {
+export function closeWeaponDetail({ historyMode = 'replace' } = {}) {
   document.getElementById('weapon-detail-view').classList.add('hidden');
   document.getElementById('weapons-catalog-view').classList.remove('hidden');
   state.currentWeaponId = null;
   state.currentWeaponRankId = null;
+  writeGuideHistory(historyMode, null, null);
 }
 
 
@@ -532,6 +559,9 @@ function bindWeaponDetailEvents(container) {
     const { action, rankId, abilityIdx, sectionIdx } = btn.dataset;
     if (action === 'select-rank') {
       state.currentWeaponRankId = rankId;
+      writeGuideHistory('replace', state.currentWeaponId, rankId, {
+        fromCatalog: !!window.history.state?.culonesGuideFromCatalog,
+      });
       renderWeaponDetail();
       return;
     }

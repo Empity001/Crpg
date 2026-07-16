@@ -36,8 +36,17 @@ function initKitModals() {
   document.getElementById('submit-kit-btn')?.addEventListener('click', submitKit);
 }
 
+function initKitCreateCard() {
+  document.getElementById('kits-grid')?.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest('[data-admin-create="kit"]') || !isAdmin()) return;
+    openKitModal(null);
+  });
+}
+
 async function init() {
   await bootShell('kits');
+  initKitCreateCard();
   initKitModals();
   registerAdminUiRefreshHandler((admin) => {
     if (admin) initKitModals();

@@ -1,0 +1,308 @@
+/* ======================================================================
+   Accesos de creación integrados en el contenido
+
+   Solo aparecen cuando el modo administrador está activo. Mantienen los
+   botones originales en el DOM como puntos de integración con los editores,
+   pero sustituyen visualmente los botones pequeños de las barras superiores.
+   Todos los colores salen del tema configurable.
+   ====================================================================== */
+
+.admin-create-toolbar-fallback {
+  display: none !important;
+}
+
+.admin-create-card {
+  appearance: none;
+  position: relative;
+  margin: 0;
+  color: var(--theme-text-primary, var(--ink-100));
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border: 1px dashed rgb(var(--theme-primary-soft-rgb) / .5);
+  background:
+    radial-gradient(circle at 14% 28%, rgb(var(--theme-primary-rgb) / .11), transparent 36%),
+    linear-gradient(135deg, rgb(var(--theme-panel-rgb) / .82), rgb(var(--theme-sidebar-rgb) / .8));
+  box-shadow: inset 0 0 0 1px rgb(var(--theme-primary-rgb) / .035);
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.admin-create-card:hover {
+  transform: translateY(-2px);
+  border-color: rgb(var(--theme-primary-soft-rgb) / .84);
+  background:
+    radial-gradient(circle at 14% 28%, rgb(var(--theme-primary-rgb) / .18), transparent 38%),
+    linear-gradient(135deg, rgb(var(--theme-panel-rgb) / .94), rgb(var(--theme-sidebar-rgb) / .92));
+  box-shadow: 0 13px 30px rgb(var(--theme-page-rgb) / .24), inset 0 0 0 1px rgb(var(--theme-primary-soft-rgb) / .08);
+}
+
+.admin-create-card:active {
+  transform: translateY(0);
+}
+
+.admin-create-card:focus-visible {
+  outline: 2px solid var(--theme-selection, var(--admin-purple));
+  outline-offset: 3px;
+}
+
+.admin-create-plus {
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgb(var(--theme-primary-soft-rgb) / .5);
+  color: var(--theme-primary-soft, var(--admin-purple-light));
+  background: rgb(var(--theme-page-rgb) / .32);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  box-shadow: inset 0 0 18px rgb(var(--theme-primary-rgb) / .07);
+}
+
+.admin-create-card:hover .admin-create-plus {
+  border-color: rgb(var(--theme-primary-soft-rgb) / .88);
+  color: var(--theme-text-primary, var(--ink-100));
+  background: rgb(var(--theme-primary-rgb) / .16);
+}
+
+.admin-create-eyebrow {
+  color: var(--theme-primary-soft, var(--admin-purple-light));
+  font: 700 9px/1.2 var(--font-mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+/* Logs: ocupa exactamente el lugar de una fila normal y siempre va primero. */
+.admin-create-log-card {
+  min-height: 124px;
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr) 132px;
+  align-items: stretch;
+  gap: 14px;
+  padding: 10px;
+  overflow: hidden;
+  border-radius: 15px;
+}
+
+.admin-create-log-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--theme-primary-soft, var(--admin-purple-light));
+  box-shadow: 0 0 18px rgb(var(--theme-primary-soft-rgb) / .34);
+}
+
+.admin-create-log-media {
+  min-height: 102px;
+  border-radius: 11px;
+  font-size: 34px;
+}
+
+.admin-create-log-copy {
+  min-width: 0;
+  align-self: center;
+  display: grid;
+  gap: 7px;
+}
+
+.admin-create-log-copy strong {
+  color: var(--theme-text-primary, var(--ink-100));
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.admin-create-log-copy small {
+  max-width: 54ch;
+  color: var(--theme-text-secondary, var(--ink-400));
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.admin-create-log-action {
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  border: 1px solid rgb(var(--theme-primary-soft-rgb) / .22);
+  border-radius: 10px;
+  color: var(--theme-primary-soft, var(--admin-purple-light));
+  background: rgb(var(--theme-primary-rgb) / .07);
+  font: 700 10px/1.35 var(--font-mono);
+  letter-spacing: .06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Guías: una ficha fantasma normal, fijada antes del orden alfabético. */
+.weapon-card.admin-create-guide-card {
+  min-height: 180px;
+  border-style: dashed;
+  border-color: rgb(var(--theme-primary-soft-rgb) / .5);
+  background:
+    radial-gradient(circle at 50% 24%, rgb(var(--theme-primary-rgb) / .13), transparent 40%),
+    rgb(var(--theme-panel-rgb) / .78);
+}
+
+.weapon-card.admin-create-guide-card:hover {
+  border-color: rgb(var(--theme-primary-soft-rgb) / .86);
+  box-shadow: var(--shadow-card), 0 0 24px rgb(var(--theme-primary-rgb) / .14);
+}
+
+.admin-create-guide-card .weapon-card-thumb {
+  border-style: dashed;
+  border-color: rgb(var(--theme-primary-soft-rgb) / .5);
+  background: rgb(var(--theme-page-rgb) / .3);
+  font: 400 32px/1 var(--font-mono);
+}
+
+.admin-create-guide-card .weapon-card-name {
+  color: var(--theme-text-primary, var(--ink-100));
+  font-size: 13px;
+}
+
+.admin-create-guide-card .weapon-card-type {
+  color: var(--theme-primary-soft, var(--admin-purple-light));
+}
+
+/* Kits: conserva cabecera, divisor y tres columnas del formato real. */
+.kit-card.admin-create-kit-card {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  border-style: dashed;
+  border-color: rgb(var(--theme-primary-soft-rgb) / .5);
+}
+
+.admin-create-kit-card .kit-card-head {
+  align-items: center;
+  text-align: left;
+  background: rgb(var(--theme-primary-rgb) / .075);
+}
+
+.admin-create-kit-card .kit-card-title {
+  display: block;
+  margin-top: 5px;
+  color: var(--theme-text-primary, var(--ink-100));
+}
+
+.admin-create-kit-card .kit-card-desc {
+  display: block;
+  max-width: 64ch;
+}
+
+.admin-create-kit-callout {
+  flex: 0 0 auto;
+  color: var(--theme-primary-soft, var(--admin-purple-light));
+  font: 700 10px/1.2 var(--font-mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.admin-create-kit-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-create-kit-slot {
+  min-height: 94px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 14px;
+  border-right: 1px dashed rgb(var(--theme-primary-soft-rgb) / .2);
+  color: var(--theme-text-muted, var(--ink-600));
+  font: 600 9px/1.2 var(--font-mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.admin-create-kit-slot:last-child {
+  border-right: 0;
+}
+
+.admin-create-kit-slot .admin-create-plus {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  font-size: 22px;
+}
+
+/* Tierlist: controles SVG sobrios, con outline y relleno al interactuar. */
+.tier-row-ctrl-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgb(var(--theme-page-rgb) / .34);
+  border-radius: 6px;
+  color: color-mix(in srgb, var(--theme-page-bg, var(--bg)) 88%, white 12%);
+  background: rgb(var(--theme-page-rgb) / .18);
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.tier-row-ctrl-btn:hover {
+  transform: translateY(-1px);
+  color: var(--theme-text-primary, var(--ink-100));
+  border-color: rgb(var(--theme-page-rgb) / .58);
+  background: rgb(var(--theme-page-rgb) / .42);
+}
+
+.tier-row-ctrl-btn.danger:hover {
+  color: var(--theme-text-primary, var(--ink-100));
+  border-color: var(--theme-danger, var(--magenta));
+  background: var(--theme-danger, var(--magenta));
+}
+
+.tier-control-icon {
+  width: 14px;
+  height: 14px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+@media (max-width: 1320px) {
+  .admin-create-log-card {
+    grid-template-columns: 102px minmax(0, 1fr) 118px;
+    gap: 11px;
+  }
+  .admin-create-log-media { min-height: 94px; }
+}
+
+@media (max-width: 760px) {
+  .admin-create-log-card {
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 10px;
+    min-height: 0;
+    padding: 8px;
+    border-radius: 13px;
+  }
+  .admin-create-log-media { min-height: 68px; font-size: 26px; }
+  .admin-create-log-copy strong { font-size: 15px; }
+  .admin-create-log-copy small { display: none; }
+  .admin-create-log-action {
+    grid-column: 1 / -1;
+    min-height: 34px;
+    padding: 7px 10px;
+  }
+  .admin-create-kit-slots { grid-template-columns: 1fr; }
+  .admin-create-kit-slot {
+    min-height: 66px;
+    grid-template-columns: 42px auto;
+    justify-content: center;
+    border-right: 0;
+    border-bottom: 1px dashed rgb(var(--theme-primary-soft-rgb) / .2);
+  }
+  .admin-create-kit-slot:last-child { border-bottom: 0; }
+  .admin-create-kit-callout { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-create-card,
+  .tier-row-ctrl-btn { transition: none; }
+}
