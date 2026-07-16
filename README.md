@@ -187,7 +187,6 @@ La página antigua `weapons.html` fue eliminada: Guías usa `guides.html`, `js/p
 
 > Los comandos que configuran el canal de Logs o el foro de Guías requieren que el bot tenga **Gestionar roles** y **Gestionar canales**, además de los permisos de mensajes, hilos, embeds y archivos. Discord exige Gestionar roles para editar los overwrites del canal.
 
-
 ### Visibilidad de Logs
 
 Después de `migration_021`, ejecuta `sql/migration_022_log_visibility.sql`. Los administradores pueden publicar o despublicar cada Log desde su inspector o menú contextual. Un Log oculto desaparece de la vista pública y su publicación de Discord se elimina mediante una cola durable.
