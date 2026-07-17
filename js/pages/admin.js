@@ -15,14 +15,14 @@
 import { startPage } from '../app/page-bootstrap.js';
 import { bootShell } from '../app/shell.js';
 import { loadActionLog, openActionLogModal } from '../features/action-log.js';
-import { initAdminPanel } from '../features/admin-panel.js?v=20260712-1';
+import { initAdminPanel } from '../features/admin-panel.js?v=20260717-1';
 import { isAdmin } from '../core/state.js';
 
 function initToolsModals() {
-  document.getElementById('open-action-log-btn').addEventListener('click', openActionLogModal);
-  document.getElementById('close-action-log-modal').addEventListener('click', () => document.getElementById('action-log-modal').classList.add('hidden'));
-  document.getElementById('close-action-log-btn-bottom').addEventListener('click', () => document.getElementById('action-log-modal').classList.add('hidden'));
-  document.getElementById('refresh-action-log-btn').addEventListener('click', loadActionLog);
+  document.getElementById('open-action-log-btn')?.addEventListener('click', openActionLogModal);
+  document.getElementById('close-action-log-modal')?.addEventListener('click', () => document.getElementById('action-log-modal')?.classList.add('hidden'));
+  document.getElementById('close-action-log-btn-bottom')?.addEventListener('click', () => document.getElementById('action-log-modal')?.classList.add('hidden'));
+  document.getElementById('refresh-action-log-btn')?.addEventListener('click', loadActionLog);
 }
 
 async function init() {

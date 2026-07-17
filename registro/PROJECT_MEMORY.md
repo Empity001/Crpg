@@ -1303,3 +1303,22 @@ Objetivo: mejoras de capa superior una vez cerradas auditoría, multimedia y adm
 - La Edge Function permite `set_log_published` y las lecturas administrativas de Logs.
 - Migración requerida: `sql/migration_022_log_visibility.sql`.
 - El bot ya no escribe `@silent` como texto. Envía `@everyone` con `MessageFlags.SuppressNotifications`.
+
+## Deploy `tools-refresh-01` — Herramientas y respaldos (17 Jul 2026)
+
+- Herramientas conserva el rebranding oscuro actual; el rediseño Minecraft
+  global continúa aplazado.
+- La página se divide en Inicio, Contenido, Datos, Discord y Apariencia.
+- Biblioteca, Borradores, Discord, SheetJS y cada editor de Apariencia se
+  cargan solo al abrir su sección.
+- Inicio añade un panel de salud bajo demanda; no usa polling permanente.
+- El backup JSON adopta `culones-rpg-backup` v2 e incluye Guías, rangos, Kits,
+  multimedia y ajustes, además de Logs y Tierlist.
+- La Edge Function pagina las exportaciones por bloques de 1,000 filas para
+  evitar respaldos truncados al crecer el contenido.
+- La restauración v1/v2 pasa por `discord-admin-api`, conserva IDs y relaciones,
+  y mezcla sin eliminar registros ausentes.
+- Se añade reporte visual ZIP (`index.html`, `data.json`, `LEEME.txt`) y Excel
+  incorpora una hoja para Kits.
+- No se modificó el bot y no hay migración SQL nueva. Desplegar primero la Edge
+  Function y después GitHub Pages; instrucciones en `DEPLOY_TOOLS_REFRESH_01.md`.

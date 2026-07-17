@@ -545,6 +545,347 @@ async function guideStatus(ctx: any, guideId: string) {
   };
 }
 
+async function adminHealth(ctx: any) {
+  requireAdmin(ctx);
+  const databaseStarted = performance.now();
+  const databasePromise = ctx.service.from('app_settings').select('key').limit(1).then((result: any) => ({
+    ...result,
+    latencyMs: Math.round(performance.now() - databaseStarted),
+  }));
+  const [databaseResult, forumJobsResult] = await Promise.all([
+    databasePromise,
+    ctx.service
+      .from('guide_forum_jobs')
+      .select('status,created_at')
+      .in('status', ['pending', 'processing', 'failed'])
+      .order('created_at', { ascending: false })
+      .limit(250),
+  ]);
+  const jobs = forumJobsResult.data || [];
+  const count = (status: string) => jobs.filter((job: any) => job.status === status).length;
+  return {
+    checked_at: new Date().toISOString(),
+    database: {
+      ok: !databaseResult.error,
+      latency_ms: databaseResult.latencyMs,
+      message: databaseResult.error?.message || 'Lectura administrativa completada.',
+    },
+    edge: { ok: true },
+    discord: {
+      is_member: ctx.isMember,
+      is_admin: ctx.isAdmin,
+      role_configured: !!ctx.config.admin_role_id,
+    },
+    forum: {
+      configured: !!ctx.config.guides_forum_channel_id,
+      pending: count('pending'),
+      processing: count('processing'),
+      failed: count('failed'),
+      latest_job_at: jobs[0]?.created_at || null,
+      query_ok: !forumJobsResult.error,
+      message: forumJobsResult.error?.message || null,
+    },
+  };
+}
+
+async function selectAllRows(service: any, table: string, order: Array<{ column: string; ascending?: boolean }> = []) {
+  const output: any[] = [];
+  const pageSize = 1_000;
+  for (let from = 0; ; from += pageSize) {
+    let query = service.from(table).select('*').range(from, from + pageSize - 1);
+    for (const item of order) query = query.order(item.column, { ascending: item.ascending !== false });
+    const result = await query;
+    if (result.error) throw result.error;
+    const page = result.data || [];
+    output.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return output;
+}
+
+async function backupBundle(ctx: any, requestedScope: unknown = 'all') {
+  requireAdmin(ctx);
+  const scope = ['logs', 'tierlist', 'all'].includes(String(requestedScope)) ? String(requestedScope) : 'all';
+  const includeLogs = scope === 'logs' || scope === 'all';
+  const includeTierlist = scope === 'tierlist' || scope === 'all';
+  const includeFull = scope === 'all';
+  const [logs, mobs, items, categories, tierRows, tierItems, weapons, weaponCategories, weaponTypes, weaponRanks, kits, mediaAssets, appSettings] = await Promise.all([
+    includeLogs ? selectAllRows(ctx.service, 'logs', [{ column: 'created_at', ascending: false }, { column: 'id' }]) : [],
+    includeLogs ? selectAllRows(ctx.service, 'log_mobs', [{ column: 'log_id' }, { column: 'sort_order' }, { column: 'id' }]) : [],
+    includeLogs ? selectAllRows(ctx.service, 'log_items', [{ column: 'log_id' }, { column: 'sort_order' }, { column: 'id' }]) : [],
+    includeLogs ? selectAllRows(ctx.service, 'categories', [{ column: 'label' }, { column: 'slug' }]) : [],
+    includeTierlist ? selectAllRows(ctx.service, 'tierlist_rows', [{ column: 'sort_order' }, { column: 'id' }]) : [],
+    includeTierlist ? selectAllRows(ctx.service, 'tierlist_items', [{ column: 'sort_order' }, { column: 'id' }]) : [],
+    includeFull ? selectAllRows(ctx.service, 'weapons', [{ column: 'sort_order' }, { column: 'id' }]) : [],
+    includeFull ? selectAllRows(ctx.service, 'weapon_categories', [{ column: 'sort_order' }, { column: 'id' }]) : [],
+    includeFull ? selectAllRows(ctx.service, 'weapon_types', [{ column: 'sort_order' }, { column: 'id' }]) : [],
+    includeFull ? selectAllRows(ctx.service, 'weapon_ranks', [{ column: 'weapon_id' }, { column: 'sort_order' }, { column: 'id' }]) : [],
+    includeFull ? selectAllRows(ctx.service, 'kits', [{ column: 'sort_order' }, { column: 'id' }]) : [],
+    includeFull ? selectAllRows(ctx.service, 'media_assets', [{ column: 'created_at', ascending: false }, { column: 'id' }]) : [],
+    includeFull ? selectAllRows(ctx.service, 'app_settings', [{ column: 'key' }]) : [],
+  ]);
+
+  const mobsByLog = new Map<string, any[]>();
+  const itemsByLog = new Map<string, any[]>();
+  mobs.forEach((mob: any) => {
+    const key = String(mob.log_id);
+    if (!mobsByLog.has(key)) mobsByLog.set(key, []);
+    mobsByLog.get(key)?.push(mob);
+  });
+  items.forEach((item: any) => {
+    const key = String(item.log_id);
+    if (!itemsByLog.has(key)) itemsByLog.set(key, []);
+    itemsByLog.get(key)?.push(item);
+  });
+  const ranksByWeapon: Record<string, any[]> = {};
+  weaponRanks.forEach((rank: any) => {
+    const key = String(rank.weapon_id);
+    if (!ranksByWeapon[key]) ranksByWeapon[key] = [];
+    ranksByWeapon[key].push(rank);
+  });
+  const bundle: Record<string, any> = {};
+  if (includeLogs) {
+    bundle.logs = logs.map((log: any) => ({
+      ...log,
+      mobs: mobsByLog.get(String(log.id)) || [],
+      items: itemsByLog.get(String(log.id)) || [],
+    }));
+    bundle.categories = categories;
+  }
+  if (includeTierlist) bundle.tierlist = { rows: tierRows, items: tierItems };
+  if (includeFull) Object.assign(bundle, {
+    weapons,
+    weapon_categories: weaponCategories,
+    weapon_types: weaponTypes,
+    weapon_ranks: ranksByWeapon,
+    kits,
+    media_assets: mediaAssets,
+    app_settings: appSettings.map((setting: any) => pick(setting, ['key', 'value', 'updated_at'])),
+  });
+  return bundle;
+}
+
+function rows(value: unknown, max = 10_000) {
+  return (Array.isArray(value) ? value : []).filter(item => item && typeof item === 'object').slice(0, max);
+}
+
+function pick(row: any, fields: string[]) {
+  const output: Record<string, any> = {};
+  for (const field of fields) {
+    if (Object.prototype.hasOwnProperty.call(row || {}, field) && row[field] !== undefined) output[field] = row[field];
+  }
+  return output;
+}
+
+async function upsertChunks(service: any, table: string, records: any[], onConflict = 'id', ignoreDuplicates = false) {
+  if (!records.length) return;
+  for (let index = 0; index < records.length; index += 200) {
+    const result = await service.from(table).upsert(records.slice(index, index + 200), { onConflict, ignoreDuplicates });
+    if (result.error) throw result.error;
+  }
+}
+
+async function currentPublishedMap(service: any, table: string, ids: unknown[]) {
+  const output = new Map<string, boolean>();
+  const cleanIds = [...new Set(ids.map(id => safeText(id, 160)).filter(Boolean))];
+  for (let index = 0; index < cleanIds.length; index += 200) {
+    const result = await service.from(table).select('id,published').in('id', cleanIds.slice(index, index + 200));
+    if (result.error) throw result.error;
+    (result.data || []).forEach((row: any) => output.set(String(row.id), row.published === true));
+  }
+  return output;
+}
+
+async function existingIdSet(service: any, table: string, ids: unknown[]) {
+  const output = new Set<string>();
+  const cleanIds = [...new Set(ids.map(id => safeText(id, 160)).filter(Boolean))];
+  for (let index = 0; index < cleanIds.length; index += 200) {
+    const result = await service.from(table).select('id').in('id', cleanIds.slice(index, index + 200));
+    if (result.error) throw result.error;
+    (result.data || []).forEach((row: any) => output.add(String(row.id)));
+  }
+  return output;
+}
+
+async function currentParentMap(service: any, table: string, parentColumn: string, ids: unknown[]) {
+  const output = new Map<string, string>();
+  const cleanIds = [...new Set(ids.map(id => safeText(id, 160)).filter(Boolean))];
+  for (let index = 0; index < cleanIds.length; index += 200) {
+    const result = await service.from(table).select(`id,${parentColumn}`).in('id', cleanIds.slice(index, index + 200));
+    if (result.error) throw result.error;
+    (result.data || []).forEach((row: any) => output.set(String(row.id), String(row[parentColumn] || '')));
+  }
+  return output;
+}
+
+function flattenWeaponRanks(backup: any) {
+  const source = backup?.weapon_ranks;
+  if (Array.isArray(source)) return source.slice(0, 10_000);
+  if (!source || typeof source !== 'object') return [];
+  return Object.values(source).flatMap(value => rows(value)).slice(0, 10_000);
+}
+
+async function restoreBackup(ctx: any, body: any) {
+  requireAdmin(ctx);
+  const backup = body?.backup;
+  if (!backup || typeof backup !== 'object' || Array.isArray(backup)) {
+    throw Object.assign(new Error('El respaldo no contiene un objeto válido.'), { code: 'BACKUP_INVALID', status: 400 });
+  }
+  const type = safeText(backup.type, 40);
+  if (!['logs', 'tierlist', 'full_backup'].includes(type)) {
+    throw Object.assign(new Error('El tipo de respaldo no es compatible.'), { code: 'BACKUP_TYPE_UNSUPPORTED', status: 400 });
+  }
+  const version = Number(backup.version || 1);
+  if (!Number.isFinite(version) || version < 1 || version > 2) {
+    throw Object.assign(new Error('La versión del respaldo no es compatible.'), { code: 'BACKUP_VERSION_UNSUPPORTED', status: 400 });
+  }
+
+  const backupLogs = rows(backup.logs || backup.data);
+  const recordCount = [
+    backupLogs.length,
+    backupLogs.reduce((sum: number, log: any) => sum + rows(log.mobs).length + rows(log.items).length, 0),
+    rows(backup.rows || backup.tierlist?.rows).length,
+    rows(backup.items || backup.tierlist?.items).length,
+    rows(backup.weapons).length,
+    rows(backup.categories).length,
+    rows(backup.weapon_categories).length,
+    rows(backup.weapon_types).length,
+    flattenWeaponRanks(backup).length,
+    rows(backup.kits).length,
+    rows(backup.media_assets).length,
+    rows(backup.app_settings).length,
+  ].reduce((sum, value) => sum + value, 0);
+  if (recordCount > 30_000) {
+    throw Object.assign(new Error('El respaldo supera el límite de 30 000 registros.'), { code: 'BACKUP_TOO_LARGE', status: 413 });
+  }
+
+  const selection = new Set(rows(body.selections, 30_000).map((item: any) => `${safeText(item.kind, 40)}:${safeText(item.id, 160)}`));
+  const chosen = (kind: string, id: unknown) => selection.has(`${kind}:${safeText(id, 160)}`);
+  const counts: Record<string, number> = { logs: 0, tier_rows: 0, tier_items: 0, guides: 0, ranks: 0, kits: 0, media: 0, settings: 0 };
+
+  const importLogs = backupLogs.filter((log: any) => chosen('log', log.id));
+  if (importLogs.length) {
+    importLogs.forEach((log: any) => { if (!log.id) log.id = crypto.randomUUID(); });
+    const referencedCategories = new Set(importLogs.map((log: any) => String(log.category || '')).filter(Boolean));
+    const categories = rows(backup.categories).map((category: any) => pick(category, ['slug', 'label', 'emoji', 'color', 'created_at'])).filter((category: any) => category.slug && category.label && referencedCategories.has(String(category.slug)));
+    await upsertChunks(ctx.service, 'categories', categories, 'slug', true);
+    const currentLogVisibility = await currentPublishedMap(ctx.service, 'logs', importLogs.map((log: any) => log.id));
+    const logRecords = importLogs.map((log: any) => ({
+      ...pick(log, ['id', 'title', 'description', 'category', 'relevance', 'cover_image_url', 'created_at']),
+      id: log.id || crypto.randomUUID(),
+      title: safeText(log.title || 'Log restaurado', 300),
+      description: String(log.description || ''),
+      // Una restauración nunca publica contenido nuevo automáticamente en
+      // Discord. Los Logs existentes conservan su visibilidad actual.
+      published: currentLogVisibility.has(String(log.id)) ? currentLogVisibility.get(String(log.id)) : false,
+    }));
+    await upsertChunks(ctx.service, 'logs', logRecords);
+    const mobFields = ['id', 'name', 'health', 'damage', 'armor', 'equipment', 'location', 'description', 'extra_fields', 'image_url', 'sort_order', 'created_at'];
+    const itemFields = ['id', 'name', 'tier', 'item_type', 'obtained_from', 'damage', 'enchantments', 'description', 'extra_fields', 'image_url', 'sort_order', 'created_at'];
+    const mobs: any[] = [];
+    const items: any[] = [];
+    importLogs.forEach((log: any) => {
+      rows(log.mobs).forEach((mob: any, index: number) => mobs.push({ ...pick(mob, mobFields), id: mob.id || crypto.randomUUID(), log_id: log.id, name: safeText(mob.name || `Mob ${index + 1}`, 300), sort_order: mob.sort_order ?? index }));
+      rows(log.items).forEach((item: any, index: number) => items.push({ ...pick(item, itemFields), id: item.id || crypto.randomUUID(), log_id: log.id, name: safeText(item.name || `Item ${index + 1}`, 300), sort_order: item.sort_order ?? index }));
+    });
+    const [mobParents, itemParents] = await Promise.all([
+      currentParentMap(ctx.service, 'log_mobs', 'log_id', mobs.map((mob: any) => mob.id)),
+      currentParentMap(ctx.service, 'log_items', 'log_id', items.map((item: any) => item.id)),
+    ]);
+    mobs.forEach((mob: any) => { if (mobParents.has(String(mob.id)) && mobParents.get(String(mob.id)) !== String(mob.log_id)) mob.id = crypto.randomUUID(); });
+    items.forEach((item: any) => { if (itemParents.has(String(item.id)) && itemParents.get(String(item.id)) !== String(item.log_id)) item.id = crypto.randomUUID(); });
+    await upsertChunks(ctx.service, 'log_mobs', mobs);
+    await upsertChunks(ctx.service, 'log_items', items);
+    counts.logs = importLogs.length;
+  }
+
+  const tierRows = rows(backup.rows || backup.tierlist?.rows).filter((row: any) => chosen('tier_row', row.id)).map((row: any) => ({ ...pick(row, ['id', 'name', 'color', 'sort_order', 'created_at']), id: row.id || crypto.randomUUID() }));
+  await upsertChunks(ctx.service, 'tierlist_rows', tierRows);
+  counts.tier_rows = tierRows.length;
+
+  const tierItems = rows(backup.items || backup.tierlist?.items).filter((item: any) => chosen('tier_item', item.id)).map((item: any) => ({ ...pick(item, ['id', 'row_id', 'column_key', 'name', 'image_url', 'extra_fields', 'sort_order', 'created_at']), id: item.id || crypto.randomUUID() }));
+  const referencedRows = [...new Set(tierItems.map((item: any) => item.row_id).filter(Boolean))];
+  if (referencedRows.length) {
+    const validRows = await existingIdSet(ctx.service, 'tierlist_rows', referencedRows);
+    tierItems.forEach((item: any) => { if (item.row_id && !validRows.has(String(item.row_id))) item.row_id = null; });
+  }
+  await upsertChunks(ctx.service, 'tierlist_items', tierItems);
+  counts.tier_items = tierItems.length;
+
+  const selectedWeapons = rows(backup.weapons).filter((weapon: any) => chosen('weapon', weapon.id));
+  if (selectedWeapons.length) {
+    const referencedCategoryIds = new Set(selectedWeapons.map((weapon: any) => String(weapon.category_id || '')).filter(Boolean));
+    const referencedTypeIds = new Set(selectedWeapons.map((weapon: any) => String(weapon.type_id || '')).filter(Boolean));
+    const categoryDependencies = rows(backup.weapon_categories).map((item: any) => pick(item, ['id', 'label', 'color', 'sort_order', 'created_at'])).filter((item: any) => item.id && item.label && referencedCategoryIds.has(String(item.id)));
+    const typeDependencies = rows(backup.weapon_types).map((item: any) => pick(item, ['id', 'label', 'sort_order', 'created_at'])).filter((item: any) => item.id && item.label && referencedTypeIds.has(String(item.id)));
+    await Promise.all([
+      upsertChunks(ctx.service, 'weapon_categories', categoryDependencies, 'id', true),
+      upsertChunks(ctx.service, 'weapon_types', typeDependencies, 'id', true),
+    ]);
+    const [validCategoryIds, validTypeIds] = await Promise.all([
+      existingIdSet(ctx.service, 'weapon_categories', [...referencedCategoryIds]),
+      existingIdSet(ctx.service, 'weapon_types', [...referencedTypeIds]),
+    ]);
+    const currentWeaponVisibility = await currentPublishedMap(ctx.service, 'weapons', selectedWeapons.map((weapon: any) => weapon.id));
+    const weaponRecords = selectedWeapons.map((weapon: any) => ({
+      ...pick(weapon, ['id', 'name', 'image_url', 'category_id', 'type_id', 'sort_order', 'created_at', 'updated_at']),
+      id: weapon.id || crypto.randomUUID(),
+      name: safeText(weapon.name || 'Guía restaurada', 300),
+      published: currentWeaponVisibility.has(String(weapon.id)) ? currentWeaponVisibility.get(String(weapon.id)) : false,
+    })).map((weapon: any) => ({
+      ...weapon,
+      category_id: weapon.category_id && validCategoryIds.has(String(weapon.category_id)) ? weapon.category_id : null,
+      type_id: weapon.type_id && validTypeIds.has(String(weapon.type_id)) ? weapon.type_id : null,
+    }));
+    await upsertChunks(ctx.service, 'weapons', weaponRecords);
+    const weaponIds = new Set(selectedWeapons.map((weapon: any) => String(weapon.id)));
+    const ranks = flattenWeaponRanks(backup).filter((rank: any) => weaponIds.has(String(rank.weapon_id))).map((rank: any) => ({ ...pick(rank, ['id', 'weapon_id', 'name', 'description', 'image_url', 'stats', 'abilities', 'extra_sections', 'upgrade_recipe', 'sort_order', 'created_at']), id: rank.id || crypto.randomUUID(), name: safeText(rank.name || 'Variante', 200) }));
+    const rankParents = await currentParentMap(ctx.service, 'weapon_ranks', 'weapon_id', ranks.map((rank: any) => rank.id));
+    ranks.forEach((rank: any) => { if (rankParents.has(String(rank.id)) && rankParents.get(String(rank.id)) !== String(rank.weapon_id)) rank.id = crypto.randomUUID(); });
+    await upsertChunks(ctx.service, 'weapon_ranks', ranks);
+    counts.guides = weaponRecords.length;
+    counts.ranks = ranks.length;
+  }
+
+  const kits = rows(backup.kits).filter((kit: any) => chosen('kit', kit.id)).map((kit: any) => ({ ...pick(kit, ['id', 'name', 'description', 'published', 'items', 'sort_order', 'created_at', 'updated_at']), id: kit.id || crypto.randomUUID(), name: safeText(kit.name || 'Kit restaurado', 300) }));
+  await upsertChunks(ctx.service, 'kits', kits);
+  counts.kits = kits.length;
+
+  if (chosen('app_settings', '__all__')) {
+    let settings = rows(backup.app_settings).map((setting: any) => pick(setting, ['key', 'value', 'updated_at'])).filter((setting: any) => setting.key && setting.value !== undefined);
+    if (!settings.length && backup.field_config) {
+      settings = [
+        { key: 'mob_fields', value: backup.field_config.mob || [] },
+        { key: 'item_fields', value: backup.field_config.item || [] },
+      ];
+    }
+    await upsertChunks(ctx.service, 'app_settings', settings, 'key');
+    counts.settings = settings.length;
+  }
+
+  const media = rows(backup.media_assets).filter((asset: any) => chosen('media_asset', asset.id || asset.url)).map((asset: any) => ({ ...pick(asset, ['id', 'source_type', 'bucket', 'storage_path', 'folder', 'url', 'display_name', 'description', 'mime_type', 'media_kind', 'file_size', 'file_hash', 'tags', 'presentation', 'metadata', 'is_archived', 'created_at', 'updated_at']), id: asset.id || crypto.randomUUID() }));
+  if (media.length) {
+    const urls = [...new Set(media.map((asset: any) => asset.url).filter(Boolean))];
+    const idsByUrl = new Map<string, string>();
+    for (let index = 0; index < urls.length; index += 40) {
+      const existing = await ctx.service.from('media_assets').select('id,url').in('url', urls.slice(index, index + 40));
+      if (existing.error) throw existing.error;
+      (existing.data || []).forEach((asset: any) => idsByUrl.set(asset.url, asset.id));
+    }
+    media.forEach((asset: any) => { if (idsByUrl.has(asset.url)) asset.id = idsByUrl.get(asset.url); });
+    await upsertChunks(ctx.service, 'media_assets', media);
+    counts.media = media.length;
+  }
+
+  await recordAudit(ctx, {
+    action: 'backup_restored',
+    description: `${ctx.profile.displayName} restauró un respaldo v${version} sin eliminar registros existentes.`,
+    entity_type: 'backup',
+    metadata: { counts, backup_version: version, backup_type: type },
+  });
+  return { counts, version, type };
+}
+
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: { code: 'METHOD_NOT_ALLOWED', message: 'Usa POST.' } }, 405);
@@ -556,6 +897,9 @@ Deno.serve(async req => {
     if (action === 'status') {
       return json({ data: { isAdmin: ctx.isAdmin, isMember: ctx.isMember, profile: ctx.profile, roleConfigured: !!ctx.config.admin_role_id } });
     }
+    if (action === 'admin_health') return json({ data: await adminHealth(ctx) });
+    if (action === 'backup_bundle') return json({ data: await backupBundle(ctx, body.scope) });
+    if (action === 'restore_backup') return json({ data: await restoreBackup(ctx, body) });
     if (action === 'logs_admin_bundle') {
       requireAdmin(ctx);
       // Antes la web ejecutaba tres invocaciones Edge independientes y cada

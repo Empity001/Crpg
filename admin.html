@@ -12,11 +12,8 @@
 <link rel="preload" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="css/style.css" />
-<link rel="stylesheet" href="css/admin-tools.css?v=20260712-1" />
+<link rel="stylesheet" href="css/admin-tools.css?v=20260717-1" />
 <link rel="stylesheet" href="css/media.css?v=20260711-11" />
-<!-- SheetJS: generación de archivos Excel nativos (.xlsx) — solo esta
-     página usa exportación, así que solo ella carga esta librería. -->
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="css/rebrand.css?v=20260711-21" />
 <link rel="stylesheet" href="css/rebrand-runtime.css?v=20260712-1" />
 <link rel="stylesheet" href="css/rebrand-editors.css?v=20260711-21" />
@@ -33,10 +30,61 @@
 <main class="app-main">
   <section class="tab-panel is-active" id="panel-admin">
 
-    <div class="admin-panel-head">
-      <p class="admin-panel-eyebrow">Solo visible para administradores</p>
-      <button class="btn-secondary-admin hidden" id="open-action-log-btn" type="button">🕒 Acciones</button>
-    </div>
+    <div class="tools-shell">
+      <header class="tools-hero">
+        <div>
+          <p class="admin-panel-eyebrow">Centro de administración</p>
+          <h1>Herramientas</h1>
+          <p>Controla el contenido, los datos, Discord y la apariencia desde un solo lugar.</p>
+        </div>
+        <div class="tools-hero-status" role="status">
+          <span class="tools-live-dot" aria-hidden="true"></span>
+          <span>Edición administrativa activa</span>
+        </div>
+      </header>
+
+      <div class="tools-layout">
+        <nav class="tools-nav" aria-label="Secciones de Herramientas">
+          <button type="button" class="tools-nav-btn is-active" data-tools-view="overview" aria-current="page"><span>⌂</span><strong>Inicio</strong><small>Estado y accesos</small></button>
+          <button type="button" class="tools-nav-btn" data-tools-view="content"><span>▦</span><strong>Contenido</strong><small>Multimedia y borradores</small></button>
+          <button type="button" class="tools-nav-btn" data-tools-view="data"><span>⇅</span><strong>Datos</strong><small>Importar y exportar</small></button>
+          <button type="button" class="tools-nav-btn" data-tools-view="discord"><span>◉</span><strong>Discord</strong><small>Foro y reacciones</small></button>
+          <button type="button" class="tools-nav-btn" data-tools-view="appearance"><span>✦</span><strong>Apariencia</strong><small>Identidad visual</small></button>
+        </nav>
+
+        <div class="tools-stage">
+          <section class="tools-view is-active" data-tools-panel="overview">
+            <div class="tools-view-head">
+              <div><span class="tools-kicker">Resumen</span><h2>Todo bajo control</h2><p>El diagnóstico se ejecuta una vez al abrir esta sección o cuando lo solicites. No queda consultando en segundo plano.</p></div>
+              <button type="button" class="btn-secondary-admin" id="health-refresh-btn">Comprobar ahora</button>
+            </div>
+
+            <section class="health-panel" aria-labelledby="health-panel-title">
+              <div class="health-panel-head">
+                <div><span class="health-overall-dot is-checking" id="health-overall-dot"></span><div><h3 id="health-panel-title">Salud del sistema</h3><p id="health-overall-copy">Esperando diagnóstico…</p></div></div>
+                <time id="health-last-check">Sin comprobar</time>
+              </div>
+              <div class="health-grid" id="health-grid">
+                <article class="health-card" data-health-key="database"><span class="health-icon">DB</span><div><strong>Supabase</strong><small>Base de datos</small></div><b class="health-state">Pendiente</b></article>
+                <article class="health-card" data-health-key="edge"><span class="health-icon">API</span><div><strong>API administrativa</strong><small>Edge Function</small></div><b class="health-state">Pendiente</b></article>
+                <article class="health-card" data-health-key="discord"><span class="health-icon">DC</span><div><strong>Discord</strong><small>Servidor y rol</small></div><b class="health-state">Pendiente</b></article>
+                <article class="health-card" data-health-key="realtime"><span class="health-icon">RT</span><div><strong>Tiempo real</strong><small>Canal de Supabase</small></div><b class="health-state">Pendiente</b></article>
+                <article class="health-card" data-health-key="forum"><span class="health-icon">F</span><div><strong>Cola del foro</strong><small>Publicaciones de Guías</small></div><b class="health-state">Pendiente</b></article>
+              </div>
+              <p class="health-detail" id="health-detail">El resultado incluirá latencia y trabajos pendientes sin mantener ningún polling activo.</p>
+            </section>
+
+            <div class="tools-quick-grid">
+              <button type="button" class="tools-quick-card" data-tools-jump="content"><span class="tools-quick-icon">▦</span><span class="tools-quick-copy"><strong>Gestionar contenido</strong><small>Biblioteca, borradores y bitácora</small></span><i>→</i></button>
+              <button type="button" class="tools-quick-card" data-tools-jump="data"><span class="tools-quick-icon">⇅</span><span class="tools-quick-copy"><strong>Crear un respaldo</strong><small>JSON, reporte visual o Excel</small></span><i>→</i></button>
+              <button type="button" class="tools-quick-card" data-tools-jump="discord"><span class="tools-quick-icon">◉</span><span class="tools-quick-copy"><strong>Revisar Discord</strong><small>Reacciones y estado de la cola</small></span><i>→</i></button>
+              <button type="button" class="tools-quick-card" data-tools-jump="appearance"><span class="tools-quick-icon">✦</span><span class="tools-quick-copy"><strong>Personalizar la web</strong><small>Fondo, banners, iconos y colores</small></span><i>→</i></button>
+              <button type="button" class="tools-quick-card" id="open-action-log-btn"><span class="tools-quick-icon">↺</span><span class="tools-quick-copy"><strong>Ver acciones realizadas</strong><small>Auditoría de cambios administrativos</small></span><i>→</i></button>
+            </div>
+          </section>
+
+          <section class="tools-view" data-tools-panel="content" hidden>
+            <div class="tools-view-head"><div><span class="tools-kicker">Contenido</span><h2>Recursos y trabajo pendiente</h2><p>Estas herramientas se cargan solo cuando entras aquí.</p></div></div>
 
     <!-- Biblioteca Multimedia -->
     <div class="admin-section media-library-section" id="media-library-section">
@@ -96,58 +144,59 @@
       </div>
     </div>
 
-    <!-- Export -->
-    <div class="admin-section">
-      <div class="admin-section-head">
-        <h2 class="admin-section-title">📤 Exportar</h2>
-      </div>
-      <p class="admin-section-hint">Exporta el contenido de la web a un archivo Excel (.xlsx) o JSON. Los archivos Excel incluyen encabezados con estilo, filtros automáticos y organización profesional para abrir directo en Excel o Google Sheets.</p>
-      <div class="export-options">
-        <div class="export-option-group">
-          <h4 class="export-option-title">📜 Logs</h4>
-          <div class="export-btns">
-            <button type="button" class="btn-export" data-export="logs" data-format="json">JSON completo</button>
-            <button type="button" class="btn-export btn-export-excel" data-export="logs" data-format="xlsx">📊 Excel (.xlsx)</button>
-          </div>
-          <p class="export-option-hint">El Excel incluye 4 hojas relacionadas — Logs, Mobs, Items y Extras — con encabezados estilizados, colores, filtros y anchos ajustados.</p>
-        </div>
-        <div class="export-option-group">
-          <h4 class="export-option-title">🏆 Tierlist</h4>
-          <div class="export-btns">
-            <button type="button" class="btn-export" data-export="tierlist" data-format="json">JSON completo</button>
-            <button type="button" class="btn-export btn-export-excel" data-export="tierlist" data-format="xlsx">📊 Excel (.xlsx)</button>
-          </div>
-        </div>
-        <div class="export-option-group">
-          <h4 class="export-option-title">📦 Todo</h4>
-          <div class="export-btns">
-            <button type="button" class="btn-export" data-export="all" data-format="json">Backup completo (JSON)</button>
-            <button type="button" class="btn-export btn-export-excel" data-export="all" data-format="xlsx">📊 Excel completo (.xlsx)</button>
-          </div>
-          <p class="export-option-hint">El Excel completo incluye todas las hojas: Resumen, Logs, Mobs, Items, Extras, Tierlist, Armas, Categorías, Multimedia y Configuración.</p>
-        </div>
-      </div>
-    </div>
+          </section>
 
-    <!-- Import -->
-    <div class="admin-section">
-      <div class="admin-section-head">
-        <h2 class="admin-section-title">📥 Importar</h2>
-      </div>
-      <p class="admin-section-hint">Importa un archivo JSON generado por esta misma herramienta. Si hay conflictos de IDs, podrás elegir qué hacer con cada uno.</p>
-      <div class="import-drop-zone" id="import-drop-zone">
-        <p>Arrastra un archivo JSON aquí</p>
-        <span>o</span>
-        <label class="btn-secondary-admin import-file-label">
-          Seleccionar archivo
-          <input type="file" id="import-file-input" accept=".json" class="hidden" />
-        </label>
-      </div>
-    </div>
+          <section class="tools-view" data-tools-panel="data" hidden>
+            <div class="tools-view-head">
+              <div><span class="tools-kicker">Datos</span><h2>Importar y exportar</h2><p>Un solo centro para respaldo, restauración y reportes fáciles de leer.</p></div>
+              <label class="export-scope-field"><span>Contenido</span><select id="export-scope" class="media-input"><option value="all">Toda la web</option><option value="logs">Solo Logs</option><option value="tierlist">Solo Tierlist</option></select></label>
+            </div>
 
-    <!-- Las reacciones del foro se insertan aquí para mantenerlas junto a
-         las herramientas de importar/exportar, no encima del banner. -->
-    <div id="forum-reactions-anchor"></div>
+            <div class="data-format-grid">
+              <article class="data-format-card is-primary">
+                <span class="data-format-icon">{ }</span>
+                <div><small>Respaldo restaurable</small><h3>JSON</h3><p>Contenido administrable y referencias multimedia. Los archivos binarios permanecen seguros en Supabase Storage.</p></div>
+                <button type="button" class="btn-export" data-export="all" data-format="json">Descargar respaldo</button>
+              </article>
+              <article class="data-format-card">
+                <span class="data-format-icon">▤</span>
+                <div><small>Para compartir y leer</small><h3>Reporte visual</h3><p>ZIP portátil con una página HTML navegable y una copia de los datos.</p></div>
+                <button type="button" class="btn-export" data-export="all" data-format="htmlzip">Crear reporte visual</button>
+              </article>
+              <article class="data-format-card">
+                <span class="data-format-icon">XL</span>
+                <div><small>Para ordenar y analizar</small><h3>Excel</h3><p>Libro con hojas relacionadas, filtros, columnas legibles y un resumen general.</p></div>
+                <button type="button" class="btn-export btn-export-excel" data-export="all" data-format="xlsx">Descargar Excel</button>
+              </article>
+            </div>
+
+            <section class="admin-section data-import-section">
+              <div class="admin-section-head"><div><h2 class="admin-section-title">Restaurar un respaldo</h2><p class="admin-section-hint">Acepta JSON de esta versión y respaldos antiguos. Primero se valida y se muestran los conflictos; nada se escribe sin tu confirmación. Los Logs y Guías nuevos se restauran ocultos para no publicar contenido automáticamente.</p></div><span class="data-safety-badge">No elimina datos</span></div>
+              <div class="import-drop-zone" id="import-drop-zone">
+                <span class="import-drop-icon">⇧</span>
+                <div><strong>Arrastra aquí el respaldo JSON</strong><p>o selecciónalo desde tu dispositivo · máximo 20 MB</p></div>
+                <label class="btn-secondary-admin import-file-label">Seleccionar archivo<input type="file" id="import-file-input" accept=".json,application/json" class="hidden" /></label>
+              </div>
+              <div class="import-file-summary hidden" id="import-file-summary" aria-live="polite"></div>
+            </section>
+          </section>
+
+          <section class="tools-view" data-tools-panel="discord" hidden>
+            <div class="tools-view-head"><div><span class="tools-kicker">Discord</span><h2>Publicaciones y reacciones</h2><p>Configura el foro sin mezclarlo con los respaldos ni con la apariencia.</p></div></div>
+            <!-- Las reacciones del foro se insertan aquí solo al abrir esta sección. -->
+            <div id="forum-reactions-anchor"><div class="admin-section tools-loading-card"><span class="tools-spinner"></span><p>La configuración de Discord se cargará al entrar aquí.</p></div></div>
+          </section>
+
+          <section class="tools-view" data-tools-panel="appearance" hidden>
+            <div class="tools-view-head"><div><span class="tools-kicker">Apariencia</span><h2>Identidad de la web</h2><p>Los cambios siguen usando la paleta configurable de Culones-RPG.</p></div></div>
+            <nav class="appearance-nav" aria-label="Opciones de apariencia">
+              <button type="button" class="is-active" data-appearance-view="background">Fondo</button>
+              <button type="button" data-appearance-view="banners">Banners</button>
+              <button type="button" data-appearance-view="identity">Iconos</button>
+              <button type="button" data-appearance-view="colors">Colores</button>
+            </nav>
+
+            <div class="appearance-view is-active" data-appearance-panel="background">
 
     <!-- Fondo de la página -->
     <div class="admin-section">
@@ -205,6 +254,9 @@
       <div class="modal-error hidden" id="bg-config-error"></div>
       <button class="btn-primary" id="bg-save-btn" style="margin-top:14px;">Guardar fondo</button>
     </div>
+
+            </div>
+            <div class="appearance-view" data-appearance-panel="banners" hidden>
 
     <!-- Banners de cabecera -->
     <div class="admin-section hero-banner-admin-section">
@@ -286,6 +338,9 @@
       <button class="btn-primary" id="hero-banner-save-btn" style="margin-top:14px;">Guardar banner</button>
     </div>
 
+            </div>
+            <div class="appearance-view" data-appearance-panel="identity" hidden>
+
     <!-- Iconos del sitio -->
     <div class="admin-section identity-section">
       <div class="admin-section-head"><h2 class="admin-section-title">🖼 Iconos del sitio</h2></div>
@@ -320,6 +375,9 @@
       <div class="modal-error hidden" id="favicon-config-error"></div>
       <button class="btn-primary" id="favicon-save-btn">Guardar iconos</button>
     </div>
+
+            </div>
+            <div class="appearance-view" data-appearance-panel="colors" hidden>
 
     <!-- Colores generales -->
     <div class="admin-section theme-editor-section">
@@ -396,6 +454,12 @@
       <button class="btn-primary" id="theme-save-btn">Guardar colores</button>
     </div>
 
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
   </section>
 </main>
 
@@ -421,7 +485,7 @@
 <div class="modal-overlay hidden" id="import-conflict-modal">
   <div class="modal-box modal-box-wide modal-box-tall">
     <button class="modal-close" id="close-import-conflict-modal" aria-label="Cerrar">✕</button>
-    <h3 class="modal-title">📥 IMPORTAR — CONFLICTOS</h3>
+    <h3 class="modal-title">Restaurar respaldo</h3>
     <p class="modal-hint" id="import-conflict-summary"></p>
 
     <div class="import-conflict-actions-global">
@@ -434,7 +498,7 @@
     <div class="modal-error hidden" id="import-conflict-error"></div>
     <div class="import-conflict-footer">
       <button type="button" class="btn-secondary-admin" id="import-conflict-cancel-btn">Cancelar</button>
-      <button class="btn-primary" id="import-conflict-confirm-btn">Importar</button>
+      <button class="btn-primary" id="import-conflict-confirm-btn">Restaurar seleccionados</button>
     </div>
   </div>
 </div>
@@ -443,6 +507,6 @@
 
 <script src="js/boot-watchdog.js?v=20260711-11"></script>
 <script src="js/vendor/supabase.js?v=20260711-11"></script>
-<script type="module" src="js/pages/admin.js?v=20260716-4"></script>
+<script type="module" src="js/pages/admin.js?v=20260717-1"></script>
 </body>
 </html>

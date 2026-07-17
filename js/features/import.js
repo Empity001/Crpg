@@ -1,253 +1,224 @@
 // =========================================================
 // import.js
 // =========================================================
-// Importación de JSON: lectura de archivo, detección de conflictos
-// contra los datos actuales, modal de confirmación y aplicación final
-// vía RPC.
+// Importador de respaldos v1/v2. Valida y compara primero; la escritura se
+// ejecuta en una sola Edge Function que conserva IDs y relaciones. Es una
+// restauración por mezcla: nunca elimina registros que no estén en el archivo.
 // =========================================================
 
-import { supabaseClient } from '../config.js';
-import { loadLogsData } from './logs-data.js';
+import { restoreBackup } from '../core/admin-api.js';
 import { state, suppressNextRealtimeReload, suppressNextTierlistReload } from '../core/state.js';
+import { escapeHtml, showToast } from '../core/utils.js';
+import { loadLogsData } from './logs-data.js';
 import { loadTierlist } from './tierlist.js';
-import { isMediaInfrastructureMissing, listMediaAssets, upsertMediaAsset } from '../core/media.js';
-import { countSummary, localAuditTime, recordAdminAction } from '../core/audit.js';
-import { asArray, escapeHtml, showToast } from '../core/utils.js';
+import { loadKits } from './kits.js';
+import { fetchWeaponsDataForExport } from './weapons-data.js';
+import { isMediaInfrastructureMissing, listMediaAssets } from '../core/media.js';
 import { backupTypeLabel } from './backup-helpers.js';
 
-let _importPayload = null; // datos del archivo leído
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const MAX_RECORDS = 30_000;
+let importPayload = null;
+let importBaseline = {};
 
-export let _importConflicts = []; // [{item, resolution: 'overwrite'|'skip'}]
+export let _importConflicts = [];
 
+const list = value => Array.isArray(value) ? value : [];
+
+function ensureId(item) {
+  if (item && typeof item === 'object' && !item.id) item.id = crypto.randomUUID();
+  return item;
+}
+
+function normalizePayloadIds(payload) {
+  const logs = list(payload.logs || payload.data);
+  logs.forEach(log => {
+    ensureId(log);
+    list(log.mobs).forEach(ensureId);
+    list(log.items).forEach(ensureId);
+  });
+  list(payload.rows || payload.tierlist?.rows).forEach(ensureId);
+  list(payload.items || payload.tierlist?.items).forEach(ensureId);
+  list(payload.weapons).forEach(ensureId);
+  list(payload.kits).forEach(ensureId);
+  if (Array.isArray(payload.weapon_ranks)) payload.weapon_ranks.forEach(ensureId);
+  else if (payload.weapon_ranks && typeof payload.weapon_ranks === 'object') Object.values(payload.weapon_ranks).forEach(ranks => list(ranks).forEach(ensureId));
+}
+
+function backupCounts(payload) {
+  const logs = list(payload.logs || payload.data);
+  const rows = list(payload.rows || payload.tierlist?.rows);
+  const items = list(payload.items || payload.tierlist?.items);
+  const guides = list(payload.weapons);
+  const kits = list(payload.kits);
+  const media = list(payload.media_assets);
+  const dependencies = list(payload.categories).length + list(payload.weapon_categories).length + list(payload.weapon_types).length + list(payload.app_settings).length;
+  const logEntries = logs.reduce((sum, log) => sum + list(log.mobs).length + list(log.items).length, 0);
+  const ranks = Array.isArray(payload.weapon_ranks)
+    ? payload.weapon_ranks.length
+    : Object.values(payload.weapon_ranks || {}).reduce((sum, values) => sum + list(values).length, 0);
+  return { logs: logs.length, logEntries, rows: rows.length, items: items.length, guides: guides.length, ranks, kits: kits.length, media: media.length, dependencies };
+}
+
+function validatePayload(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('El archivo no contiene un respaldo válido.');
+  if (!['logs', 'tierlist', 'full_backup'].includes(payload.type)) throw new Error('El tipo de respaldo no es compatible con esta web.');
+  const version = Number(payload.version || 1);
+  if (!Number.isFinite(version) || version < 1 || version > 2) throw new Error(`La versión ${payload.version} todavía no es compatible.`);
+  if (payload.schema && payload.schema !== 'culones-rpg-backup') throw new Error('El JSON pertenece a otra aplicación.');
+  const counts = backupCounts(payload);
+  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  if (total > MAX_RECORDS) throw new Error(`El respaldo contiene ${total} registros; el límite de seguridad es ${MAX_RECORDS}.`);
+  if (payload.type === 'logs' && counts.logs === 0) throw new Error('El respaldo de Logs está vacío.');
+  if (payload.type === 'tierlist' && counts.rows + counts.items === 0) throw new Error('El respaldo de Tierlist está vacío.');
+  return { version, counts, total };
+}
+
+function showFileSummary(file, validation) {
+  const target = document.getElementById('import-file-summary');
+  if (!target) return;
+  const { counts } = validation;
+  target.classList.remove('hidden');
+  target.innerHTML = `<strong>${escapeHtml(file.name)}</strong><span>JSON v${validation.version} · ${escapeHtml(backupTypeLabel(importPayload.type))} · ${(file.size / 1024).toFixed(1)} KB</span><small>${counts.logs} logs · ${counts.logEntries} fichas · ${counts.guides} Guías · ${counts.ranks} variantes · ${counts.kits} kits · ${counts.rows + counts.items} elementos de Tierlist · ${counts.media} recursos</small>`;
+}
 
 export async function handleImportFile(file) {
   if (!file) return;
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (ext !== 'json') { showToast('Solo se soportan archivos JSON por ahora', 'error'); return; }
+  if (!/\.json$/i.test(file.name) && file.type !== 'application/json') {
+    showToast('Solo se pueden restaurar respaldos JSON.', 'error');
+    return;
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    showToast('El respaldo supera el límite de 20 MB.', 'error');
+    return;
+  }
 
-  showToast('Leyendo archivo...', 'default');
-  const text = await file.text();
-  let parsed;
-  try { parsed = JSON.parse(text); } catch(e) { showToast('El archivo no es un JSON válido', 'error'); return; }
-
-  _importPayload = parsed;
-  await prepareImportBaseline(parsed.type);
-  await analyzeAndShowImportConflicts(parsed);
+  showToast('Validando respaldo…', 'default');
+  try {
+    const parsed = JSON.parse(await file.text());
+    const validation = validatePayload(parsed);
+    normalizePayloadIds(parsed);
+    importPayload = parsed;
+    showFileSummary(file, validation);
+    importBaseline = await prepareImportBaseline(parsed.type);
+    analyzeAndShowImportConflicts(parsed);
+  } catch (error) {
+    console.error('[Import]', error);
+    showToast(error instanceof SyntaxError ? 'El archivo no es un JSON válido.' : error.message, 'error');
+  }
 }
 
 async function prepareImportBaseline(type) {
-  if (type === 'logs' || type === 'full_backup') {
-    await loadLogsData();
+  const baseline = {};
+  const tasks = [];
+  if (type === 'logs' || type === 'full_backup') tasks.push(loadLogsData().then(() => { baseline.logs = state.logs; }));
+  if (type === 'tierlist' || type === 'full_backup') tasks.push(loadTierlist().then(() => { baseline.tierRows = state.tierRows; baseline.tierItems = state.tierItems; }));
+  if (type === 'full_backup') {
+    tasks.push(fetchWeaponsDataForExport().then(data => { baseline.weaponData = data; }));
+    tasks.push(loadKits().then(() => { baseline.kits = state.kits; }));
+    tasks.push(listMediaAssets({ includeArchived: true }).then(result => {
+      baseline.media = result.error && !isMediaInfrastructureMissing(result.error) ? [] : (result.data || []);
+      baseline.mediaUnavailable = !!result.error;
+    }));
   }
-  if (type === 'tierlist' || type === 'full_backup') {
-    await loadTierlist();
-  }
+  await Promise.all(tasks);
+  return baseline;
 }
 
+function conflict(kind, id, name, existingIds, item) {
+  const isConflict = existingIds.has(String(id));
+  return { kind, id: String(id), name, isConflict, item, resolution: isConflict ? 'skip' : 'import' };
+}
 
-async function analyzeAndShowImportConflicts(payload) {
-  const type = payload.type;
-  const allConflicts = [];
+function analyzeAndShowImportConflicts(payload) {
+  const conflicts = [];
+  const logIds = new Set(list(importBaseline.logs).map(item => String(item.id)));
+  list(payload.logs || payload.data).forEach(log => conflicts.push(conflict('log', log.id, `[Log] ${log.title || 'Sin título'}`, logIds, log)));
 
-  if (type === 'logs' || type === 'full_backup') {
-    const existingIds = new Set(state.logs.map(l => l.id));
-    const importLogs = payload.data || payload.logs || [];
-    importLogs.forEach(log => {
-      allConflicts.push({
-        kind: 'log',
-        id: log.id,
-        name: log.title,
-        isConflict: existingIds.has(log.id),
-        item: log,
-        resolution: existingIds.has(log.id) ? 'skip' : 'import',
-      });
+  const rowIds = new Set(list(importBaseline.tierRows).map(item => String(item.id)));
+  list(payload.rows || payload.tierlist?.rows).forEach(row => conflicts.push(conflict('tier_row', row.id, `[Tier] ${row.name || 'Fila'}`, rowIds, row)));
+  const tierItemIds = new Set(list(importBaseline.tierItems).map(item => String(item.id)));
+  list(payload.items || payload.tierlist?.items).forEach(item => conflicts.push(conflict('tier_item', item.id, `[Tierlist] ${item.name || 'Elemento'}`, tierItemIds, item)));
+
+  if (payload.type === 'full_backup') {
+    const weaponIds = new Set(list(importBaseline.weaponData?.weapons).map(item => String(item.id)));
+    list(payload.weapons).forEach(weapon => conflicts.push(conflict('weapon', weapon.id, `[Guía] ${weapon.name || 'Sin nombre'}`, weaponIds, weapon)));
+    const kitIds = new Set(list(importBaseline.kits).map(item => String(item.id)));
+    list(payload.kits).forEach(kit => conflicts.push(conflict('kit', kit.id, `[Kit] ${kit.name || 'Sin nombre'}`, kitIds, kit)));
+
+    const mediaByIdOrUrl = new Set(list(importBaseline.media).flatMap(item => [String(item.id || ''), String(item.url || '')]).filter(Boolean));
+    list(payload.media_assets).filter(asset => (asset.source_type || 'storage') === 'storage').forEach(asset => {
+      const id = asset.id || asset.url;
+      const hasConflict = importBaseline.mediaUnavailable || mediaByIdOrUrl.has(String(asset.id || '')) || mediaByIdOrUrl.has(String(asset.url || ''));
+      conflicts.push({ kind: 'media_asset', id: String(id), name: `[Multimedia] ${asset.display_name || asset.url || 'Recurso'}`, isConflict: hasConflict, item: asset, resolution: hasConflict ? 'skip' : 'import' });
     });
-  }
 
-  if (type === 'tierlist' || type === 'full_backup') {
-    const existingRowIds = new Set(state.tierRows.map(r => r.id));
-    const importRows = payload.rows || payload.tierlist?.rows || [];
-    importRows.forEach(row => {
-      allConflicts.push({
-        kind: 'tier_row',
-        id: row.id,
-        name: `[Fila] ${row.name}`,
-        isConflict: existingRowIds.has(row.id),
-        item: row,
-        resolution: existingRowIds.has(row.id) ? 'skip' : 'import',
-      });
-    });
-    const existingItemIds = new Set(state.tierItems.map(i => i.id));
-    const importItems = payload.items || payload.tierlist?.items || [];
-    importItems.forEach(item => {
-      allConflicts.push({
-        kind: 'tier_item',
-        id: item.id,
-        name: `[Item] ${item.name}`,
-        isConflict: existingItemIds.has(item.id),
-        item,
-        resolution: existingItemIds.has(item.id) ? 'skip' : 'import',
-      });
-    });
-  }
-
-  if (type === 'full_backup') {
-    const importMedia = (payload.media_assets || []).filter(asset => (asset.source_type || 'storage') === 'storage');
-    if (importMedia.length) {
-      const { data: existingMedia, error } = await listMediaAssets({ includeArchived: true });
-      const mediaInfrastructureMissing = error && isMediaInfrastructureMissing(error);
-      const existingUrls = new Set((existingMedia || []).map(asset => asset.url).filter(Boolean));
-      const existingHashes = new Set((existingMedia || []).map(asset => asset.file_hash).filter(Boolean));
-      if (error && !mediaInfrastructureMissing) console.warn('Media import conflict check skipped:', error);
-
-      importMedia.forEach(asset => {
-        const hasConflict = existingUrls.has(asset.url) || (!!asset.file_hash && existingHashes.has(asset.file_hash));
-        allConflicts.push({
-          kind: 'media_asset',
-          id: asset.id || asset.url,
-          name: `[Multimedia] ${asset.display_name || asset.url || 'Recurso'}${mediaInfrastructureMissing ? ' (migración pendiente)' : ''}`,
-          isConflict: mediaInfrastructureMissing || hasConflict,
-          item: asset,
-          resolution: mediaInfrastructureMissing || hasConflict ? 'skip' : 'import',
-        });
-      });
+    if (list(payload.app_settings).length || payload.field_config) {
+      conflicts.push({ kind: 'app_settings', id: '__all__', name: '[Apariencia] Configuración general de la web', isConflict: true, item: payload.app_settings || payload.field_config, resolution: 'skip' });
     }
   }
 
-  _importConflicts = allConflicts;
-  showImportConflictModal(allConflicts);
+  _importConflicts = conflicts;
+  showImportConflictModal(conflicts);
 }
-
 
 function showImportConflictModal(conflicts) {
   const modal = document.getElementById('import-conflict-modal');
-  const summaryEl = document.getElementById('import-conflict-summary');
-  const listEl = document.getElementById('import-conflict-list');
-
-  const conflictCount = conflicts.filter(c => c.isConflict).length;
-  const newCount = conflicts.filter(c => !c.isConflict).length;
-
-  summaryEl.textContent = `${conflicts.length} elemento(s) encontrados: ${newCount} nuevos, ${conflictCount} con conflicto.`;
-
-  listEl.innerHTML = conflicts.map((c, idx) => `
-    <div class="import-conflict-row ${c.isConflict ? 'is-conflict' : 'is-new'}">
-      <span class="import-conflict-name">${c.isConflict ? '⚠️' : '✅'} ${escapeHtml(c.name)}</span>
-      <div class="import-conflict-toggle">
-        <label class="import-radio-label">
-          <input type="radio" name="conflict-${idx}" value="import" ${c.resolution !== 'skip' ? 'checked' : ''} data-idx="${idx}" />
-          ${c.isConflict ? 'Sobrescribir' : 'Importar'}
-        </label>
-        <label class="import-radio-label">
-          <input type="radio" name="conflict-${idx}" value="skip" ${c.resolution === 'skip' ? 'checked' : ''} data-idx="${idx}" />
-          Saltar
-        </label>
-      </div>
-    </div>`).join('');
-
-  listEl.onchange = (event) => {
+  const summary = document.getElementById('import-conflict-summary');
+  const target = document.getElementById('import-conflict-list');
+  if (!modal || !summary || !target) return;
+  const conflictsCount = conflicts.filter(item => item.isConflict).length;
+  summary.textContent = `${conflicts.length} elemento(s): ${conflicts.length - conflictsCount} nuevos y ${conflictsCount} ya existentes. Restaurar mezcla datos; no elimina registros ausentes del archivo.`;
+  target.innerHTML = conflicts.map((item, index) => `<div class="import-conflict-row ${item.isConflict ? 'is-conflict' : 'is-new'}"><span class="import-conflict-name">${item.isConflict ? '⚠' : '✓'} ${escapeHtml(item.name)}</span><div class="import-conflict-toggle"><label class="import-radio-label"><input type="radio" name="conflict-${index}" value="import" ${item.resolution === 'import' ? 'checked' : ''} data-idx="${index}">${item.isConflict ? 'Sobrescribir' : 'Importar'}</label><label class="import-radio-label"><input type="radio" name="conflict-${index}" value="skip" ${item.resolution === 'skip' ? 'checked' : ''} data-idx="${index}">Saltar</label></div></div>`).join('');
+  target.onchange = event => {
     const radio = event.target.closest('input[type="radio"][data-idx]');
-    if (!radio) return;
-    _importConflicts[Number(radio.dataset.idx)].resolution = radio.value;
+    if (radio) _importConflicts[Number(radio.dataset.idx)].resolution = radio.value;
   };
-
+  document.getElementById('import-conflict-error')?.classList.add('hidden');
   modal.classList.remove('hidden');
 }
 
+export function setAllImportResolutions(resolution) {
+  _importConflicts.forEach((item, index) => {
+    item.resolution = resolution;
+    const radio = document.querySelector(`input[name="conflict-${index}"][value="${resolution}"]`);
+    if (radio) radio.checked = true;
+  });
+}
 
 export async function confirmImport() {
   const errorBox = document.getElementById('import-conflict-error');
-  if (!state.adminMode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
-
-  const toImport = _importConflicts.filter(c => c.resolution !== 'skip');
-  if (toImport.length === 0) { showToast('Nada que importar'); document.getElementById('import-conflict-modal').classList.add('hidden'); return; }
-
-  showToast(`Importando ${toImport.length} elemento(s)...`, 'default');
-  let imported = 0;
-  let errors = 0;
-  const importedCounts = { log: 0, tier_row: 0, tier_item: 0, media_asset: 0 };
-
-  for (const conflict of toImport) {
-    try {
-      if (conflict.kind === 'log') {
-        const log = conflict.item;
-        const mobsPayload = (log.mobs || []).map(({ name, health, damage, armor, equipment, location, description, extra_fields, image_url }) => ({
-          name, health, damage, armor, equipment, location, description: description || null,
-          extra_fields: asArray(extra_fields), image_url: image_url || null,
-        }));
-        const itemsPayload = (log.items || []).map(({ name, tier, item_type, obtained_from, damage, enchantments, description, extra_fields, image_url }) => ({
-          name, tier, item_type, obtained_from, damage: damage ?? null,
-          enchantments: asArray(enchantments), description: description || null,
-          extra_fields: asArray(extra_fields), image_url: image_url || null,
-        }));
-
-        if (conflict.isConflict) {
-          // Sobrescribir: update_log
-          await supabaseClient.rpc('update_log', {
-            input_code: state.adminMode, input_id: log.id,
-            input_title: log.title, input_description: log.description,
-            input_category: log.category, input_relevance: log.relevance,
-            input_created_at: log.created_at, input_mobs: mobsPayload, input_items: itemsPayload,
-            input_cover_image_url: log.cover_image_url || null,
-          });
-        } else {
-          // Nuevo: create_log
-          await supabaseClient.rpc('create_log', {
-            input_code: state.adminMode,
-            input_title: log.title, input_description: log.description,
-            input_category: log.category, input_relevance: log.relevance,
-            input_created_at: log.created_at, input_mobs: mobsPayload, input_items: itemsPayload,
-            input_cover_image_url: log.cover_image_url || null,
-          });
-        }
-        imported++;
-        importedCounts.log++;
-      } else if (conflict.kind === 'tier_row') {
-        const row = conflict.item;
-        if (conflict.isConflict) {
-          await supabaseClient.rpc('update_tierlist_row', { input_code: state.adminMode, input_id: row.id, input_name: row.name, input_color: row.color });
-        } else {
-          await supabaseClient.rpc('create_tierlist_row', { input_code: state.adminMode, input_name: row.name, input_color: row.color });
-        }
-        imported++;
-        importedCounts.tier_row++;
-      } else if (conflict.kind === 'tier_item') {
-        const item = conflict.item;
-        await supabaseClient.rpc('upsert_tierlist_item', {
-          input_code: state.adminMode, input_id: conflict.isConflict ? item.id : null,
-          input_name: item.name, input_image_url: item.image_url || null,
-          input_column_key: item.column_key, input_row_id: item.row_id || null,
-          input_extra_fields: asArray(item.extra_fields),
-        });
-        imported++;
-        importedCounts.tier_item++;
-      } else if (conflict.kind === 'media_asset') {
-        const { error } = await upsertMediaAsset(conflict.item);
-        if (error) throw error;
-        imported++;
-        importedCounts.media_asset++;
-      }
-    } catch(e) {
-      console.error('Import error:', e);
-      errors++;
-    }
+  const button = document.getElementById('import-conflict-confirm-btn');
+  if (!state.adminMode) {
+    if (errorBox) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); }
+    return;
+  }
+  const selected = _importConflicts.filter(item => item.resolution === 'import').map(item => ({ kind: item.kind, id: item.id }));
+  if (!selected.length) {
+    showToast('No seleccionaste elementos para restaurar.');
+    document.getElementById('import-conflict-modal')?.classList.add('hidden');
+    return;
   }
 
-  document.getElementById('import-conflict-modal').classList.add('hidden');
-  document.getElementById('import-file-input').value = '';
-  showToast(`Importación completa: ${imported} ok${errors > 0 ? `, ${errors} error(es)` : ''}`, errors > 0 ? 'error' : 'success');
-  const importType = backupTypeLabel(_importPayload?.type || 'logs');
-  const details = [
-    countSummary('logs', importedCounts.log),
-    countSummary('filas tierlist', importedCounts.tier_row),
-    countSummary('items tierlist', importedCounts.tier_item),
-    countSummary('recursos multimedia', importedCounts.media_asset),
-  ].filter(Boolean).join(', ');
-  await recordAdminAction(
-    'import_completed',
-    `Se importó un backup de ${importType}${details ? ` (${details})` : ''}${errors ? ` con ${errors} error(es)` : ''} a las ${localAuditTime()}.`
-  );
+  if (button) { button.disabled = true; button.textContent = 'Restaurando…'; }
+  if (errorBox) errorBox.classList.add('hidden');
+  showToast(`Restaurando ${selected.length} grupo(s)…`, 'default');
+  const result = await restoreBackup(importPayload, selected);
+  if (button) { button.disabled = false; button.textContent = 'Restaurar seleccionados'; }
+  if (result.error) {
+    if (errorBox) { errorBox.textContent = result.error.message || 'No se pudo restaurar el respaldo.'; errorBox.classList.remove('hidden'); }
+    return;
+  }
+
+  const counts = result.data?.counts || {};
+  const total = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
+  document.getElementById('import-conflict-modal')?.classList.add('hidden');
+  document.getElementById('import-file-summary')?.classList.add('hidden');
+  showToast(`Restauración completada: ${total} registro(s) procesados.`, 'success');
   suppressNextRealtimeReload();
   suppressNextTierlistReload();
-  await loadLogsData();
-  if (state.tierlistLoaded) await loadTierlist();
+  state.kitsLoaded = false;
+  state.weaponsLoaded = false;
+  if (importPayload.type === 'logs' || importPayload.type === 'full_backup') await loadLogsData();
+  if (importPayload.type === 'tierlist' || importPayload.type === 'full_backup') await loadTierlist();
 }

@@ -44,8 +44,20 @@ export function getDiscordAdminStatus() {
   return invokeAdminApi('status');
 }
 
+export function getAdminHealth() {
+  return invokeAdminApi('admin_health');
+}
+
+export function restoreBackup(backup, selections = []) {
+  return invokeAdminApi('restore_backup', { backup, selections });
+}
+
 export function getAdminLogsBundle() {
   return invokeAdminApi('logs_admin_bundle');
+}
+
+export function getAdminBackupBundle(scope = 'all') {
+  return invokeAdminApi('backup_bundle', { scope });
 }
 
 export function enqueueGuideForumJob(guideId, jobAction, payload = {}) {

@@ -42,6 +42,7 @@ const ACTION_LOG_ICONS = {
   media_deleted: '🗑',
   export_created: '📤',
   import_completed: '📥',
+  backup_restored: '♻️',
   guide_forum_publish: '📣',
   guide_forum_update: '🔄',
   guide_forum_unpublish: '📴',

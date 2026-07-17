@@ -159,6 +159,10 @@ Para el deploy 024, el orden exacto está en
 `DEPLOY_PERFORMANCE_HARDENING_01.md` y el diagnóstico completo en
 `PERFORMANCE_AUDIT_01.md`.
 
+El rediseño de Herramientas, el panel de salud y el respaldo v2 se despliegan
+siguiendo `DEPLOY_TOOLS_REFRESH_01.md`. No requieren migración SQL nueva, pero
+sí volver a desplegar `discord-admin-api` antes de publicar la página.
+
 ## Desarrollo local
 
 El sitio debe servirse por HTTP porque los partials se cargan con `fetch()` y los módulos usan rutas relativas. Puede abrirse con Live Server desde VS Code. Abrir los HTML directamente con `file://` no es una prueba válida.

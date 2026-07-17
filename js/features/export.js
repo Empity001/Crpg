@@ -9,14 +9,39 @@
 
 import { parseEquipment, parseLibreFields } from './blocks-display.js';
 import { RELEVANCE_LABELS, TIER_COLUMNS, getCategory, state } from '../core/state.js';
+import { disableQueryRetry, supabaseClient } from '../config.js';
 import { loadCategoriesData } from './categories.js';
 import { loadLogsData } from './logs-data.js';
 import { loadTierlist } from './tierlist.js';
+import { loadKits } from './kits.js';
 import { isMediaInfrastructureMissing, listMediaAssets } from '../core/media.js';
 import { countSummary, localAuditTime, recordAdminAction } from '../core/audit.js';
 import { asArray, formatDate, showToast } from '../core/utils.js';
 import { fetchWeaponsDataForExport } from './weapons-data.js';
 import { auditDetails, backupFileStamp, backupTypeLabel, downloadFile } from './backup-helpers.js';
+import { getAdminBackupBundle } from '../core/admin-api.js';
+
+const BACKUP_SCHEMA = 'culones-rpg-backup';
+const BACKUP_VERSION = 2;
+let xlsxLoadPromise = null;
+
+async function ensureXlsx() {
+  if (window.XLSX) return true;
+  if (!xlsxLoadPromise) {
+    xlsxLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => reject(new Error('No se pudo cargar el generador de Excel.'));
+      document.head.appendChild(script);
+    }).catch(error => {
+      xlsxLoadPromise = null;
+      throw error;
+    });
+  }
+  return xlsxLoadPromise;
+}
 
 function formatEquipmentText(raw) {
   const list = parseEquipment(raw);
@@ -58,6 +83,89 @@ async function getMediaAssetsForExport() {
     return [];
   }
   return data || [];
+}
+
+async function getAppSettingsForExport() {
+  const { data, error } = await disableQueryRetry(
+    supabaseClient.from('app_settings').select('key,value,updated_at').order('key', { ascending: true })
+  );
+  if (error) {
+    console.warn('App settings export skipped:', error);
+    return [];
+  }
+  return data || [];
+}
+
+function logsWithBlocks() {
+  return state.logs.map(log => ({
+    ...log,
+    mobs: state.mobsByLog[log.id] || [],
+    items: state.itemsByLog[log.id] || [],
+  }));
+}
+
+function backupEnvelope(type) {
+  return {
+    schema: BACKUP_SCHEMA,
+    version: BACKUP_VERSION,
+    type,
+    app: 'culones-rpg',
+    exported_at: new Date().toISOString(),
+  };
+}
+
+export async function collectExportBundle(type = 'all') {
+  const scope = ['logs', 'tierlist'].includes(type) ? type : 'all';
+  const envelopeType = scope === 'all' ? 'full_backup' : scope;
+  const bundleResult = await getAdminBackupBundle(scope);
+  if (!bundleResult.error && bundleResult.data) {
+    const settings = listSettingValues(bundleResult.data.app_settings);
+    const bundle = {
+      ...backupEnvelope(envelopeType),
+      ...bundleResult.data,
+    };
+    if (scope === 'all') bundle.field_config = {
+        mob: settings.mob_fields || state.fieldConfig.mob,
+        item: settings.item_fields || state.fieldConfig.item,
+    };
+    return bundle;
+  }
+
+  // Compatibilidad durante el breve intervalo entre Pages y el redeploy de
+  // la Edge Function: usa las lecturas anteriores, siempre bajo demanda.
+  console.warn('[Export] backup_bundle no disponible; usando carga compatible:', bundleResult.error?.message);
+  if (type === 'logs') {
+    await Promise.all([loadLogsData(), loadCategoriesData()]);
+    return { ...backupEnvelope('logs'), logs: logsWithBlocks(), categories: state.categories };
+  }
+  if (type === 'tierlist') {
+    if (!state.tierlistLoaded) await loadTierlist();
+    return { ...backupEnvelope('tierlist'), tierlist: { rows: state.tierRows, items: state.tierItems } };
+  }
+  await Promise.all([loadLogsData(), loadCategoriesData(), state.tierlistLoaded ? Promise.resolve() : loadTierlist(), state.kitsLoaded ? Promise.resolve() : loadKits()]);
+  const [weaponData, mediaAssets, appSettings] = await Promise.all([fetchWeaponsDataForExport(), getMediaAssetsForExport(), getAppSettingsForExport()]);
+  return { ...backupEnvelope('full_backup'), logs: logsWithBlocks(), categories: state.categories, tierlist: { rows: state.tierRows, items: state.tierItems }, weapons: weaponData.weapons, weapon_categories: weaponData.categories, weapon_types: weaponData.types, weapon_ranks: weaponData.ranksByWeapon, kits: state.kits, media_assets: mediaAssets, app_settings: appSettings, field_config: state.fieldConfig };
+}
+
+function listSettingValues(settings) {
+  return Object.fromEntries((Array.isArray(settings) ? settings : []).map(setting => [setting.key, setting.value]));
+}
+
+function hydrateLogsBundle(bundle) {
+  state.logs = bundle.logs || [];
+  state.mobsByLog = {};
+  state.itemsByLog = {};
+  state.logs.forEach(log => {
+    state.mobsByLog[log.id] = log.mobs || [];
+    state.itemsByLog[log.id] = log.items || [];
+  });
+  if (bundle.categories) state.categories = bundle.categories;
+}
+
+function hydrateTierlistBundle(bundle) {
+  state.tierRows = bundle.tierlist?.rows || [];
+  state.tierItems = bundle.tierlist?.items || [];
+  state.tierlistLoaded = true;
 }
 
 
@@ -361,6 +469,31 @@ function buildMediaSheet(mediaAssets) {
   return buildXlSheet(`🗂️ Multimedia (${rows.length})`, headers, rows, [5,15], [12,28,12,12,20,14,38,16,32,45,26,34,12,18,14,10,10,22,22]);
 }
 
+function buildKitsSheet(kits = []) {
+  const headers = ['ID', 'Kit', 'Descripción', 'Publicado', 'Columna', 'Elemento', 'Imagen (URL)', 'Guía asociada', 'Orden'];
+  const rows = [];
+  kits.forEach(kit => {
+    const columns = [
+      ['weapon', 'Arma'],
+      ['accessory', 'Accesorio'],
+      ['subweapon', 'Sub-arma'],
+    ];
+    let hasItems = false;
+    columns.forEach(([key, label]) => {
+      asArray(kit.items?.[key]).forEach((item, index) => {
+        hasItems = true;
+        rows.push([
+          kit.id || '', kit.name || '', kit.description || '', kit.published ? 'Sí' : 'No',
+          label, item.name || '', item.image_url || '',
+          item.guide_link ? JSON.stringify(item.guide_link) : '', index,
+        ]);
+      });
+    });
+    if (!hasItems) rows.push([kit.id || '', kit.name || '', kit.description || '', kit.published ? 'Sí' : 'No', '', '', '', '', '']);
+  });
+  return buildXlSheet(`🎒 Kits (${kits.length})`, headers, rows, [8], [12,28,38,10,14,28,38,30,8]);
+}
+
 
 function exportTierlistXlsx() {
   const { wsRows, wsItems } = buildTierlistSheets();
@@ -382,14 +515,19 @@ function exportTierlistXlsx() {
 // ---------------------------------------------------------
 
 async function exportAllXlsx() {
-  await loadLogsData();
-  await loadCategoriesData();
-  // Asegurar tierlist cargada (el render queda protegido si no hay DOM)
-  if (!state.tierlistLoaded) await loadTierlist();
-
-  // Obtener datos de armas sin disparar ningún render de la guía
-  const weaponData = await fetchWeaponsDataForExport();
-  const mediaAssets = await getMediaAssetsForExport();
+  const bundle = await collectExportBundle('all');
+  hydrateLogsBundle(bundle);
+  hydrateTierlistBundle(bundle);
+  state.kits = bundle.kits || [];
+  state.kitsLoaded = true;
+  if (bundle.field_config) state.fieldConfig = bundle.field_config;
+  const weaponData = {
+    weapons: bundle.weapons || [],
+    categories: bundle.weapon_categories || [],
+    types: bundle.weapon_types || [],
+    ranksByWeapon: bundle.weapon_ranks || {},
+  };
+  const mediaAssets = bundle.media_assets || [];
 
   const wb = XLSX.utils.book_new();
   wb.Props = { Title: 'Culones RPG — Backup Completo', Subject: 'Exportación completa', CreatedDate: new Date() };
@@ -408,6 +546,7 @@ async function exportAllXlsx() {
     ['Armas',            weaponData.weapons.length,                                         now],
     ['Categorías Armas', weaponData.categories.length,                                      now],
     ['Tipos de Armas',   weaponData.types.length,                                           now],
+    ['Kits',             state.kits.length,                                                  now],
     ['Multimedia',       mediaAssets.length,                                                now],
   ];
   const wsSummary = buildXlSheet('📊 Resumen del Backup', summaryHeaders, summaryRows, [1], [28, 24, 28]);
@@ -505,6 +644,7 @@ async function exportAllXlsx() {
   });
   const wsCfg = buildXlSheet(`⚙️ Configuración de Campos (${cfgRows.length})`, cfgHeaders, cfgRows, [4], [14,20,28,12,8]);
   const wsMedia = buildMediaSheet(mediaAssets);
+  const wsKits = buildKitsSheet(state.kits);
 
   // --- Ensamblar workbook ---
   XLSX.utils.book_append_sheet(wb, wsSummary,  'Resumen');
@@ -519,11 +659,12 @@ async function exportAllXlsx() {
   XLSX.utils.book_append_sheet(wb, wsRanks,    'Versiones Armas');
   XLSX.utils.book_append_sheet(wb, wsWCats,    'Categorías Armas');
   XLSX.utils.book_append_sheet(wb, wsWTypes,   'Tipos Armas');
+  XLSX.utils.book_append_sheet(wb, wsKits,     'Kits');
   XLSX.utils.book_append_sheet(wb, wsMedia,    'Multimedia');
   XLSX.utils.book_append_sheet(wb, wsCfg,      'Configuración');
 
   downloadXlsx(wb, `culones-backup-${backupFileStamp()}.xlsx`);
-  showToast('Backup completo exportado a Excel (14 hojas)', 'success');
+  showToast('Backup completo exportado a Excel (15 hojas)', 'success');
 }
 
 // ---------------------------------------------------------
@@ -534,106 +675,53 @@ async function exportAllXlsx() {
 
 export async function exportData(type, format) {
   showToast('Preparando exportación...', 'default');
-
-  // -------- JSON (sin cambios, compatibilidad total) --------
-  if (format === 'json') {
-    if (type === 'logs') {
-      await loadLogsData();
-      const logsWithBlocks = state.logs.map(log => ({
-        ...log,
-        mobs:  state.mobsByLog[log.id]  || [],
-        items: state.itemsByLog[log.id] || [],
-      }));
-      downloadFile(
-        JSON.stringify({ version: 1, type: 'logs', exported_at: new Date().toISOString(), data: logsWithBlocks }, null, 2),
-        `culones-logs-${backupFileStamp()}.json`, 'application/json',
-      );
-      showToast(`${logsWithBlocks.length} logs exportados`, 'success');
-      await recordAdminAction(
-        'export_created',
-        `Se exportó un backup de Logs (${auditDetails([format.toUpperCase(), countSummary('logs', logsWithBlocks.length)])}) a las ${localAuditTime()}.`
-      );
-
-    } else if (type === 'tierlist') {
-      if (!state.tierlistLoaded) await loadTierlist();
-      downloadFile(
-        JSON.stringify({ version: 1, type: 'tierlist', exported_at: new Date().toISOString(), rows: state.tierRows, items: state.tierItems }, null, 2),
-        `culones-tierlist-${backupFileStamp()}.json`, 'application/json',
-      );
-      showToast('Tierlist exportada', 'success');
-      const tierDetails = auditDetails([format.toUpperCase(), countSummary('filas', state.tierRows.length), countSummary('items', state.tierItems.length)]);
-      await recordAdminAction(
-        'export_created',
-        `Se exportó un backup de Tierlist (${tierDetails}) a las ${localAuditTime()}.`
-      );
-
-    } else if (type === 'all') {
-      await loadLogsData();
-      await loadCategoriesData();
-      if (!state.tierlistLoaded) await loadTierlist();
-      const weaponData = await fetchWeaponsDataForExport();
-      const mediaAssets = await getMediaAssetsForExport();
-      const logsWithBlocks = state.logs.map(log => ({
-        ...log,
-        mobs:  state.mobsByLog[log.id]  || [],
-        items: state.itemsByLog[log.id] || [],
-      }));
-      const backup = {
-        version: 1, type: 'full_backup',
-        exported_at: new Date().toISOString(),
-        logs: logsWithBlocks,
-        categories: state.categories,
-        tierlist: { rows: state.tierRows, items: state.tierItems },
-        weapons: weaponData.weapons,
-        weapon_categories: weaponData.categories,
-        weapon_types: weaponData.types,
-        weapon_ranks: weaponData.ranksByWeapon,
-        media_assets: mediaAssets,
-        field_config: state.fieldConfig,
-      };
-      downloadFile(JSON.stringify(backup, null, 2), `culones-backup-${backupFileStamp()}.json`, 'application/json');
-      showToast('Backup completo exportado', 'success');
-      const backupDetails = auditDetails([
-        format.toUpperCase(),
-        countSummary('logs', logsWithBlocks.length),
-        countSummary('armas', weaponData.weapons.length),
-        countSummary('recursos multimedia', mediaAssets.length),
+  try {
+    if (format === 'json') {
+      const bundle = await collectExportBundle(type);
+      // Alias de la v1 para scripts externos que todavía esperan data/rows/items.
+      if (type === 'logs') bundle.data = bundle.logs;
+      if (type === 'tierlist') {
+        bundle.rows = bundle.tierlist.rows;
+        bundle.items = bundle.tierlist.items;
+      }
+      const name = type === 'logs' ? 'culones-logs' : type === 'tierlist' ? 'culones-tierlist' : 'culones-backup';
+      downloadFile(JSON.stringify(bundle, null, 2), `${name}-${backupFileStamp()}.json`, 'application/json');
+      const details = auditDetails([
+        'JSON v2',
+        countSummary('logs', bundle.logs?.length || 0),
+        countSummary('Guías', bundle.weapons?.length || 0),
+        countSummary('kits', bundle.kits?.length || 0),
       ]);
-      await recordAdminAction(
-        'export_created',
-        `Se exportó un Backup completo (${backupDetails}) a las ${localAuditTime()}.`
-      );
-    }
-    return;
-  }
-
-  // -------- XLSX --------
-  if (format === 'xlsx') {
-    if (typeof XLSX === 'undefined') {
-      showToast('SheetJS no está disponible. Comprueba tu conexión a internet.', 'error');
+      showToast(type === 'all' ? 'Respaldo restaurable descargado' : `${backupTypeLabel(type)} exportado`, 'success');
+      await recordAdminAction('export_created', `Se exportó ${backupTypeLabel(type)} (${details}) a las ${localAuditTime()}.`);
       return;
     }
-    if (type === 'logs') {
-      await loadLogsData();
-      exportLogsXlsx();
-      await recordAdminAction(
-        'export_created',
-        `Se exportó un backup de Logs (${auditDetails([format.toUpperCase(), countSummary('logs', state.logs.length)])}) a las ${localAuditTime()}.`
-      );
-    } else if (type === 'tierlist') {
-      if (!state.tierlistLoaded) await loadTierlist();
-      exportTierlistXlsx();
-      const tierDetails = auditDetails([format.toUpperCase(), countSummary('filas', state.tierRows.length), countSummary('items', state.tierItems.length)]);
-      await recordAdminAction(
-        'export_created',
-        `Se exportó un backup de Tierlist (${tierDetails}) a las ${localAuditTime()}.`
-      );
-    } else if (type === 'all') {
-      await exportAllXlsx();
-      await recordAdminAction(
-        'export_created',
-        `Se exportó un ${backupTypeLabel(type)} (${format.toUpperCase()}) a las ${localAuditTime()}.`
-      );
+
+    if (format === 'htmlzip') {
+      const bundle = await collectExportBundle(type);
+      const { downloadVisualReport } = await import('./visual-report.js?v=20260717-1');
+      const suffix = type === 'all' ? 'completo' : type;
+      downloadVisualReport(bundle, `culones-reporte-${suffix}-${backupFileStamp()}.zip`);
+      showToast('Reporte visual creado', 'success');
+      await recordAdminAction('export_created', `Se exportó un reporte visual de ${backupTypeLabel(type)} (ZIP) a las ${localAuditTime()}.`);
+      return;
     }
+
+    if (format === 'xlsx') {
+      await ensureXlsx();
+      if (type === 'logs') {
+        hydrateLogsBundle(await collectExportBundle('logs'));
+        exportLogsXlsx();
+      } else if (type === 'tierlist') {
+        hydrateTierlistBundle(await collectExportBundle('tierlist'));
+        exportTierlistXlsx();
+      } else {
+        await exportAllXlsx();
+      }
+      await recordAdminAction('export_created', `Se exportó ${backupTypeLabel(type)} (XLSX) a las ${localAuditTime()}.`);
+    }
+  } catch (error) {
+    console.error('[Export]', error);
+    showToast(error?.message || 'No se pudo crear la exportación.', 'error');
   }
 }
