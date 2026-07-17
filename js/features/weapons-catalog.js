@@ -6,7 +6,7 @@
 // =========================================================
 
 import { isAdmin, state } from '../core/state.js';
-import { escapeHtml, safeUrl } from '../core/utils.js';
+import { buildShareUrl, copyLink, escapeHtml, safeUrl } from '../core/utils.js';
 import { openWeaponDetail } from './weapons-detail.js';
 import { getWeaponCategory, getWeaponType, isWeaponVisible } from './weapons-state.js';
 
@@ -62,6 +62,12 @@ function bindWeaponsGridEvents(grid) {
   grid.dataset.weaponGridBound = 'true';
   grid.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
+    const copyButton = target?.closest('[data-copy-guide-link]');
+    if (copyButton && grid.contains(copyButton)) {
+      event.stopPropagation();
+      void copyLink(buildShareUrl('guides.html', { weapon: copyButton.dataset.copyGuideLink }));
+      return;
+    }
     const card = target?.closest('.weapon-card[data-weapon-id]');
     if (!card || !grid.contains(card)) return;
     openWeaponDetail(card.dataset.weaponId);
@@ -144,6 +150,7 @@ export function renderWeaponsGrid() {
       : `<span class="tier-chip-initials">${escapeHtml(initialsOf(w.name))}</span>`;
     return `
       <div class="weapon-card ${!w.published ? 'is-unpublished' : ''}" data-weapon-id="${w.id}">
+        <button type="button" class="copy-link-btn weapon-card-copy-link" data-copy-guide-link="${w.id}" aria-label="Copiar enlace de ${escapeHtml(w.name)}" title="Copiar enlace">↗</button>
         ${!w.published ? '<span class="weapon-unpublished-tag">Oculta</span>' : ''}
         <div class="weapon-card-thumb">${thumb}</div>
         <p class="weapon-card-name">${escapeHtml(w.name)}</p>

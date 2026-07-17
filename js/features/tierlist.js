@@ -9,7 +9,7 @@
 import { disableQueryRetry, supabaseClient } from '../config.js';
 import { TIER_COLUMNS, isAdmin, state, suppressNextTierlistReload } from '../core/state.js';
 import { initImageUploader, updateAssetPreview, uploadImageToStorage } from '../core/storage.js';
-import { confirmAction, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast, withTimeout } from '../core/utils.js';
+import { buildShareUrl, confirmAction, copyEditorPayload, copyLink, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast, withTimeout } from '../core/utils.js';
 import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 import { getGuideLinkFromFields, hydrateGuideLinkSelect, openGuideLink, readGuideLinkSelect, setGuideLinkInFields } from './guide-links.js';
 
@@ -201,10 +201,16 @@ export function loadTierlist() {
 }
 
 
-function itemsFor(rowId, columnKey) {
-  return state.tierItems
-    .filter(it => (it.row_id || null) === (rowId || null) && it.column_key === columnKey)
-    .sort((a, b) => a.sort_order - b.sort_order);
+function groupTierItems() {
+  const grouped = new Map();
+  [...state.tierItems]
+    .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
+    .forEach(item => {
+      const key = `${item.row_id || ''}:${item.column_key}`;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(item);
+    });
+  return grouped;
 }
 
 
@@ -223,11 +229,10 @@ function renderTierItemChip(item) {
          title="${escapeHtml(item.name)}">
       <div class="tier-chip-thumb">
         ${thumb}
-        ${isAdmin() ? `
-          <div class="tier-chip-admin-overlay">
-            <button type="button" class="context-menu-trigger" data-action="tier-item-actions" data-item-id="${item.id}" title="Acciones">⋯</button>
-          </div>
-        ` : ''}
+        <div class="tier-chip-admin-overlay">
+          <button type="button" class="copy-link-btn tier-item-copy-link" data-action="copy-tier-link" data-item-id="${item.id}" title="Copiar enlace" aria-label="Copiar enlace de ${escapeHtml(item.name)}">↗</button>
+          ${isAdmin() ? `<button type="button" class="context-menu-trigger" data-action="tier-item-actions" data-item-id="${item.id}" title="Acciones">⋯</button>` : ''}
+        </div>
       </div>
       <span class="tier-chip-name">${escapeHtml(item.name)}</span>
     </div>
@@ -256,6 +261,12 @@ export function renderTierlist() {
   const board = document.getElementById('tierlist-board');
   const benchColumnsEl = document.getElementById('tierlist-bench-columns');
   if (!board || !benchColumnsEl) return;
+  // Una sola agrupación O(N) por render. Antes cada celda volvía a filtrar y
+  // ordenar la lista completa de elementos.
+  const groupedItems = groupTierItems();
+  const renderGroup = (rowId, columnKey) => (groupedItems.get(`${rowId || ''}:${columnKey}`) || [])
+    .map(renderTierItemChip)
+    .join('');
 
   if (state.tierRows.length === 0) {
     board.innerHTML = `<div class="logs-empty"><p>Todavía no hay filas. ${isAdmin() ? 'Crea la primera con "+ Nueva fila".' : ''}</p></div>`;
@@ -280,7 +291,7 @@ export function renderTierlist() {
           </div>
           ${TIER_COLUMNS.map(c => `
             <div class="tier-cell" data-row-id="${row.id}" data-column-key="${c.key}">
-              ${itemsFor(row.id, c.key).map(renderTierItemChip).join('')}
+              ${renderGroup(row.id, c.key)}
             </div>
           `).join('')}
         </div>
@@ -292,7 +303,7 @@ export function renderTierlist() {
     <div class="tier-bench-column">
       <span class="tier-bench-column-label">${c.label}</span>
       <div class="tier-cell tier-bench-cell" data-row-id="" data-column-key="${c.key}">
-        ${itemsFor(null, c.key).map(renderTierItemChip).join('')}
+        ${renderGroup(null, c.key)}
       </div>
     </div>
   `).join('');
@@ -334,6 +345,11 @@ function bindTierlistCellEvents() {
 
   // ---- Botones admin sobre cada chip / fila (delegado por contenedor) ----
   [board, bench].forEach(container => {
+    container.querySelectorAll('[data-action="copy-tier-link"]').forEach(btn =>
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        void copyLink(buildShareUrl('tierlist.html', { item: btn.dataset.itemId }));
+      }));
     container.querySelectorAll('[data-action="tier-item-actions"]').forEach(btn =>
       btn.addEventListener('click', (e) => { e.stopPropagation(); openTierCardActions(btn, btn.dataset.itemId); }));
     container.querySelectorAll('.tier-item-chip[data-has-guide-link="true"]').forEach(chip => {
@@ -437,12 +453,12 @@ export async function submitTierRow() {
     ? { input_code: state.adminMode, input_id: state.editingTierRowId, input_name: name, input_color: color }
     : { input_code: state.adminMode, input_name: name, input_color: color };
 
+  suppressNextTierlistReload();
   const { error } = await supabaseClient.rpc(rpcName, params);
   if (error) { console.error(error); errorBox.textContent = 'Error: ' + error.message; errorBox.classList.remove('hidden'); return; }
 
   document.getElementById('tier-row-modal').classList.add('hidden');
   showToast(state.editingTierRowId ? 'Fila actualizada' : 'Fila creada', 'success');
-  suppressNextTierlistReload();
   await loadTierlist();
 }
 
@@ -454,10 +470,10 @@ async function deleteTierRow(rowId) {
     confirmLabel: 'Eliminar fila',
     danger: true,
   }))) return;
+  suppressNextTierlistReload();
   const { error } = await supabaseClient.rpc('delete_tierlist_row', { input_code: state.adminMode, input_id: rowId });
   if (error) { console.error(error); showToast('No se pudo borrar la fila', 'error'); return; }
   showToast('Fila eliminada', 'success');
-  suppressNextTierlistReload();
   await loadTierlist();
 }
 
@@ -471,9 +487,9 @@ async function reorderTierRow(rowId, direction) {
   [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
   const orderedIds = reordered.map(r => r.id);
 
+  suppressNextTierlistReload();
   const { error } = await supabaseClient.rpc('reorder_tierlist_rows', { input_code: state.adminMode, input_ordered_ids: orderedIds });
   if (error) { console.error(error); showToast('No se pudo reordenar', 'error'); return; }
-  suppressNextTierlistReload();
   await loadTierlist();
 }
 
@@ -521,6 +537,7 @@ export async function submitTierItem() {
   const existing = state.editingTierItemId ? state.tierItems.find(it => it.id === state.editingTierItemId) : null;
   const extraFields = setGuideLinkInFields(existing ? existing.extra_fields : [], readGuideLinkSelect('tier-item-guide-link-input'));
 
+  suppressNextTierlistReload();
   const { error } = await supabaseClient.rpc('upsert_tierlist_item', {
     input_code: state.adminMode,
     input_id: state.editingTierItemId,
@@ -535,7 +552,6 @@ export async function submitTierItem() {
 
   document.getElementById('tier-item-modal').classList.add('hidden');
   showToast(state.editingTierItemId ? 'Elemento actualizado' : 'Elemento creado', 'success');
-  suppressNextTierlistReload();
   await loadTierlist();
 }
 
@@ -547,15 +563,16 @@ async function deleteTierItem(itemId) {
     confirmLabel: 'Eliminar elemento',
     danger: true,
   }))) return;
+  suppressNextTierlistReload();
   const { error } = await supabaseClient.rpc('delete_tierlist_item', { input_code: state.adminMode, input_id: itemId });
   if (error) { console.error(error); showToast('No se pudo eliminar', 'error'); return; }
   showToast('Elemento eliminado', 'success');
-  suppressNextTierlistReload();
   await loadTierlist();
 }
 
 
 async function moveTierItem(itemId, rowId, columnKey) {
+  suppressNextTierlistReload();
   const { error } = await supabaseClient.rpc('move_tierlist_item', {
     input_code: state.adminMode,
     input_item_id: itemId,
@@ -563,7 +580,6 @@ async function moveTierItem(itemId, rowId, columnKey) {
     input_column_key: columnKey,
   });
   if (error) { console.error(error); showToast('No se pudo mover: ' + error.message, 'error'); return; }
-  suppressNextTierlistReload();
   await loadTierlist();
 }
 

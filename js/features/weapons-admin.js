@@ -78,6 +78,7 @@ async function submitWeapon() {
   if (!name) { errorBox.textContent = 'Ponle un nombre al arma.'; errorBox.classList.remove('hidden'); return; }
   if (!state.adminMode) { errorBox.textContent = 'Tu sesión de administrador expiró.'; errorBox.classList.remove('hidden'); return; }
 
+  suppressNextWeaponsReload();
   let result;
   if (state.editingWeaponId) {
     result = await supabaseClient.rpc('update_weapon', {
@@ -122,6 +123,7 @@ export async function toggleWeaponPublished(weaponId) {
     if (!confirmed) return;
   }
 
+  suppressNextWeaponsReload();
   const { error } = await supabaseClient.rpc('set_weapon_published', {
     input_code: state.adminMode,
     input_id: weaponId,
@@ -149,6 +151,7 @@ export async function deleteWeaponAction(weaponId) {
     confirmLabel: 'Borrar arma',
     danger: true,
   }))) return;
+  suppressNextWeaponsReload();
   const { error } = await supabaseClient.rpc('delete_weapon', { input_code: state.adminMode, input_id: weaponId });
   if (error) { showToast('No se pudo borrar', 'error'); return; }
   showToast('Arma eliminada', 'success');
@@ -344,6 +347,7 @@ export async function createWeaponRankFromPayload(payload, { addCopySuffix = fal
   }
   const rank = normalizedWeaponRankPayload(payload);
   if (addCopySuffix) rank.name = `${rank.name} (copia)`;
+  suppressNextWeaponsReload();
   const { data, error } = await supabaseClient.rpc('upsert_weapon_rank', {
     input_code: state.adminMode,
     input_id: null,
@@ -391,6 +395,7 @@ export async function deleteWeaponRank(rankId) {
     confirmLabel: 'Borrar rango',
     danger: true,
   }))) return;
+  suppressNextWeaponsReload();
   const { error } = await supabaseClient.rpc('delete_weapon_rank', { input_code: state.adminMode, input_id: rankId });
   if (error) { showToast('No se pudo borrar el rango', 'error'); return; }
   showToast('Rango eliminado', 'success');

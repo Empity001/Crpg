@@ -8,8 +8,8 @@
 
 import { supabaseClient } from '../config.js';
 import { renderKeyValueRows } from './blocks-display.js';
-import { isAdmin, state } from '../core/state.js';
-import { asArray, cloneData, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast } from '../core/utils.js';
+import { isAdmin, state, suppressNextWeaponsReload } from '../core/state.js';
+import { asArray, buildShareUrl, cloneData, copyEditorPayload, copyLink, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast } from '../core/utils.js';
 import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 import { guideLinkUrl } from './guide-links.js';
 import { getGuideRelationsStatus, loadGuideRelations, renderGuideRelations } from './guide-relations.js';
@@ -97,10 +97,10 @@ export function renderWeaponDetail() {
           ${type ? `<span class="weapon-type-badge">${escapeHtml(type.label)}</span>` : ''}
         </div>
       </div>
-      ${admin ? `
-        <div class="weapon-detail-admin-actions">
-          <button type="button" class="context-menu-trigger" data-action="weapon-actions">⋯ Acciones</button>
-        </div>` : ''}
+      <div class="weapon-detail-actions">
+        <button type="button" class="copy-link-btn copy-link-btn-with-label" data-action="copy-guide-link"><span aria-hidden="true">↗</span><span>Copiar enlace</span></button>
+        ${admin ? `<button type="button" class="context-menu-trigger" data-action="weapon-actions">⋯ Acciones</button>` : ''}
+      </div>
     </div>`;
 
   const rankSelectorHtml = `
@@ -565,6 +565,13 @@ function bindWeaponDetailEvents(container) {
     if (!btn || !container.contains(btn)) return;
 
     const { action, rankId, abilityIdx, sectionIdx } = btn.dataset;
+    if (action === 'copy-guide-link') {
+      void copyLink(buildShareUrl('guides.html', {
+        weapon: state.currentWeaponId,
+        rank: state.currentWeaponRankId,
+      }));
+      return;
+    }
     if (action === 'select-rank') {
       state.currentWeaponRankId = rankId;
       writeGuideHistory('replace', state.currentWeaponId, rankId, {
@@ -644,6 +651,7 @@ function isMissingPatchRankRpc(error) {
 export async function saveRankPatch(rankId, patch) {
   const rank = getWeaponRanks(state.currentWeaponId).find(r => r.id === rankId);
   if (!rank) return { error: { message: 'Este rango ya no existe' } };
+  suppressNextWeaponsReload();
   const patchResult = await supabaseClient.rpc('patch_weapon_rank', {
     input_code: state.adminMode,
     input_id: rank.id,

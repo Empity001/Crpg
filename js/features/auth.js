@@ -18,6 +18,8 @@ let authSubscription = null;
 let visibilityHandler = null;
 let authInitializationPromise = null;
 let lastObservedSessionToken = null;
+let adminTogglePromise = null;
+let lastAdminUiNotificationKey = '';
 
 
 function clearCachedDiscordStatus() {
@@ -103,6 +105,30 @@ function updateAccountModal() {
   error?.classList.add('hidden');
 }
 
+function setAdminToggleBusy(busy) {
+  const controls = [
+    document.getElementById('admin-toggle-btn'),
+    document.getElementById('discord-admin-mode-btn'),
+  ].filter(Boolean);
+
+  controls.forEach(control => {
+    control.disabled = !!busy;
+    control.classList.toggle('is-busy', !!busy);
+    control.setAttribute('aria-busy', busy ? 'true' : 'false');
+  });
+
+  const modalToggle = document.getElementById('discord-admin-mode-btn');
+  if (modalToggle) {
+    if (busy) {
+      modalToggle.dataset.idleText = modalToggle.dataset.idleText || modalToggle.textContent;
+      modalToggle.textContent = 'Verificando acceso…';
+    } else if (modalToggle.dataset.idleText) {
+      modalToggle.textContent = modalToggle.dataset.idleText;
+      delete modalToggle.dataset.idleText;
+    }
+  }
+}
+
 function showAuthError(message) {
   const box = document.getElementById('discord-auth-error');
   if (box) {
@@ -130,6 +156,16 @@ export function updateAdminUI() {
   const admin = isAdmin();
   const loggedIn = !!state.authSession;
   const eligible = !!state.discordAdminEligible;
+  const notificationKey = JSON.stringify({
+    admin,
+    loggedIn,
+    eligible,
+    membership: state.discordMembership,
+    userId: state.authSession?.user?.id || null,
+    discordId: state.discordProfile?.discordId || null,
+    displayName: state.discordProfile?.displayName || null,
+    avatarUrl: state.discordProfile?.avatarUrl || null,
+  });
 
   if (dot) dot.className = admin ? 'dot-online' : 'dot-offline';
   badge?.classList.toggle('hidden', !admin);
@@ -178,6 +214,12 @@ export function updateAdminUI() {
   }
 
   updateAccountModal();
+  // Varias rutas de autenticación pueden terminar casi al mismo tiempo
+  // (getSession, onAuthStateChange y validación de Discord). El DOM se
+  // sincroniza siempre, pero los renders pesados de cada página solo se
+  // notifican cuando el estado visible realmente cambió.
+  if (notificationKey === lastAdminUiNotificationKey) return;
+  lastAdminUiNotificationKey = notificationKey;
   adminUiRefreshHandlers.forEach(handler => handler(admin));
   document.dispatchEvent(new CustomEvent('culones:admin-state-changed', {
     detail: { admin, loggedIn, eligible, profile: state.discordProfile },
@@ -206,10 +248,10 @@ export async function logoutDiscord() {
   else showToast('Sesión de Discord cerrada');
 }
 
-export async function revalidateDiscordAccess({ force = false, silent = false, reason = 'manual' } = {}) {
+export async function revalidateDiscordAccess({ force = false, silent = false, reason = 'manual', notifyUi = true } = {}) {
   if (!state.authSession) {
     resetIdentity();
-    updateAdminUI();
+    if (notifyUi) updateAdminUI();
     return { isAdmin: false, reason: 'no_session' };
   }
   const now = Date.now();
@@ -225,7 +267,7 @@ export async function revalidateDiscordAccess({ force = false, silent = false, r
       state.discordAdminEligible = false;
       state.discordMembership = 'unknown';
       setAdminMode(false);
-      updateAdminUI();
+      if (notifyUi) updateAdminUI();
       if (!silent) showToast(`No se pudo verificar tu rol: ${error.message}`, 'error');
       return { isAdmin: false, error, reason };
     }
@@ -236,7 +278,7 @@ export async function revalidateDiscordAccess({ force = false, silent = false, r
     state.discordAuthCheckedAt = now;
     cacheDiscordStatus(data);
     if (!state.discordAdminEligible) setAdminMode(false);
-    updateAdminUI();
+    if (notifyUi) updateAdminUI();
     return data;
   })().finally(() => { validationPromise = null; });
 
@@ -244,6 +286,7 @@ export async function revalidateDiscordAccess({ force = false, silent = false, r
 }
 
 export async function toggleAdminMode() {
+  if (adminTogglePromise) return adminTogglePromise;
   if (!state.authSession) {
     openAdminLoginModal();
     return;
@@ -254,15 +297,34 @@ export async function toggleAdminMode() {
     showToast('Modo administrador desactivado');
     return;
   }
-  const result = await revalidateDiscordAccess({ force: true, reason: 'toggle' });
-  if (!result?.isAdmin) {
-    openAdminLoginModal();
-    showAuthError(result?.error?.message || 'Tu cuenta no tiene el rol administrativo configurado.');
-    return;
-  }
-  setAdminMode(true);
-  updateAdminUI();
-  showToast('Modo administrador activado', 'success');
+
+  adminTogglePromise = (async () => {
+    setAdminToggleBusy(true);
+    try {
+      // Si el rol ya se comprobó recientemente, activar la interfaz no debe
+      // esperar otra llamada a Discord. Las operaciones administrativas
+      // continúan verificándose de forma segura en la Edge Function.
+      const result = await revalidateDiscordAccess({
+        force: false,
+        reason: 'toggle',
+        notifyUi: false,
+      });
+      if (!result?.isAdmin) {
+        updateAdminUI();
+        openAdminLoginModal();
+        showAuthError(result?.error?.message || 'Tu cuenta no tiene el rol administrativo configurado.');
+        return;
+      }
+      setAdminMode(true);
+      updateAdminUI();
+      showToast('Modo administrador activado', 'success');
+    } finally {
+      setAdminToggleBusy(false);
+      updateAccountModal();
+    }
+  })().finally(() => { adminTogglePromise = null; });
+
+  return adminTogglePromise;
 }
 
 export function openAdminLoginModal() {
@@ -356,4 +418,6 @@ export function destroyDiscordAuth() {
   lastObservedSessionToken = null;
   initialized = false;
   authInitializationPromise = null;
+  adminTogglePromise = null;
+  lastAdminUiNotificationKey = '';
 }

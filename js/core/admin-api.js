@@ -44,6 +44,10 @@ export function getDiscordAdminStatus() {
   return invokeAdminApi('status');
 }
 
+export function getAdminLogsBundle() {
+  return invokeAdminApi('logs_admin_bundle');
+}
+
 export function enqueueGuideForumJob(guideId, jobAction, payload = {}) {
   return invokeAdminApi('guide_forum_job', {
     guide_id: guideId,

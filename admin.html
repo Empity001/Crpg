@@ -22,7 +22,7 @@
 <link rel="stylesheet" href="css/rebrand-editors.css?v=20260711-21" />
 <link rel="stylesheet" href="css/rebrand-logs.css?v=20260711-21" />
 <link rel="stylesheet" href="css/rebrand-extras.css?v=20260711-21" />
-<link rel="stylesheet" href="css/rebrand-controls.css?v=20260716-2" />
+<link rel="stylesheet" href="css/rebrand-controls.css?v=20260716-5" />
 <link rel="stylesheet" href="css/command-center.css?v=20260711-21" />
 <link rel="stylesheet" href="css/theme-system.css?v=20260712-1" />
 </head>
@@ -46,7 +46,7 @@
           <button type="button" class="media-action-primary" id="media-library-upload-btn">Subir recurso</button>
           <button type="button" class="media-action-btn" id="media-library-index-btn">Indexar usados</button>
           <button type="button" class="media-action-btn" id="media-library-refresh-btn">Actualizar</button>
-          <button type="button" class="media-action-btn" id="media-library-toggle-btn" aria-expanded="true">Minimizar</button>
+          <button type="button" class="media-action-btn" id="media-library-toggle-btn" aria-expanded="false">Expandir</button>
         </div>
       </div>
       <input
@@ -78,9 +78,9 @@
         <button type="button" class="media-view-tab is-active" data-media-view="active">Biblioteca principal</button>
         <button type="button" class="media-view-tab" data-media-view="archived">Archivados</button>
       </div>
-      <p id="media-library-status" class="media-status">Preparando biblioteca...</p>
+      <p id="media-library-status" class="media-status">Biblioteca minimizada. Expándela para cargar sus recursos.</p>
       <div id="media-library-grid" class="media-grid">
-        <p class="media-empty">Cargando biblioteca...</p>
+        <p class="media-empty">La biblioteca se cargará cuando la expandas.</p>
       </div>
     </div>
 
@@ -443,6 +443,6 @@
 
 <script src="js/boot-watchdog.js?v=20260711-11"></script>
 <script src="js/vendor/supabase.js?v=20260711-11"></script>
-<script type="module" src="js/pages/admin.js?v=20260716-2"></script>
+<script type="module" src="js/pages/admin.js?v=20260716-4"></script>
 </body>
 </html>

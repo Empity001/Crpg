@@ -10,6 +10,7 @@ import { disableQueryRetry, supabaseClient } from '../config.js';
 import { KIT_COLUMNS, RELEVANCE_LABELS, TIER_COLUMNS, isAdmin, state } from '../core/state.js';
 import { asArray, escapeHtml, formatDate, withTimeout } from '../core/utils.js';
 import { getGuideLinkFromFields, normalizeGuideLink } from './guide-links.js';
+import { getAdminLogsBundle } from '../core/admin-api.js';
 
 const CACHE_TTL_MS = 45 * 1000;
 const relationCache = new Map();
@@ -19,8 +20,12 @@ function emptyRelations() {
   return { logs: [], kits: [], tiers: [], errors: [] };
 }
 
+function relationKey(weaponId, admin = isAdmin()) {
+  return `${admin ? 'admin' : 'public'}:${String(weaponId || '')}`;
+}
+
 function relationSnapshot(weaponId) {
-  return relationCache.get(String(weaponId || '')) || {
+  return relationCache.get(relationKey(weaponId)) || {
     status: 'idle',
     loadedAt: 0,
     data: emptyRelations(),
@@ -119,13 +124,20 @@ async function fetchPublicLogsByIds(ids) {
 
 async function fetchRelatedLogs(weaponId) {
   if (isAdmin()) {
+    const bundle = await getAdminLogsBundle();
+    if (!bundle.error) {
+      const mobs = (bundle.data?.mobs || []).filter(row => linkMatchesWeapon(getGuideLinkFromFields(row.extra_fields), weaponId));
+      const items = (bundle.data?.items || []).filter(row => linkMatchesWeapon(getGuideLinkFromFields(row.extra_fields), weaponId));
+      return collectRelatedLogs(bundle.data?.logs || [], mobs, items, weaponId);
+    }
+
     const [logsRes, mobsRes, itemsRes] = await Promise.all([
       supabaseClient.rpc('list_logs_admin', { input_code: state.adminMode }),
       supabaseClient.rpc('list_log_mobs_admin', { input_code: state.adminMode }),
       supabaseClient.rpc('list_log_items_admin', { input_code: state.adminMode }),
     ]);
-    const error = logsRes.error || mobsRes.error || itemsRes.error;
-    if (error) throw error;
+    const fallbackError = logsRes.error || mobsRes.error || itemsRes.error;
+    if (fallbackError) throw fallbackError;
     const mobs = (mobsRes.data || []).filter(row => linkMatchesWeapon(getGuideLinkFromFields(row.extra_fields), weaponId));
     const items = (itemsRes.data || []).filter(row => linkMatchesWeapon(getGuideLinkFromFields(row.extra_fields), weaponId));
     return collectRelatedLogs(logsRes.data || [], mobs, items, weaponId);
@@ -199,9 +211,10 @@ async function settleSection(label, request, errors) {
 }
 
 export function loadGuideRelations(weaponId, { force = false } = {}) {
-  const key = String(weaponId || '');
-  if (!key) return Promise.resolve(emptyRelations());
-  const current = relationSnapshot(key);
+  const weaponKey = String(weaponId || '');
+  if (!weaponKey) return Promise.resolve(emptyRelations());
+  const key = relationKey(weaponKey);
+  const current = relationSnapshot(weaponKey);
   if (!force && current.status === 'ready' && Date.now() - current.loadedAt < CACHE_TTL_MS) {
     return Promise.resolve(current.data);
   }
@@ -211,9 +224,9 @@ export function loadGuideRelations(weaponId, { force = false } = {}) {
   const promise = withTimeout((async () => {
     const errors = [];
     const [logs, kits, tiers] = await Promise.all([
-      settleSection('cambios relacionados', fetchRelatedLogs(key), errors),
-      settleSection('kits relacionados', fetchRelatedKits(key), errors),
-      settleSection('tierlist relacionada', fetchRelatedTiers(key), errors),
+      settleSection('cambios relacionados', fetchRelatedLogs(weaponKey), errors),
+      settleSection('kits relacionados', fetchRelatedKits(weaponKey), errors),
+      settleSection('tierlist relacionada', fetchRelatedTiers(weaponKey), errors),
     ]);
     const data = { logs, kits, tiers, errors };
     relationCache.set(key, { status: 'ready', loadedAt: Date.now(), data });
@@ -231,10 +244,14 @@ export function loadGuideRelations(weaponId, { force = false } = {}) {
 
 export function clearGuideRelations(weaponId = null) {
   if (weaponId) {
-    relationCache.delete(String(weaponId));
+    relationCache.delete(relationKey(weaponId, false));
+    relationCache.delete(relationKey(weaponId, true));
+    relationPromises.delete(relationKey(weaponId, false));
+    relationPromises.delete(relationKey(weaponId, true));
     return;
   }
   relationCache.clear();
+  relationPromises.clear();
 }
 
 function filterForRank(list, rankId, matchSelector) {

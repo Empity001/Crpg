@@ -22,6 +22,7 @@ const lazyLoaders = {
 const channels = new Map();
 const reloadTimers = new Map();
 const reloadInFlight = new Map();
+const reloadTrailing = new Map();
 let cleanupBound = false;
 
 function removeNamedChannel(name) {
@@ -46,13 +47,30 @@ function installChannel(name, configure) {
 
 function scheduleReload(key, task, delay = 220) {
   window.clearTimeout(reloadTimers.get(key));
+  if (reloadInFlight.get(key)) {
+    // No perdemos cambios que llegan mientras una lectura está en curso. Se
+    // conserva únicamente la recarga más reciente para evitar una cola larga.
+    reloadTrailing.set(key, { task, delay });
+    return;
+  }
+
   reloadTimers.set(key, window.setTimeout(async () => {
     reloadTimers.delete(key);
-    if (reloadInFlight.get(key)) return;
+    if (reloadInFlight.get(key)) {
+      reloadTrailing.set(key, { task, delay });
+      return;
+    }
     reloadInFlight.set(key, true);
     try { await task(); }
     catch (error) { console.warn(`[Realtime] ${key}:`, error); }
-    finally { reloadInFlight.delete(key); }
+    finally {
+      reloadInFlight.delete(key);
+      const trailing = reloadTrailing.get(key);
+      if (trailing) {
+        reloadTrailing.delete(key);
+        scheduleReload(key, trailing.task, trailing.delay);
+      }
+    }
   }, delay));
 }
 
@@ -60,6 +78,7 @@ function cleanupRealtime() {
   reloadTimers.forEach(timer => window.clearTimeout(timer));
   reloadTimers.clear();
   reloadInFlight.clear();
+  reloadTrailing.clear();
   [...channels.keys()].forEach(removeNamedChannel);
 }
 

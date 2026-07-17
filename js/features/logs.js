@@ -14,7 +14,7 @@ import { cancelReply, loadComments } from './comments.js';
 import { checkAndShowDraftBanner, clearDraft, startDraftAutosave, stopDraftAutosave } from './drafts.js';
 import { getLogBlockCounts, isLogBlocksLoading, loadLogBlocksData, loadLogsData } from './logs-data.js';
 import { PAGE_SIZE, RELEVANCE_LABELS, RELEVANCE_ORDER, TIER_COLUMNS, getCategory, isAdmin, state, suppressNextRealtimeReload } from '../core/state.js';
-import { asArray, cloneData, confirmAction, copyEditorPayload, escapeHtml, formatDate, getEditorPayload, hasEditorPayload, safeUrl, showToast, toDatetimeLocalValue } from '../core/utils.js';
+import { asArray, buildShareUrl, cloneData, confirmAction, copyEditorPayload, copyLink, escapeHtml, formatDate, getEditorPayload, hasEditorPayload, safeUrl, showToast, toDatetimeLocalValue } from '../core/utils.js';
 import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 
 let selectedLogId = null;
@@ -217,7 +217,10 @@ function buildLogCardHtml(log) {
         </button>
       </div>
 
-      ${isAdmin() ? `<button class="context-menu-trigger log-row-actions-trigger" data-action="log-actions" data-log-id="${log.id}" aria-label="Acciones del log">⋯</button>` : ''}
+      <div class="log-row-utilities">
+        <button type="button" class="copy-link-btn log-copy-link-btn" data-action="copy-log-link" data-log-id="${log.id}" aria-label="Copiar enlace de ${escapeHtml(log.title)}" title="Copiar enlace">↗</button>
+        ${isAdmin() ? `<button type="button" class="context-menu-trigger log-row-actions-trigger" data-action="log-actions" data-log-id="${log.id}" aria-label="Acciones del log">⋯</button>` : ''}
+      </div>
     </article>`;
 }
 
@@ -300,7 +303,7 @@ export function openLogFromSearch(logId, { tab = 'summary', entryId = null } = {
 function bindCardEvents(card) {
   const activate = () => selectLog(card.dataset.logId);
   card.addEventListener('click', (e) => {
-    if (e.target.closest('.log-like-btn') || e.target.closest('.context-menu-trigger')) return;
+    if (e.target.closest('.log-like-btn') || e.target.closest('.context-menu-trigger') || e.target.closest('.copy-link-btn')) return;
     activate();
   });
   card.addEventListener('keydown', (e) => {
@@ -312,6 +315,12 @@ function bindCardEvents(card) {
 
   const likeBtn = card.querySelector('.log-like-btn');
   if (likeBtn) likeBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleLike(likeBtn.dataset.logId); });
+
+  const copyBtn = card.querySelector('[data-action="copy-log-link"]');
+  if (copyBtn) copyBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    void copyLink(buildShareUrl('index.html', { log: copyBtn.dataset.logId }));
+  });
 
   const actionsBtn = card.querySelector('[data-action="log-actions"]');
   if (actionsBtn) actionsBtn.addEventListener('click', (e) => {
@@ -357,6 +366,7 @@ function renderInspectorEntityCard(entry, type, contextKey) {
         </span>
         <span class="inspector-entity-caret" aria-hidden="true">⌄</span>
       </button>
+      <button type="button" class="copy-link-btn inspector-entity-copy-link" data-inspector-copy-entry="${escapeHtml(String(entry.id))}" data-entry-type="${escapeHtml(type)}" aria-label="Copiar enlace de ${escapeHtml(entry.name || 'esta ficha')}" title="Copiar enlace">↗</button>
       ${detailHtml}
     </article>`;
 }
@@ -413,6 +423,7 @@ function renderInspectorTabBody(log) {
       </section>
 
       <section class="logs-inspector-actions">
+        <button class="btn-secondary-admin inspector-action-wide" data-inspector-action="copy-link"><span aria-hidden="true">↗</span><span>Copiar enlace</span></button>
         <button class="btn-secondary-admin inspector-action-wide" data-inspector-action="open-full"><span aria-hidden="true">◉</span><span>Abrir log completo</span></button>
         ${isAdmin() ? `
           <div class="logs-inspector-admin-actions">
@@ -603,6 +614,19 @@ function renderLogInspector() {
     });
   });
 
+  inspector.querySelectorAll('[data-inspector-copy-entry]').forEach(button => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const type = button.dataset.entryType;
+      const tab = type === 'mob' ? 'mobs' : type === 'item' ? 'items' : 'blocks';
+      void copyLink(buildShareUrl('index.html', {
+        log: log.id,
+        tab,
+        entry: button.dataset.inspectorCopyEntry,
+      }));
+    });
+  });
+
   inspector.querySelector('[data-inspector-action="close"]')?.addEventListener('click', () => {
     selectedLogId = null;
     state.currentDetailLogId = null;
@@ -616,6 +640,9 @@ function renderLogInspector() {
     renderLogInspector();
   });
   inspector.querySelector('[data-inspector-action="open-full"]')?.addEventListener('click', () => openDetailModal(log.id));
+  inspector.querySelector('[data-inspector-action="copy-link"]')?.addEventListener('click', () => {
+    void copyLink(buildShareUrl('index.html', { log: log.id }));
+  });
   inspector.querySelector('[data-inspector-action="like"]')?.addEventListener('click', () => toggleLike(log.id));
   inspector.querySelector('[data-inspector-action="edit"]')?.addEventListener('click', () => openEditLogModal(log.id));
   inspector.querySelector('[data-inspector-action="duplicate"]')?.addEventListener('click', () => duplicateLogToEditor(log));
@@ -961,6 +988,10 @@ export async function submitLog() {
   ];
 
   let result;
+  // La notificación Realtime puede llegar antes que la respuesta de la Edge
+  // Function. Marcamos la operación antes de escribir para que no compita con
+  // la recarga manual que se hace al terminar.
+  suppressNextRealtimeReload();
   if (state.editingLogId) {
     result = await supabaseClient.rpc('update_log', {
       input_code: state.adminMode, input_id: state.editingLogId,
@@ -984,7 +1015,6 @@ export async function submitLog() {
   stopDraftAutosave();
   document.getElementById('log-modal').classList.add('hidden');
   showToast(publishedId ? 'Log actualizado' : 'Log publicado', 'success');
-  suppressNextRealtimeReload();
   await loadLogs();
 }
 
@@ -1007,6 +1037,7 @@ async function toggleLogPublished(logId) {
     if (!confirmed) return;
   }
 
+  suppressNextRealtimeReload();
   const { data, error } = await supabaseClient.rpc('set_log_published', {
     input_code: state.adminMode,
     input_id: logId,
@@ -1024,7 +1055,6 @@ async function toggleLogPublished(logId) {
       : 'Log publicado. El bot lo enviará al canal de Logs.',
     'success',
   );
-  suppressNextRealtimeReload();
   await loadLogs();
 }
 
@@ -1036,9 +1066,9 @@ async function deleteLog(logId) {
     confirmLabel: 'Borrar log',
     danger: true,
   }))) return;
+  suppressNextRealtimeReload();
   const { error } = await supabaseClient.rpc('delete_log', { input_code: state.adminMode, input_id: logId });
   if (error) { showToast('No se pudo borrar el log', 'error'); return; }
   showToast('Log eliminado', 'success');
-  suppressNextRealtimeReload();
   await loadLogs();
 }

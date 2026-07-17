@@ -10,7 +10,14 @@ import { supabaseClient } from '../config.js';
 import { isAdmin, state } from '../core/state.js';
 import { confirmAction, escapeHtml, formatDate, showToast } from '../core/utils.js';
 
+const commentLoadPromises = new Map();
+const commentMutations = new Set();
+let commentSubmitPromise = null;
+
 export async function loadComments(logId) {
+  const key = String(logId || '');
+  if (commentLoadPromises.has(key)) return commentLoadPromises.get(key);
+  const requestPromise = (async () => {
   const aliasInput = document.getElementById('comment-username-input');
   if (aliasInput && !aliasInput.value.trim() && state.discordProfile?.displayName) aliasInput.value = state.discordProfile.displayName;
   const list = document.getElementById('comments-list');
@@ -22,6 +29,9 @@ export async function loadComments(logId) {
   if (error) { list.innerHTML = `<p class="comments-empty">No se pudieron cargar.</p>`; return; }
   state.commentsFlat = data || [];
   renderCommentsList();
+  })().finally(() => commentLoadPromises.delete(key));
+  commentLoadPromises.set(key, requestPromise);
+  return requestPromise;
 }
 
 
@@ -82,13 +92,20 @@ export function cancelReply() {
 
 
 export async function toggleCommentLike(commentId) {
-  const { data, error } = await supabaseClient.rpc('like_comment', { input_comment_id: commentId, input_client_id: state.clientId });
-  if (error) { console.error(error); showToast('No se pudo procesar el like', 'error'); return; }
-  if (state.likedCommentIds.has(commentId)) state.likedCommentIds.delete(commentId); else state.likedCommentIds.add(commentId);
-  localStorage.setItem('culones_liked_comments', JSON.stringify([...state.likedCommentIds]));
-  const c = state.commentsFlat.find(x => x.id === commentId);
-  if (c) c.likes = data;
-  renderCommentsList();
+  const mutationKey = `like:${commentId}`;
+  if (commentMutations.has(mutationKey)) return;
+  commentMutations.add(mutationKey);
+  try {
+    const { data, error } = await supabaseClient.rpc('like_comment', { input_comment_id: commentId, input_client_id: state.clientId });
+    if (error) { console.error(error); showToast('No se pudo procesar el like', 'error'); return; }
+    if (state.likedCommentIds.has(commentId)) state.likedCommentIds.delete(commentId); else state.likedCommentIds.add(commentId);
+    localStorage.setItem('culones_liked_comments', JSON.stringify([...state.likedCommentIds]));
+    const c = state.commentsFlat.find(x => x.id === commentId);
+    if (c) c.likes = data;
+    renderCommentsList();
+  } finally {
+    commentMutations.delete(mutationKey);
+  }
 }
 
 
@@ -120,16 +137,36 @@ export async function deleteCommentAction(commentId) {
 
 
 export async function submitComment() {
+  if (commentSubmitPromise) return commentSubmitPromise;
   const logId = state.currentDetailLogId;
   const usernameInput = document.getElementById('comment-username-input');
   const textInput = document.getElementById('comment-text-input');
   const username = usernameInput.value.trim() || state.discordProfile?.displayName || 'Anónimo';
   const comment = textInput.value.trim();
   if (!comment) { showToast('Escribe un comentario antes de enviar', 'error'); return; }
-  const { error } = await supabaseClient.from('comments').insert({ log_id: logId, username, comment, parent_id: state.replyToCommentId });
-  if (error) { showToast('No se pudo publicar el comentario', 'error'); return; }
-  textInput.value = '';
-  cancelReply();
-  showToast('Comentario publicado', 'success');
-  await loadComments(logId);
+  const button = document.getElementById('submit-comment-btn');
+  const parentId = state.replyToCommentId;
+  commentSubmitPromise = (async () => {
+    if (button) {
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.dataset.idleText = button.dataset.idleText || button.textContent;
+      button.textContent = 'Publicando…';
+    }
+    const { error } = await supabaseClient.from('comments').insert({ log_id: logId, username, comment, parent_id: parentId });
+    if (error) { showToast('No se pudo publicar el comentario', 'error'); return; }
+    textInput.value = '';
+    cancelReply();
+    showToast('Comentario publicado', 'success');
+    await loadComments(logId);
+  })().finally(() => {
+    if (button) {
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      button.textContent = button.dataset.idleText || 'Enviar comentario';
+      delete button.dataset.idleText;
+    }
+    commentSubmitPromise = null;
+  });
+  return commentSubmitPromise;
 }

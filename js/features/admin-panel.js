@@ -19,6 +19,19 @@ import { initForumTools } from './forum-tools.js?v=20260712-1';
 import { confirmAction, showToast } from '../core/utils.js';
 import { deleteRemoteDraft, listRemoteDrafts } from './drafts-store.js';
 
+function runWhenNear(element, task, rootMargin = '320px') {
+  if (!element || typeof IntersectionObserver !== 'function') {
+    void task();
+    return;
+  }
+  const observer = new IntersectionObserver(entries => {
+    if (!entries.some(entry => entry.isIntersecting)) return;
+    observer.disconnect();
+    void task();
+  }, { rootMargin });
+  observer.observe(element);
+}
+
 export function initAdminPanel() {
   // Export buttons
   document.querySelectorAll('.btn-export').forEach(btn => {
@@ -87,7 +100,7 @@ export function initAdminPanel() {
 
   void renderDraftsList();
   initMediaLibraryPanel();
-  void initForumTools();
+  runWhenNear(document.getElementById('forum-reactions-anchor'), initForumTools);
   initBackgroundTool();
   initHeroBannerTool();
   initFaviconTool();

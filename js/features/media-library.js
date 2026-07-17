@@ -65,6 +65,8 @@ let pickerRemoteHasMore = false;
 let pickerLoading = false;
 let pickerLoadToken = 0;
 let externalPreviewToken = 0;
+let mediaUsageReady = false;
+let mediaUsagePromise = null;
 const gridRenderState = new WeakMap();
 let mediaEditReplacementFile = null;
 let mediaEditReplacementObjectUrl = '';
@@ -72,7 +74,10 @@ let mediaEditActiveAsset = null;
 
 const panelState = {
   view: 'active',
-  minimized: false,
+  // Herramientas ya carga varios editores. La biblioteca (y sus siete
+  // consultas de índice de uso) se activa únicamente cuando el admin decide
+  // expandirla.
+  minimized: true,
   visibleLimit: typeof window !== 'undefined' && window.matchMedia?.('(max-width: 720px)').matches
     ? MEDIA_PANEL_MOBILE_PAGE_SIZE
     : MEDIA_PANEL_PAGE_SIZE,
@@ -197,8 +202,15 @@ async function reloadMediaAssets() {
 }
 
 async function refreshMediaUsageIndex() {
-  mediaUsageIndex = await buildMediaUsageIndex();
-  return mediaUsageIndex;
+  if (mediaUsagePromise) return mediaUsagePromise;
+  mediaUsagePromise = buildMediaUsageIndex()
+    .then(index => {
+      mediaUsageIndex = index;
+      mediaUsageReady = true;
+      return mediaUsageIndex;
+    })
+    .finally(() => { mediaUsagePromise = null; });
+  return mediaUsagePromise;
 }
 
 function renderUsageList(asset) {
@@ -675,7 +687,8 @@ function setMediaLibraryMinimized(minimized) {
     if (grid) grid.innerHTML = '';
     setPanelStatus('Biblioteca minimizada. Los recursos no están renderizados.');
   } else {
-    loadAndRenderMediaLibrary();
+    if (mediaUsageReady) void loadAndRenderMediaLibrary();
+    else void refreshMediaUsageIndex().finally(loadAndRenderMediaLibrary);
   }
 }
 
@@ -703,7 +716,7 @@ export function initMediaLibraryPanel() {
     await uploadLibraryFiles(files);
   });
 
-  refreshMediaUsageIndex().finally(loadAndRenderMediaLibrary);
+  setMediaLibraryMinimized(true);
 }
 
 function ensureExternalModal() {

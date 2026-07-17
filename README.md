@@ -150,8 +150,14 @@ Aplicar en orden desde Supabase SQL Editor:
 20. `sql/migration_020_update_log_category.sql`
 21. `sql/migration_021_discord_auth_and_forum.sql`
 22. `sql/migration_022_log_visibility.sql`
+23. `sql/migration_023_performance_content_versions.sql`
+24. `sql/migration_024_performance_hardening.sql`
 
 Las migraciones nuevas reemplazan algunas RPC conservando sus firmas públicas. No deben ejecutarse fuera de orden.
+
+Para el deploy 024, el orden exacto está en
+`DEPLOY_PERFORMANCE_HARDENING_01.md` y el diagnóstico completo en
+`PERFORMANCE_AUDIT_01.md`.
 
 ## Desarrollo local
 
@@ -186,6 +192,7 @@ La página antigua `weapons.html` fue eliminada: Guías usa `guides.html`, `js/p
 
 
 > Los comandos que configuran el canal de Logs o el foro de Guías requieren que el bot tenga **Gestionar roles** y **Gestionar canales**, además de los permisos de mensajes, hilos, embeds y archivos. Discord exige Gestionar roles para editar los overwrites del canal.
+
 
 ### Visibilidad de Logs
 

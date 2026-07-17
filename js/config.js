@@ -80,6 +80,8 @@ const rawClient = typeof factory === 'function'
     })
   : createUnavailableClient('No se pudo cargar el cliente local de Supabase.');
 
+const secureRpcInFlight = new Map();
+
 /**
  * Las RPC legacy todavía reciben `input_code` en su firma. Mientras la
  * migración elimina gradualmente esas firmas, cualquier llamada que incluya
@@ -90,19 +92,30 @@ const rawClient = typeof factory === 'function'
 async function secureRpc(name, args = {}) {
   const cleanArgs = { ...args };
   delete cleanArgs.input_code;
-  const { data, error } = await rawClient.functions.invoke(DISCORD_ADMIN_FUNCTION, {
-    body: { action: 'rpc', rpc_name: name, params: cleanArgs },
-  });
-  if (error) {
-    let remote = null;
-    if (error.context && typeof error.context.clone === 'function') {
-      try { remote = await error.context.clone().json(); } catch { /* sin cuerpo JSON */ }
+  // Un doble clic o dos módulos solicitando la misma lectura en el mismo
+  // instante comparten petición. Para escrituras esto también funciona como
+  // barrera de idempotencia mientras la primera llamada sigue pendiente.
+  const requestKey = `${name}:${JSON.stringify(cleanArgs)}`;
+  if (secureRpcInFlight.has(requestKey)) return secureRpcInFlight.get(requestKey);
+
+  const request = (async () => {
+    const { data, error } = await rawClient.functions.invoke(DISCORD_ADMIN_FUNCTION, {
+      body: { action: 'rpc', rpc_name: name, params: cleanArgs },
+    });
+    if (error) {
+      let remote = null;
+      if (error.context && typeof error.context.clone === 'function') {
+        try { remote = await error.context.clone().json(); } catch { /* sin cuerpo JSON */ }
+      }
+      const payload = remote?.error || remote;
+      return { data: null, error: payload || error };
     }
-    const payload = remote?.error || remote;
-    return { data: null, error: payload || error };
-  }
-  if (data?.error) return { data: data.data ?? null, error: data.error };
-  return { data: data?.data ?? data ?? null, error: null };
+    if (data?.error) return { data: data.data ?? null, error: data.error };
+    return { data: data?.data ?? data ?? null, error: null };
+  })().finally(() => secureRpcInFlight.delete(requestKey));
+
+  secureRpcInFlight.set(requestKey, request);
+  return request;
 }
 
 export const supabaseClient = new Proxy(rawClient, {

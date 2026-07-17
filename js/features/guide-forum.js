@@ -8,6 +8,38 @@ import { escapeHtml, showToast } from '../core/utils.js';
 import { getWeaponRanks } from './weapons-state.js';
 
 const inflight = new Set();
+const statusCache = new Map();
+const statusPromises = new Map();
+const pollTimers = new Map();
+const STATUS_CACHE_TTL_MS = 15_000;
+
+function scheduleStatusPoll(weapon, attempt) {
+  window.clearTimeout(pollTimers.get(weapon.id));
+  const delay = Math.min(3_000 * Math.pow(1.65, attempt), 10_000);
+  const timer = window.setTimeout(() => {
+    pollTimers.delete(weapon.id);
+    const root = document.getElementById('guide-forum-controls');
+    if (root?.isConnected && root.dataset.weaponId === weapon.id) {
+      void renderGuideForumControls(weapon, { force: true, pollAttempt: attempt + 1 });
+    }
+  }, delay);
+  pollTimers.set(weapon.id, timer);
+}
+
+async function loadForumStatus(weaponId, { force = false } = {}) {
+  const cached = statusCache.get(weaponId);
+  if (!force && cached && Date.now() - cached.loadedAt < STATUS_CACHE_TTL_MS) return cached.result;
+  if (statusPromises.has(weaponId)) return statusPromises.get(weaponId);
+
+  const request = getGuideForumStatus(weaponId)
+    .then(result => {
+      statusCache.set(weaponId, { loadedAt: Date.now(), result });
+      return result;
+    })
+    .finally(() => statusPromises.delete(weaponId));
+  statusPromises.set(weaponId, request);
+  return request;
+}
 
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -90,20 +122,23 @@ function controlsHtml(weapon, hash, data, error) {
   </section>`;
 }
 
-export async function renderGuideForumControls(weapon) {
+export async function renderGuideForumControls(weapon, { force = false, pollAttempt = 0 } = {}) {
   const root = document.getElementById('guide-forum-controls');
   if (!root || !weapon?.id) return;
-  root.innerHTML = '<div class="guide-forum-panel is-loading">Consultando el estado de Discord…</div>';
-  const { data, error } = await getGuideForumStatus(weapon.id);
+  if (!statusCache.has(weapon.id)) {
+    root.innerHTML = '<div class="guide-forum-panel is-loading">Consultando el estado de Discord…</div>';
+  }
+  const { data, error } = await loadForumStatus(weapon.id, { force });
   const hash = data?.currentHash || await contentHash(weapon);
   if (!root.isConnected || root.dataset.weaponId !== weapon.id) return;
   root.innerHTML = controlsHtml(weapon, hash, data, error);
   const publicationStatus = data?.publication?.status;
   const jobStatus = data?.latestJob?.status;
   if (['publishing','updating','unpublishing'].includes(publicationStatus) || ['pending','processing'].includes(jobStatus)) {
-    window.setTimeout(() => {
-      if (root.isConnected && root.dataset.weaponId === weapon.id) void renderGuideForumControls(weapon);
-    }, 2200);
+    scheduleStatusPoll(weapon, pollAttempt);
+  } else {
+    window.clearTimeout(pollTimers.get(weapon.id));
+    pollTimers.delete(weapon.id);
   }
 }
 
@@ -122,9 +157,10 @@ async function execute(root, weapon, action) {
     const panel = root.querySelector('.guide-forum-panel');
     panel?.insertAdjacentHTML('beforeend', errorBox(error, action === 'publish' ? 'publicar' : action === 'unpublish' ? 'despublicar' : 'actualizar'));
   } else {
+    statusCache.delete(weapon.id);
     showToast(action === 'publish' ? 'Publicación enviada a la cola de Discord' : action === 'update' ? 'Actualización enviada a Discord' : 'Despublicación enviada a Discord', 'success');
     await new Promise(resolve => setTimeout(resolve, 500));
-    await renderGuideForumControls(weapon);
+    await renderGuideForumControls(weapon, { force: true });
   }
   inflight.delete(weapon.id);
 }

@@ -6,6 +6,21 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// Las instancias Edge se reutilizan entre solicitudes durante un tiempo. Un
+// caché corto evita consultar la misma configuración y el mismo miembro de
+// Discord para cada RPC sin convertir el rol en una credencial permanente.
+// Cuando la instancia se reinicia, el caché desaparece automáticamente.
+const GUILD_CONFIG_CACHE_MS = 60_000;
+const DISCORD_MEMBER_CACHE_MS = 75_000;
+const DISCORD_NON_MEMBER_CACHE_MS = 25_000;
+const AUTH_USER_CACHE_MS = 30_000;
+let guildConfigCache: { key: string; value: any; expiresAt: number } | null = null;
+let guildConfigPromise: Promise<any> | null = null;
+const discordMemberCache = new Map<string, { value: any; expiresAt: number }>();
+const discordMemberPromises = new Map<string, Promise<any>>();
+const authUserCache = new Map<string, { user: any; expiresAt: number }>();
+const authUserPromises = new Map<string, Promise<any>>();
+
 const ADMIN_RPCS = new Set([
   'archive_media_asset','create_log','create_tierlist_row','create_weapon',
   'create_weapon_category','create_weapon_type','delete_category','delete_comment',
@@ -98,6 +113,88 @@ async function discordRequest(path: string) {
   return response.json();
 }
 
+async function loadGuildConfig(rawService: any) {
+  const configuredGuild = Deno.env.get('DISCORD_GUILD_ID') || '';
+  const cacheKey = configuredGuild || '__first_configured_guild__';
+  if (guildConfigCache?.key === cacheKey && guildConfigCache.expiresAt > Date.now()) {
+    return guildConfigCache.value;
+  }
+  if (guildConfigPromise) return guildConfigPromise;
+
+  guildConfigPromise = (async () => {
+    let configQuery = rawService.from('discord_guild_config').select('*');
+    configQuery = configuredGuild
+      ? configQuery.eq('guild_id', configuredGuild)
+      : configQuery.order('created_at', { ascending: true }).limit(1);
+    let { data: config, error: configError } = await configQuery.maybeSingle();
+    if (configError) throw configError;
+    if (!config && configuredGuild) {
+      const upsert = await rawService
+        .from('discord_guild_config')
+        .upsert({ guild_id: configuredGuild, updated_at: new Date().toISOString() }, { onConflict: 'guild_id' })
+        .select('*')
+        .single();
+      if (upsert.error) throw upsert.error;
+      config = upsert.data;
+    }
+    guildConfigCache = { key: cacheKey, value: config, expiresAt: Date.now() + GUILD_CONFIG_CACHE_MS };
+    return config;
+  })().finally(() => { guildConfigPromise = null; });
+  return guildConfigPromise;
+}
+
+async function loadDiscordMember(guildId: string, identityId: string) {
+  const cacheKey = `${guildId}:${identityId}`;
+  const cached = discordMemberCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const pendingMember = discordMemberPromises.get(cacheKey);
+  if (pendingMember) return pendingMember;
+
+  const request = (async () => {
+    const member = await discordRequest(`/guilds/${guildId}/members/${identityId}`);
+    discordMemberCache.set(cacheKey, {
+      value: member,
+      expiresAt: Date.now() + (member ? DISCORD_MEMBER_CACHE_MS : DISCORD_NON_MEMBER_CACHE_MS),
+    });
+
+    // Cota defensiva para una instancia que permanezca caliente mucho tiempo.
+    if (discordMemberCache.size > 250) {
+      const now = Date.now();
+      for (const [key, entry] of discordMemberCache) {
+        if (entry.expiresAt <= now || discordMemberCache.size > 200) discordMemberCache.delete(key);
+      }
+    }
+    return member;
+  })().finally(() => { discordMemberPromises.delete(cacheKey); });
+  discordMemberPromises.set(cacheKey, request);
+  return request;
+}
+
+async function loadAuthenticatedUser(userClient: any, token: string) {
+  const tokenKey = await sha256(token);
+  const cached = authUserCache.get(tokenKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { data: { user: cached.user }, error: null };
+  }
+  const pending = authUserPromises.get(tokenKey);
+  if (pending) return pending;
+
+  const request = userClient.auth.getUser(token).then((result: any) => {
+    if (!result.error && result.data?.user) {
+      authUserCache.set(tokenKey, { user: result.data.user, expiresAt: Date.now() + AUTH_USER_CACHE_MS });
+    }
+    if (authUserCache.size > 100) {
+      const now = Date.now();
+      for (const [key, entry] of authUserCache) {
+        if (entry.expiresAt <= now || authUserCache.size > 80) authUserCache.delete(key);
+      }
+    }
+    return result;
+  }).finally(() => authUserPromises.delete(tokenKey));
+  authUserPromises.set(tokenKey, request);
+  return request;
+}
+
 async function authenticate(req: Request) {
   const supabaseUrl = env('SUPABASE_URL');
   const anonKey = env('SUPABASE_ANON_KEY');
@@ -113,25 +210,21 @@ async function authenticate(req: Request) {
   const rawService = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data: userData, error: userError } = await userClient.auth.getUser(token);
+  // Sesión y configuración son independientes; resolverlas en paralelo quita
+  // un viaje de red de la ruta crítica de todas las acciones administrativas.
+  const [userResult, config] = await Promise.all([
+    loadAuthenticatedUser(userClient, token),
+    loadGuildConfig(rawService),
+  ]);
+  const { data: userData, error: userError } = userResult;
   if (userError || !userData.user) throw Object.assign(new Error('La sesión expiró. Vuelve a iniciar sesión.'), { code: 'AUTH_INVALID', status: 401 });
 
   const identity = discordIdentity(userData.user);
   if (!identity.id) throw Object.assign(new Error('La cuenta no contiene una identidad de Discord válida.'), { code: 'DISCORD_IDENTITY_MISSING', status: 403 });
 
-  const configuredGuild = Deno.env.get('DISCORD_GUILD_ID');
-  let configQuery = rawService.from('discord_guild_config').select('*');
-  configQuery = configuredGuild ? configQuery.eq('guild_id', configuredGuild) : configQuery.order('created_at', { ascending: true }).limit(1);
-  let { data: config, error: configError } = await configQuery.maybeSingle();
-  if (configError) throw configError;
-  if (!config && configuredGuild) {
-    const upsert = await rawService.from('discord_guild_config').upsert({ guild_id: configuredGuild, updated_at: new Date().toISOString() }, { onConflict: 'guild_id' }).select('*').single();
-    if (upsert.error) throw upsert.error;
-    config = upsert.data;
-  }
   if (!config?.guild_id || config.guild_id === 'CONFIGURE_WITH_BOT') throw Object.assign(new Error('El servidor oficial todavía no está configurado.'), { code: 'GUILD_NOT_CONFIGURED', status: 503 });
 
-  const member = await discordRequest(`/guilds/${config.guild_id}/members/${identity.id}`);
+  const member = await loadDiscordMember(config.guild_id, identity.id);
   const isMember = !!member;
   const isAdmin = !!(member && config.admin_role_id && Array.isArray(member.roles) && member.roles.includes(config.admin_role_id));
   const guildAvatar = member?.avatar
@@ -200,7 +293,7 @@ async function ensureRpcAudit(ctx: any, rpcName: string, params: Record<string, 
   const { data: rows, error } = await ctx.service
     .from('action_log')
     .select('id')
-    .contains('metadata', { request_id: ctx.requestId })
+    .eq('metadata->>request_id', ctx.requestId)
     .limit(1);
   if (error) throw error;
   if (!rows?.length) {
@@ -433,19 +526,20 @@ async function enqueueGuideJob(ctx: any, body: any) {
 
 async function guideStatus(ctx: any, guideId: string) {
   requireAdmin(ctx);
-  const [{ hash: currentHash }, publication, job, config] = await Promise.all([
+  const [{ hash: currentHash }, publication, job] = await Promise.all([
     computeGuideHash(ctx.service, guideId),
     ctx.service.from('guide_forum_publications').select('*').eq('guide_id', guideId).maybeSingle(),
     ctx.service.from('guide_forum_jobs').select('*').eq('guide_id', guideId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    ctx.service.from('discord_guild_config').select('guides_forum_channel_id,forum_reactions').eq('guild_id', ctx.config.guild_id).maybeSingle(),
   ]);
   if (publication.error) throw publication.error;
   if (job.error) throw job.error;
-  if (config.error) throw config.error;
   return {
     publication: publication.data,
     latestJob: job.data,
-    config: config.data,
+    config: {
+      guides_forum_channel_id: ctx.config.guides_forum_channel_id,
+      forum_reactions: ctx.config.forum_reactions || [],
+    },
     currentHash,
     isOutdated: Boolean(publication.data?.thread_id && publication.data?.published_hash !== currentHash),
   };
@@ -461,6 +555,24 @@ Deno.serve(async req => {
 
     if (action === 'status') {
       return json({ data: { isAdmin: ctx.isAdmin, isMember: ctx.isMember, profile: ctx.profile, roleConfigured: !!ctx.config.admin_role_id } });
+    }
+    if (action === 'logs_admin_bundle') {
+      requireAdmin(ctx);
+      // Antes la web ejecutaba tres invocaciones Edge independientes y cada
+      // una repetía Auth + Discord. Este paquete conserva la misma respuesta,
+      // pero autentica una sola vez y resuelve las lecturas en paralelo.
+      const [logs, mobs, items] = await Promise.all([
+        ctx.service.from('logs').select('*').order('created_at', { ascending: false }),
+        ctx.service.from('log_mobs').select('*').order('log_id').order('sort_order').order('created_at'),
+        ctx.service.from('log_items').select('*').order('log_id').order('sort_order').order('created_at'),
+      ]);
+      const bundleError = logs.error || mobs.error || items.error;
+      if (bundleError) throw bundleError;
+      return json({ data: {
+        logs: logs.data || [],
+        mobs: mobs.data || [],
+        items: items.data || [],
+      } });
     }
     if (action === 'rpc') return json({ data: await handleRpc(ctx, body) });
     if (action === 'guild_config') {
@@ -480,6 +592,8 @@ Deno.serve(async req => {
       const reactions = normalizeReactions(body.reactions);
       const { error } = await ctx.service.from('discord_guild_config').update({ forum_reactions: reactions, updated_by: ctx.user.id, updated_at: new Date().toISOString() }).eq('guild_id', ctx.config.guild_id);
       if (error) throw error;
+      guildConfigCache = null;
+      guildConfigPromise = null;
       let job = null;
       if (body.apply_existing) {
         const key = `guide:all:apply_reactions:${crypto.randomUUID()}`;

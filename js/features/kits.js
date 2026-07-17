@@ -1,6 +1,6 @@
 import { disableQueryRetry, supabaseClient } from '../config.js';
 import { KIT_COLUMNS, isAdmin, state, suppressNextKitsReload } from '../core/state.js';
-import { cloneData, confirmAction, copyEditorPayload, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast, withTimeout } from '../core/utils.js';
+import { buildShareUrl, cloneData, confirmAction, copyEditorPayload, copyLink, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast, withTimeout } from '../core/utils.js';
 import { openMediaPicker } from './media-library-lazy.js';
 import { appendActionGrid, appendDisclosure, openContextPanel } from '../core/context-actions.js';
 import { guideLinkUrl, hydrateGuideLinkSelect, parseGuideLinkValue } from './guide-links.js';
@@ -44,7 +44,7 @@ function initialsOf(name) {
   return parts.map(part => part[0]).join('').toUpperCase() || '?';
 }
 
-function renderKitItem(item, { columnKey = '', index = 0 } = {}) {
+function renderKitItem(item, { kitId = '', columnKey = '', index = 0 } = {}) {
   const url = safeUrl(item.image_url);
   const guideUrl = guideLinkUrl(item.guide_link);
   const thumb = url
@@ -57,16 +57,20 @@ function renderKitItem(item, { columnKey = '', index = 0 } = {}) {
       <span class="kit-item-name">${escapeHtml(item.name || 'Item sin nombre')}</span>
     </div>`;
 
-  return guideUrl ? `<a class="kit-item-link" href="${escapeHtml(guideUrl)}">${body}</a>` : body;
+  const linkedBody = guideUrl ? `<a class="kit-item-link" href="${escapeHtml(guideUrl)}">${body}</a>` : body;
+  return `<div class="kit-item-shell">
+    ${linkedBody}
+    <button type="button" class="copy-link-btn kit-item-copy-link" data-copy-kit-item="${escapeHtml(String(kitId))}" data-kit-column="${escapeHtml(columnKey)}" data-kit-slot-index="${index}" aria-label="Copiar enlace de ${escapeHtml(item.name || 'este elemento')}" title="Copiar enlace">↗</button>
+  </div>`;
 }
 
-function renderKitColumn(column, items, maxRows) {
+function renderKitColumn(column, items, maxRows, kitId) {
   const rows = [];
   for (let index = 0; index < maxRows; index += 1) {
     const item = items[index];
     rows.push(`
       <div class="kit-slot" data-kit-column="${escapeHtml(column.key)}" data-kit-slot-index="${index}">
-        ${item ? renderKitItem(item, { columnKey: column.key, index }) : '<span class="kit-empty-slot">-</span>'}
+        ${item ? renderKitItem(item, { kitId, columnKey: column.key, index }) : '<span class="kit-empty-slot">-</span>'}
       </div>
     `);
   }
@@ -90,14 +94,13 @@ function renderKitCard(kit) {
           <h2 class="kit-card-title">${escapeHtml(kit.name || 'Kit sin nombre')}</h2>
           ${kit.description ? `<p class="kit-card-desc">${escapeHtml(kit.description)}</p>` : ''}
         </div>
-        ${isAdmin() ? `
-          <div class="kit-admin-actions">
-            <button type="button" class="context-menu-trigger" data-action="kit-actions" data-kit-id="${kit.id}">⋯ Acciones</button>
-          </div>
-        ` : ''}
+        <div class="kit-admin-actions">
+          <button type="button" class="copy-link-btn copy-link-btn-with-label" data-copy-kit-link="${kit.id}"><span aria-hidden="true">↗</span><span>Copiar enlace</span></button>
+          ${isAdmin() ? `<button type="button" class="context-menu-trigger" data-action="kit-actions" data-kit-id="${kit.id}">⋯ Acciones</button>` : ''}
+        </div>
       </header>
       <div class="kit-table">
-        ${KIT_COLUMNS.map(column => renderKitColumn(column, items[column.key], maxRows)).join('')}
+        ${KIT_COLUMNS.map(column => renderKitColumn(column, items[column.key], maxRows, kit.id)).join('')}
       </div>
     </article>
   `;
@@ -183,6 +186,21 @@ export function renderKits() {
   grid.innerHTML = createCard + state.kits.map(renderKitCard).join('');
   grid.querySelectorAll('[data-action="kit-actions"]').forEach(btn => {
     btn.addEventListener('click', () => openKitCardActions(btn, btn.dataset.kitId));
+  });
+  grid.querySelectorAll('[data-copy-kit-link]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      void copyLink(buildShareUrl('kits.html', { kit: btn.dataset.copyKitLink }));
+    });
+  });
+  grid.querySelectorAll('[data-copy-kit-item]').forEach(btn => {
+    btn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      void copyLink(buildShareUrl('kits.html', {
+        kit: btn.dataset.copyKitItem,
+        column: btn.dataset.kitColumn,
+        slot: btn.dataset.kitSlotIndex,
+      }));
+    });
   });
 }
 
@@ -406,6 +424,7 @@ export async function submitKit() {
   }
 
   try {
+    suppressNextKitsReload();
     const { error } = await supabaseClient.rpc('upsert_kit', {
       input_code: state.adminMode,
       input_id: state.editingKitId,
@@ -419,7 +438,6 @@ export async function submitKit() {
 
     document.getElementById('kit-modal').classList.add('hidden');
     showToast(state.editingKitId ? 'Kit actualizado' : 'Kit creado', 'success');
-    suppressNextKitsReload();
     await loadKits();
   } catch (error) {
     console.error(error);
@@ -443,6 +461,7 @@ async function deleteKit(kitId) {
     danger: true,
   }))) return;
 
+  suppressNextKitsReload();
   const { error } = await supabaseClient.rpc('delete_kit', {
     input_code: state.adminMode,
     input_id: kitId,
@@ -455,6 +474,5 @@ async function deleteKit(kitId) {
   }
 
   showToast('Kit eliminado', 'success');
-  suppressNextKitsReload();
   await loadKits();
 }

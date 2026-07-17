@@ -143,6 +143,7 @@ export async function submitWeaponCategory() {
     : { input_code: state.adminMode, input_label: label, input_color: color };
 
   try {
+    suppressNextWeaponsReload();
     const { data, error } = await supabaseClient.rpc(rpcName, rpcArgs);
     if (error) throw error;
     errorBox?.classList.add('hidden');
@@ -175,6 +176,7 @@ async function deleteWeaponCategory(id) {
     danger: true,
   }))) return;
   if (!state.adminMode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
+  suppressNextWeaponsReload();
   const { error } = await supabaseClient.rpc('delete_weapon_category', { input_code: state.adminMode, input_id: id });
   if (error) { showToast(error.message.replace(/^.*?:\s*/, '') || 'No se pudo borrar', 'error'); return; }
   if (editingWeaponCategoryId === id) resetWeaponCategoryEditor();
@@ -277,6 +279,7 @@ export async function submitWeaponType() {
     : { input_code: state.adminMode, input_label: label };
 
   try {
+    suppressNextWeaponsReload();
     const { data, error } = await supabaseClient.rpc(rpcName, rpcArgs);
     if (error) throw error;
     errorBox?.classList.add('hidden');
@@ -309,6 +312,7 @@ async function deleteWeaponType(id) {
     danger: true,
   }))) return;
   if (!state.adminMode) { showToast('Tu sesión de administrador expiró.', 'error'); return; }
+  suppressNextWeaponsReload();
   const { error } = await supabaseClient.rpc('delete_weapon_type', { input_code: state.adminMode, input_id: id });
   if (error) { showToast(error.message.replace(/^.*?:\s*/, '') || 'No se pudo borrar', 'error'); return; }
   if (editingWeaponTypeId === id) resetWeaponTypeEditor();

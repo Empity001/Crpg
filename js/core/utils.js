@@ -52,6 +52,44 @@ export function showToast(message, type = 'default') {
   window.setTimeout(() => toast.remove(), 4000);
 }
 
+export function buildShareUrl(page, params = {}) {
+  const url = new URL(page || window.location.pathname, window.location.href);
+  url.hash = '';
+  url.search = '';
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === '') return;
+    url.searchParams.set(key, String(value));
+  });
+  return url.href;
+}
+
+export async function copyLink(url) {
+  const value = String(url || window.location.href);
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('Clipboard API no disponible');
+    await navigator.clipboard.writeText(value);
+  } catch (error) {
+    // Respaldo para navegadores que bloquean Clipboard API aunque la página
+    // esté abierta correctamente (webviews, permisos estrictos, etc.).
+    const input = document.createElement('textarea');
+    input.value = value;
+    input.setAttribute('readonly', '');
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+    input.select();
+    let copied = false;
+    try { copied = document.execCommand?.('copy') === true; } catch (fallbackError) { copied = false; }
+    input.remove();
+    if (!copied) {
+      showToast('No se pudo copiar el enlace', 'error');
+      return false;
+    }
+  }
+  showToast('Enlace copiado', 'success');
+  return true;
+}
+
 const editorClipboards = new Map();
 
 export function cloneData(value) {

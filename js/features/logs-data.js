@@ -10,6 +10,7 @@
 import { disableQueryRetry, supabaseClient } from '../config.js';
 import { isAdmin, state } from '../core/state.js';
 import { showToast, withTimeout } from '../core/utils.js';
+import { getAdminLogsBundle } from '../core/admin-api.js';
 
 let logsLoadPromise = null;
 let activeLogsLoadAdminMode = null;
@@ -137,23 +138,62 @@ function applyBlockSummaries(mobs = [], items = []) {
   });
 }
 
+function applyAggregatedBlockCounts(logs = []) {
+  logs.forEach(log => {
+    state.logBlockCounts[String(log.id)] = {
+      mobs: Number(log.mob_count || 0),
+      items: Number(log.item_count || 0),
+      libres: Number(log.extra_count || 0),
+    };
+  });
+}
+
 async function performLogsLoad(adminLoad) {
   const generation = ++logsLoadGeneration;
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 9500);
 
   try {
+    let usedAggregatedCounts = false;
     const request = adminLoad
-      ? Promise.all([
-          fetchLogsWithOptionalCover(controller.signal, true),
-          fullMobsRequest(controller.signal, true),
-          fullItemsRequest(controller.signal, true),
-        ])
-      : Promise.all([
-          fetchLogsWithOptionalCover(controller.signal, false),
-          summaryMobsRequest(controller.signal),
-          summaryItemsRequest(controller.signal),
-        ]);
+      ? (async () => {
+          const bundleResult = await getAdminLogsBundle();
+          if (!bundleResult.error && bundleResult.data) {
+            return [
+              { data: bundleResult.data.logs || [], error: null },
+              { data: bundleResult.data.mobs || [], error: null },
+              { data: bundleResult.data.items || [], error: null },
+            ];
+          }
+
+          // Compatibilidad mientras la Edge Function nueva termina de
+          // desplegarse: la versión anterior sigue funcionando.
+          console.warn('[Logs] Paquete administrativo no disponible; usando lecturas separadas:', bundleResult.error?.message);
+          return Promise.all([
+            fetchLogsWithOptionalCover(controller.signal, true),
+            fullMobsRequest(controller.signal, true),
+            fullItemsRequest(controller.signal, true),
+          ]);
+        })()
+      : (async () => {
+          const summaryResult = await attachSignal(
+            supabaseClient.rpc('list_public_logs_with_counts'),
+            controller.signal,
+          );
+          if (!summaryResult.error) {
+            usedAggregatedCounts = true;
+            return [summaryResult, { data: [], error: null }, { data: [], error: null }];
+          }
+
+          // La migración 024 puede tardar unos minutos en aplicarse durante un
+          // despliegue. Conservamos el método anterior como respaldo temporal.
+          console.warn('[Logs] Resumen agregado no disponible; usando conteo compatible:', summaryResult.error.message);
+          return Promise.all([
+            fetchLogsWithOptionalCover(controller.signal, false),
+            summaryMobsRequest(controller.signal),
+            summaryItemsRequest(controller.signal),
+          ]);
+        })();
 
     const [logsRes, mobsRes, itemsRes] = await withTimeout(request, 10000, 'La carga de logs');
     if (generation !== logsLoadGeneration) return false;
@@ -174,10 +214,13 @@ async function performLogsLoad(adminLoad) {
         { markAllLogsLoaded: true },
       );
     } else {
-      applyBlockSummaries(
-        mobsRes.error ? [] : (mobsRes.data || []),
-        itemsRes.error ? [] : (itemsRes.data || []),
-      );
+      if (usedAggregatedCounts) applyAggregatedBlockCounts(state.logs);
+      else {
+        applyBlockSummaries(
+          mobsRes.error ? [] : (mobsRes.data || []),
+          itemsRes.error ? [] : (itemsRes.data || []),
+        );
+      }
     }
 
     return true;
