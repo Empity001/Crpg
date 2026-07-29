@@ -6,7 +6,8 @@
   <meta name="theme-color" content="#050505" />
   <title>Empi Network</title>
   <link rel="icon" href="assets/network/empi-mark.png" />
-  <link rel="stylesheet" href="css/network.css?v=20260729-2" />
+  <link rel="stylesheet" href="css/network.css?v=20260729-3" />
+  <link rel="stylesheet" href="css/network-builder.css?v=20260729-3" />
 </head>
 <body class="network-page instance-page">
   <a class="skip-link" href="#instance-main">Saltar al contenido</a>
@@ -19,18 +20,21 @@
     <button class="instance-search-button hidden" id="instance-search-button" type="button">Buscar</button>
   </header>
   <main class="instance-main" id="instance-main">
-    <span class="network-overline">Empi Network · Instancia</span>
-    <h1 id="instance-name">Cargando…</h1>
-    <p id="instance-description"></p>
+    <section class="instance-loading" id="instance-loading">
+      <span class="network-overline">Empi Network · Instancia</span>
+      <h1 id="instance-name">Cargando…</h1>
+      <p id="instance-description"></p>
+    </section>
+    <div class="instance-builder-content hidden" id="instance-builder-content"></div>
   </main>
   <div class="instance-search hidden" id="instance-search">
     <label for="instance-search-input">Buscar</label>
     <input id="instance-search-input" type="search" autocomplete="off" />
     <button id="instance-search-close" type="button" aria-label="Cerrar">×</button>
-    <p>Esta instancia todavía no tiene fuentes de contenido instaladas.</p>
+    <div class="instance-search-results" id="instance-search-results"><p>Escribe para buscar únicamente dentro de esta instancia.</p></div>
   </div>
   <div class="network-toast" id="network-toast" role="status" aria-live="polite"></div>
   <script src="js/vendor/supabase.js"></script>
-  <script type="module" src="js/network/site.js?v=20260729-2"></script>
+  <script type="module" src="js/network/site.js?v=20260729-3"></script>
 </body>
 </html>
