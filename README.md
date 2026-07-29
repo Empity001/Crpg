@@ -1,12 +1,17 @@
-# culones-rpg
+# Empi Network
 
-Plataforma web del servidor Minecraft RPG/Gacha **culones-rpg**. Reúne logs, guías, tierlist, kits recomendados, contenido del servidor y herramientas administrativas en un sitio estático conectado a Supabase.
+Portal multicomunidad de **Empi Network** y hogar de la instancia **Culones RPG**. La portada central, el control Owner y las instancias genéricas son independientes del CSS y de las funciones legacy de Culones, que continúa conectado al mismo proyecto de Supabase.
+
+La Fase 1 usa `site_id` como límite de datos, un `discord_guild_id` único por instancia y una Edge Function exclusiva para Owner. La identidad `726444396970770494` es la única autorizada para crear o cambiar la estructura global.
 
 ## Secciones
 
 | Página | Contenido | Acceso |
 |---|---|---|
-| `index.html` | Logs, fichas, comentarios y likes | Público |
+| `index.html` | Portal central y catálogo de comunidades | Público |
+| `logs.html` | Logs, fichas, comentarios y likes de Culones | Público |
+| `site.html?site=slug` | Portada mínima de una instancia genérica | Público si la instancia está activa |
+| `owner.html` | Control de instancias, navegación, búsqueda y perfiles | Solo PLATFORM_OWNER |
 | `guides.html` | Catálogo de guías, rangos y fabricación | Público |
 | `tierlist.html` | Clasificación por filas y columnas | Público |
 | `kits.html` | Combinaciones recomendadas | Público |
@@ -110,10 +115,12 @@ La paleta permite buscar acciones y navegación por nombre, muestra sus atajos y
 ## Arquitectura
 
 ```text
-css/                 estilos base, capas por sección y rebrand
+assets/network/      identidad visual central de Empi Network
+css/                 estilos base, capas por sección y CSS aislado de Network
 js/app/              shell, includes, bootstrap y Realtime
 js/core/             estado, utilidades, Storage, multimedia y auditoría
 js/features/         módulos funcionales por dominio
+js/network/          portal, sesión, panel Owner y renderizador de instancias
 js/pages/            entry point de cada página
 js/vendor/           cliente local de Supabase
 partials/            header y footer compartidos
@@ -152,6 +159,7 @@ Aplicar en orden desde Supabase SQL Editor:
 22. `sql/migration_022_log_visibility.sql`
 23. `sql/migration_023_performance_content_versions.sql`
 24. `sql/migration_024_performance_hardening.sql`
+25. `sql/migration_025_empi_network_foundation.sql`
 
 Las migraciones nuevas reemplazan algunas RPC conservando sus firmas públicas. No deben ejecutarse fuera de orden.
 
@@ -162,6 +170,10 @@ Para el deploy 024, el orden exacto está en
 El rediseño de Herramientas, el panel de salud y el respaldo v2 se despliegan
 siguiendo `DEPLOY_TOOLS_REFRESH_01.md`. No requieren migración SQL nueva, pero
 sí volver a desplegar `discord-admin-api` antes de publicar la página.
+
+La fundación multisitio se despliega siguiendo
+`registro/DEPLOY_EMPI_NETWORK_PHASE1.md`. Ese documento incluye staging,
+secreto Owner, prueba de aislamiento, cambio de OAuth y reversión segura.
 
 ## Desarrollo local
 
@@ -186,7 +198,7 @@ Después, comprobar con Live Server:
 
 ## Bot de Discord
 
-El bot vive en un repositorio independiente y utiliza la misma aplicación de Discord que el login OAuth. Publica Logs por elemento, procesa la cola del foro de Guías, escala pixel art, genera screenshots y comprueba el rol administrativo. `/getcode` fue retirado. La configuración completa está en `GUIA_DESPLIEGUE_DISCORD_AUTH.md`.
+El bot vive en el repositorio independiente `Empity001/empi-connect` y utiliza la misma aplicación de Discord que el login OAuth. La conversión multiserver corresponde a la Fase 2; hasta entonces, el bot de producción conserva el comportamiento de Culones. Publica Logs por elemento, procesa la cola del foro de Guías, escala pixel art, genera screenshots y comprueba el rol administrativo. `/getcode` fue retirado. La configuración actual está en `registro/GUIA_DESPLIEGUE_DISCORD_AUTH.md`.
 
 ## Estado de mantenimiento
 

@@ -27,7 +27,7 @@ function initToolsModals() {
 
 async function init() {
   await bootShell('admin');
-  if (!isAdmin()) { window.location.href = 'index.html'; return; }
+  if (!isAdmin()) { window.location.href = 'logs.html'; return; }
   initToolsModals();
   initAdminPanel();
 }

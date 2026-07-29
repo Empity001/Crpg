@@ -65,7 +65,7 @@ export async function renderDraftsList() {
       const params = new URLSearchParams();
       params.set('draftKey', btn.dataset.draftKey);
       if (btn.dataset.logId) params.set('logId', btn.dataset.logId);
-      window.location.href = `index.html?${params.toString()}`;
+      window.location.href = `logs.html?${params.toString()}`;
     });
   });
 

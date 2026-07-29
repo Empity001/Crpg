@@ -11,7 +11,8 @@ import { showToast } from '../core/utils.js';
 
 const adminUiRefreshHandlers = new Set();
 const ROLE_RECHECK_MS = 3 * 60 * 1000;
-const AUTH_STATUS_CACHE_KEY = 'culones_discord_status_cache_v1';
+const AUTH_STATUS_CACHE_KEY = 'culones_discord_status_cache_v2';
+const NETWORK_MODE_KEY = 'empi_network_owner_mode_v1';
 let initialized = false;
 let validationPromise = null;
 let authSubscription = null;
@@ -34,8 +35,12 @@ function readCachedDiscordStatus(session) {
     if (!cached || cached.userId !== session.user.id || Date.now() - checkedAt >= ROLE_RECHECK_MS) return false;
     state.discordProfile = cached.profile || null;
     state.discordAdminEligible = !!cached.isAdmin;
+    state.isPlatformOwner = !!cached.isPlatformOwner;
     state.discordMembership = cached.isMember ? 'member' : 'not_member';
     state.discordAuthCheckedAt = checkedAt;
+    if (state.isPlatformOwner) {
+      setAdminMode(ownerPreferredMode() !== 'normal', { syncOwnerMode: false });
+    }
     return true;
   } catch {
     return false;
@@ -49,23 +54,37 @@ function cacheDiscordStatus(data, session = state.authSession) {
       userId: session.user.id,
       isAdmin: !!data?.isAdmin,
       isMember: !!data?.isMember,
+      isPlatformOwner: !!data?.isPlatformOwner,
       profile: data?.profile || null,
       checkedAt: state.discordAuthCheckedAt || Date.now(),
     }));
   } catch { /* almacenamiento no disponible */ }
 }
 
-function setAdminMode(enabled) {
+function ownerPreferredMode() {
+  try {
+    const mode = localStorage.getItem(NETWORK_MODE_KEY) || 'normal';
+    return ['normal', 'site_admin_supreme', 'platform_owner'].includes(mode) ? mode : 'normal';
+  } catch {
+    return 'normal';
+  }
+}
+
+function setAdminMode(enabled, { syncOwnerMode = true } = {}) {
   const next = !!(enabled && state.discordAdminEligible && state.authSession);
   state.adminMode = next;
   if (next) sessionStorage.setItem('culones_admin_mode', '1');
   else sessionStorage.removeItem('culones_admin_mode');
+  if (syncOwnerMode && state.isPlatformOwner) {
+    try { localStorage.setItem(NETWORK_MODE_KEY, next ? 'site_admin_supreme' : 'normal'); } catch { /* almacenamiento no disponible */ }
+  }
 }
 
 function resetIdentity({ clearCache = true } = {}) {
   state.authSession = null;
   state.discordProfile = null;
   state.discordAdminEligible = false;
+  state.isPlatformOwner = false;
   state.discordMembership = 'unknown';
   state.discordAuthCheckedAt = 0;
   setAdminMode(false);
@@ -94,6 +113,7 @@ function updateAccountModal() {
   if (name) name.textContent = loggedIn ? profileName(profile) : 'Discord no conectado';
   if (status) {
     if (!loggedIn) status.textContent = 'Conecta tu cuenta para identificarte en la página.';
+    else if (state.isPlatformOwner) status.textContent = isAdmin() ? 'Modo Owner con administración activa.' : 'Owner verificado · administración desactivada.';
     else if (state.discordAdminEligible) status.textContent = isAdmin() ? 'Modo administrador activo.' : 'Tu cuenta tiene el rol administrativo.';
     else if (state.discordMembership === 'not_member') status.textContent = 'Esta cuenta no pertenece actualmente al servidor.';
     else status.textContent = 'Sesión normal: esta cuenta no tiene el rol administrativo.';
@@ -163,6 +183,7 @@ export function updateAdminUI() {
     membership: state.discordMembership,
     userId: state.authSession?.user?.id || null,
     discordId: state.discordProfile?.discordId || null,
+    isPlatformOwner: state.isPlatformOwner,
     displayName: state.discordProfile?.displayName || null,
     avatarUrl: state.discordProfile?.avatarUrl || null,
   });
@@ -173,6 +194,7 @@ export function updateAdminUI() {
   document.body?.classList.toggle('is-admin-mode', admin);
   document.body?.classList.toggle('has-discord-session', loggedIn);
   document.body?.classList.toggle('has-admin-role', eligible);
+  document.body?.classList.toggle('is-platform-owner', state.isPlatformOwner);
   accountWrap?.classList.toggle('is-connected', loggedIn);
   accountWrap?.classList.toggle('is-eligible', eligible);
   accountWrap?.classList.toggle('is-active', admin);
@@ -185,6 +207,7 @@ export function updateAdminUI() {
     if (!loggedIn) sublabel.textContent = 'Discord y administración';
     else if (!eligible && state.discordMembership === 'not_member') sublabel.textContent = 'Cuenta fuera del servidor';
     else if (!eligible) sublabel.textContent = 'Sesión de visitante';
+    else if (state.isPlatformOwner) sublabel.textContent = admin ? 'Owner · Administración suprema activa' : 'Owner verificado';
     else sublabel.textContent = admin ? 'Rol verificado · Edición activa' : 'Rol administrativo verificado';
   }
   if (accountAction) {
@@ -209,7 +232,7 @@ export function updateAdminUI() {
   adminOnlyIds.forEach(id => document.getElementById(id)?.classList.toggle('hidden', !admin));
 
   if (!admin && state.activeTab === 'admin') {
-    window.location.href = 'index.html';
+    window.location.href = 'logs.html';
     return;
   }
 
@@ -274,10 +297,15 @@ export async function revalidateDiscordAccess({ force = false, silent = false, r
 
     state.discordProfile = data?.profile || null;
     state.discordAdminEligible = !!data?.isAdmin;
+    state.isPlatformOwner = !!data?.isPlatformOwner;
     state.discordMembership = data?.isMember ? 'member' : 'not_member';
     state.discordAuthCheckedAt = now;
     cacheDiscordStatus(data);
     if (!state.discordAdminEligible) setAdminMode(false);
+    else if (state.isPlatformOwner) {
+      const preferred = ownerPreferredMode();
+      setAdminMode(preferred !== 'normal', { syncOwnerMode: false });
+    }
     if (notifyUi) updateAdminUI();
     return data;
   })().finally(() => { validationPromise = null; });

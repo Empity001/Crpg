@@ -266,7 +266,7 @@ function relationLogUrl(log, match) {
   const params = new URLSearchParams({ log: String(log.id) });
   if (match?.tab) params.set('tab', match.tab);
   if (match?.id) params.set('entry', match.id);
-  return `index.html?${params.toString()}`;
+  return `logs.html?${params.toString()}`;
 }
 
 function renderRecentLogs(logs) {

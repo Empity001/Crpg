@@ -65,6 +65,8 @@ function safeText(value: unknown, max = 500) {
   return String(value ?? '').trim().slice(0, max);
 }
 
+const PLATFORM_OWNER_FALLBACK_ID = '726444396970770494';
+
 function env(name: string) {
   const value = Deno.env.get(name);
   if (!value) throw new Error(`Falta el secreto ${name}.`);
@@ -222,11 +224,33 @@ async function authenticate(req: Request) {
   const identity = discordIdentity(userData.user);
   if (!identity.id) throw Object.assign(new Error('La cuenta no contiene una identidad de Discord válida.'), { code: 'DISCORD_IDENTITY_MISSING', status: 403 });
 
+  const configuredOwner = safeText(Deno.env.get('PLATFORM_OWNER_DISCORD_ID') || PLATFORM_OWNER_FALLBACK_ID, 22);
+  let isPlatformOwner = false;
+  if (identity.id === configuredOwner) {
+    const { data: ownerRow, error: ownerError } = await rawService
+      .from('platform_owners')
+      .select('discord_user_id,active')
+      .eq('discord_user_id', identity.id)
+      .eq('active', true)
+      .maybeSingle();
+    if (ownerError) throw ownerError;
+    isPlatformOwner = !!ownerRow;
+  }
+
   if (!config?.guild_id || config.guild_id === 'CONFIGURE_WITH_BOT') throw Object.assign(new Error('El servidor oficial todavía no está configurado.'), { code: 'GUILD_NOT_CONFIGURED', status: 503 });
 
-  const member = await loadDiscordMember(config.guild_id, identity.id);
+  let member = null;
+  try {
+    member = await loadDiscordMember(config.guild_id, identity.id);
+  } catch (error) {
+    // El Owner global no depende de pertenecer a una guild ni de tener el rol
+    // local. El resto de cuentas mantiene exactamente la validación anterior.
+    if (!isPlatformOwner) throw error;
+    console.warn('[discord-admin-api] No se pudo enriquecer el perfil Owner con la guild:', error);
+  }
   const isMember = !!member;
-  const isAdmin = !!(member && config.admin_role_id && Array.isArray(member.roles) && member.roles.includes(config.admin_role_id));
+  const hasConfiguredRole = !!(member && config.admin_role_id && Array.isArray(member.roles) && member.roles.includes(config.admin_role_id));
+  const isAdmin = isPlatformOwner || hasConfiguredRole;
   const guildAvatar = member?.avatar
     ? `https://cdn.discordapp.com/guilds/${config.guild_id}/users/${identity.id}/avatars/${member.avatar}.png?size=128`
     : '';
@@ -252,7 +276,7 @@ async function authenticate(req: Request) {
     } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  return { service, user: userData.user, identity, profile, member, config, isMember, isAdmin, requestId };
+  return { service, user: userData.user, identity, profile, member, config, isMember, isAdmin, isPlatformOwner, requestId };
 }
 
 function requireAdmin(ctx: any) {
@@ -895,7 +919,13 @@ Deno.serve(async req => {
     const action = safeText(body.action, 80);
 
     if (action === 'status') {
-      return json({ data: { isAdmin: ctx.isAdmin, isMember: ctx.isMember, profile: ctx.profile, roleConfigured: !!ctx.config.admin_role_id } });
+      return json({ data: {
+        isAdmin: ctx.isAdmin,
+        isMember: ctx.isMember,
+        isPlatformOwner: ctx.isPlatformOwner,
+        profile: ctx.profile,
+        roleConfigured: !!ctx.config.admin_role_id,
+      } });
     }
     if (action === 'admin_health') return json({ data: await adminHealth(ctx) });
     if (action === 'backup_bundle') return json({ data: await backupBundle(ctx, body.scope) });
