@@ -29,7 +29,16 @@ const state = {
   records: { collectionId: null, records: [], submissions: [], total: 0 },
   adminControls: [],
   audit: [],
+  warnings: [],
 };
+
+const PRESET_DEFINITIONS = Object.freeze([
+  { id: 'hero', icon: '01', label: 'Portada', detail: 'Etiqueta, título, texto y dos botones' },
+  { id: 'features', icon: '02', label: 'Tarjetas', detail: 'Introducción y tres tarjetas informativas' },
+  { id: 'split', icon: '03', label: 'Contenido dividido', detail: 'Texto principal y panel destacado' },
+  { id: 'cta', icon: '04', label: 'Llamado a la acción', detail: 'Mensaje centrado con un botón' },
+  { id: 'footer', icon: '05', label: 'Pie de página', detail: 'Separador, enlaces y cierre' },
+]);
 
 let toastTimer = null;
 let confirmResolver = null;
@@ -46,13 +55,20 @@ const roleKey = value => slugify(value).replace(/-/g, '_');
 function showToast(message, error = false) {
   const toast = byId('network-toast');
   const rawMessage = String(message || 'Ocurrió un error inesperado.');
-  toast.textContent = /draft_theme_config[\s\S]*not-null|null value[\s\S]*draft_theme_config/i.test(rawMessage)
+  const copy = toast.querySelector('.network-toast-copy') || toast;
+  copy.textContent = /draft_theme_config[\s\S]*not-null|null value[\s\S]*draft_theme_config/i.test(rawMessage)
     ? 'Falta aplicar la corrección 027 de la base de datos antes de crear instancias.'
     : rawMessage;
   toast.classList.toggle('is-error', error);
+  toast.setAttribute('role', error ? 'alert' : 'status');
   toast.classList.add('is-visible');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 4200);
+  toastTimer = setTimeout(() => toast.classList.remove('is-visible'), error ? 9000 : 5200);
+}
+
+function hideToast() {
+  clearTimeout(toastTimer);
+  byId('network-toast')?.classList.remove('is-visible');
 }
 
 function setBusy(button, busy, busyText = 'Guardando…') {
@@ -263,8 +279,28 @@ function renderWarnings() {
     const rect = element.getBoundingClientRect();
     if (rect.width && rect.height && (rect.width < 44 || rect.height < 44)) warnings.push(`Área táctil pequeña en ${element.dataset.blockId || element.textContent?.trim() || 'acción'}`);
   });
-  byId('builder-a11y-status').textContent = warnings.length ? `${warnings.length} advertencia(s)` : 'Sin advertencias';
-  byId('builder-a11y-status').title = warnings.join('\n');
+  state.warnings = warnings;
+  const status = byId('builder-a11y-status');
+  status.textContent = warnings.length ? `${warnings.length} aviso${warnings.length === 1 ? '' : 's'}` : 'Sin avisos';
+  status.dataset.state = warnings.length ? 'warning' : 'ok';
+  status.title = warnings.length ? 'Abrir los avisos de revisión' : 'La revisión automática no encontró problemas';
+}
+
+function openIssuesDialog() {
+  const list = byId('builder-issues-list');
+  list.replaceChildren();
+  if (!state.warnings.length) {
+    const ok = document.createElement('p');
+    ok.textContent = 'No hay avisos: contraste, jerarquía, imágenes, botones y áreas táctiles pasaron la revisión básica.';
+    list.append(ok);
+  } else {
+    const items = document.createElement('ul');
+    for (const warning of state.warnings) {
+      const item = document.createElement('li'); item.textContent = warning; items.append(item);
+    }
+    list.append(items);
+  }
+  byId('builder-issues-dialog').showModal();
 }
 
 function renderBreadcrumb() {
@@ -317,6 +353,9 @@ function renderBuilder() {
   for (const id of ['builder-save', 'builder-publish', 'builder-duplicate-page', 'builder-page-settings', 'builder-archive-page']) {
     byId(id).disabled = legacy;
   }
+  const publicReady = legacy || (state.site?.status === 'active' && state.page?.status === 'published');
+  byId('builder-preview-link').disabled = !state.page || !publicReady;
+  byId('builder-preview-link').title = publicReady ? 'Abrir la versión publicada' : 'Publica esta página para abrir su vista pública';
 }
 
 function selectNode(nodeId) {
@@ -387,12 +426,14 @@ function fieldInput(field, node) {
     const propertyPath = `block.${node.id}.props.${field.path}`;
     const existingControl = state.adminControls.find(control => control.target_type === 'block'
       && control.target_id === state.page.id && control.property_path === propertyPath);
-    const exposure = document.createElement('span'); exposure.className = 'builder-admin-exposure';
+    const exposure = document.createElement('details'); exposure.className = 'builder-admin-exposure';
+    const summary = document.createElement('summary'); summary.textContent = 'Permisos administrativos';
+    const row = document.createElement('span'); row.className = 'builder-admin-exposure-row';
     const exposeInput = document.createElement('input'); exposeInput.type = 'checkbox'; exposeInput.checked = !!existingControl;
     const exposeLabel = document.createElement('span'); exposeLabel.textContent = 'Disponible para administradores';
     const permission = document.createElement('code');
     permission.textContent = existingControl?.permission_key || `builder.block.edit.${field.path.toLowerCase().replace(/[^a-z0-9_.:-]/g, '_')}`;
-    exposure.append(exposeInput, exposeLabel, permission);
+    row.append(exposeInput, exposeLabel, permission); exposure.append(summary, row);
     exposeInput.addEventListener('change', () => void toggleAdminExposure({ field, node, propertyPath, existingControl, checkbox: exposeInput, permission: permission.textContent }));
     wrapper.append(exposure);
   }
@@ -470,6 +511,7 @@ function renderInspector() {
 }
 
 function renderBlockLibrary(filter = '') {
+  renderPresetLibrary(filter);
   const library = byId('builder-block-library');
   library.replaceChildren();
   const groups = new Map();
@@ -489,6 +531,103 @@ function renderBlockLibrary(filter = '') {
     }
     library.append(group);
   }
+}
+
+function presetNode(type, patch = {}, children = []) {
+  const node = createNode(type);
+  for (const [key, value] of Object.entries(patch)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) node.props[key] = { ...(node.props[key] || {}), ...clone(value) };
+    else node.props[key] = clone(value);
+  }
+  node.children = children;
+  return node;
+}
+
+function buildPreset(presetId) {
+  const serverName = state.site?.name || 'Tu servidor';
+  if (presetId === 'hero') {
+    const actions = presetNode('stack', { layout: { direction: 'row', gap: 10, align: 'center', justify: 'start' }, responsive: { mobile: { layout: { direction: 'column', align: 'stretch' } } } }, [
+      presetNode('button', { text: 'Comenzar', url: '#contenido', variant: 'primary' }),
+      presetNode('button', { text: 'Conocer más', url: '#informacion', variant: 'outline' }),
+    ]);
+    return presetNode('section', { layout: { maxWidth: '1180px', minHeight: '72vh', padding: '96px 40px', gap: 20, align: 'start', justify: 'center' } }, [
+      presetNode('badge', { text: 'SERVIDOR OFICIAL' }),
+      presetNode('heading', { text: serverName, level: 1, typography: { size: 'clamp(3.4rem, 9vw, 8rem)', weight: 700 } }),
+      presetNode('text', { text: 'Una comunidad hecha para jugar, descubrir y compartir.', typography: { size: '1.15rem' }, appearance: { color: 'var(--site-muted)' } }),
+      actions,
+    ]);
+  }
+  if (presetId === 'features') {
+    const cards = ['Comunidad', 'Experiencias', 'Actualizaciones'].map((label, index) => presetNode('card', { layout: { padding: '26px', gap: 12 }, appearance: { background: 'var(--site-surface)', borderColor: 'var(--site-border)', borderWidth: 1, radius: 18 } }, [
+      presetNode('badge', { text: `0${index + 1}` }),
+      presetNode('heading', { text: label, level: 3 }),
+      presetNode('text', { text: 'Edita este texto para explicar qué hace especial esta parte del servidor.', appearance: { color: 'var(--site-muted)' } }),
+    ]));
+    return presetNode('section', { layout: { maxWidth: '1180px', padding: '88px 32px', gap: 22 } }, [
+      presetNode('heading', { text: 'Todo en un mismo lugar', level: 2, typography: { size: 'clamp(2.3rem, 5vw, 4.8rem)' } }),
+      presetNode('text', { text: 'Presenta las funciones principales de tu comunidad.', appearance: { color: 'var(--site-muted)' } }),
+      presetNode('grid', { layout: { columns: 3, gap: 16 }, responsive: { tablet: { columns: 2 }, mobile: { columns: 1 } } }, cards),
+    ]);
+  }
+  if (presetId === 'split') {
+    const copy = presetNode('stack', { layout: { gap: 16, justify: 'center' } }, [
+      presetNode('badge', { text: 'DESCUBRE' }),
+      presetNode('heading', { text: 'Una sección con dos lados', level: 2, typography: { size: 'clamp(2.2rem, 5vw, 4.5rem)' } }),
+      presetNode('text', { text: 'Usa este lado para contar una historia y el otro para destacar datos, reglas o ventajas.', appearance: { color: 'var(--site-muted)' } }),
+    ]);
+    const panel = presetNode('card', { layout: { padding: '38px', gap: 18, justify: 'center' }, appearance: { background: 'var(--site-surface)', borderColor: 'var(--site-border)', borderWidth: 1, radius: 24 } }, [
+      presetNode('stat', { value: '24/7', label: 'Servidor disponible' }),
+      presetNode('divider'),
+      presetNode('text', { text: 'Cambia este panel por cualquier contenido que necesites.' }),
+    ]);
+    return presetNode('section', { layout: { maxWidth: '1180px', padding: '88px 32px' } }, [presetNode('columns', { layout: { columns: 2, gap: 28 }, responsive: { mobile: { columns: 1 } } }, [copy, panel])]);
+  }
+  if (presetId === 'cta') {
+    return presetNode('section', { layout: { maxWidth: '1060px', padding: '88px 32px', gap: 18, align: 'center', justify: 'center' }, appearance: { background: 'var(--site-surface)', borderColor: 'var(--site-border)', borderWidth: 1, radius: 28 } }, [
+      presetNode('badge', { text: '¿LISTO?' }),
+      presetNode('heading', { text: `Entra a ${serverName}`, level: 2, textAlign: 'center', typography: { size: 'clamp(2.4rem, 6vw, 5.4rem)' } }),
+      presetNode('text', { text: 'Cambia el botón por Discord, tu launcher, una guía o cualquier destino.', textAlign: 'center', appearance: { color: 'var(--site-muted)' } }),
+      presetNode('button', { text: 'Entrar ahora', url: '#', variant: 'primary' }),
+    ]);
+  }
+  return presetNode('section', { layout: { maxWidth: '1180px', padding: '56px 32px', gap: 18 } }, [
+    presetNode('divider'),
+    presetNode('stack', { layout: { direction: 'row', gap: 18, align: 'center', justify: 'space-between' }, responsive: { mobile: { layout: { direction: 'column', align: 'start' } } } }, [
+      presetNode('text', { text: `© ${new Date().getFullYear()} ${serverName}` }),
+      presetNode('link-list', { items: [{ label: 'Inicio', url: '#' }, { label: 'Discord', url: '#' }, { label: 'Contacto', url: '#' }] }),
+    ]),
+  ]);
+}
+
+function renderPresetLibrary(filter = '') {
+  const library = byId('builder-preset-library');
+  library.replaceChildren();
+  const normalized = filter.trim().toLowerCase();
+  for (const preset of PRESET_DEFINITIONS) {
+    if (normalized && !`${preset.label} ${preset.detail}`.toLowerCase().includes(normalized)) continue;
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'builder-preset-button';
+    const icon = document.createElement('b'); icon.textContent = preset.icon;
+    const copy = document.createElement('span');
+    const label = document.createElement('strong'); label.textContent = preset.label;
+    const detail = document.createElement('small'); detail.textContent = preset.detail;
+    const arrow = document.createElement('i'); arrow.textContent = '＋';
+    copy.append(label, detail); button.append(icon, copy, arrow);
+    button.addEventListener('click', () => addPreset(preset.id)); library.append(button);
+  }
+  library.closest('.builder-preset-section')?.classList.toggle('hidden', !library.children.length);
+}
+
+function addPreset(presetId) {
+  if (!state.page || state.document?.kind === 'legacy') {
+    showToast('Crea o selecciona una página editable antes de agregar una sección.', true); return;
+  }
+  pushHistory();
+  const section = buildPreset(presetId);
+  state.document.nodes ||= [];
+  state.document.nodes.push(section);
+  state.selectedId = section.id;
+  markDirty(); renderBuilder();
+  showToast('Sección completa agregada. Selecciona cualquier elemento para personalizarlo.');
 }
 
 function addBlock(type) {
@@ -625,9 +764,17 @@ async function publishCurrentPage() {
   const button = byId('builder-publish'); setBusy(button, true, 'Publicando…');
   try {
     if (state.dirty) await saveDraft({ silent: true });
+    const activatingPortal = state.site.status === 'draft';
     state.page = await networkApi('publish_page', { site_id: state.site.id, page_id: state.page.id, reason: 'Publicación desde Empi Builder' });
+    if (activatingPortal) {
+      state.site.status = 'active';
+      const siteIndex = state.sites.findIndex(item => item.id === state.site.id);
+      if (siteIndex >= 0) state.sites[siteIndex] = { ...state.sites[siteIndex], status: 'active' };
+    }
     const index = state.pages.findIndex(item => item.id === state.page.id); if (index >= 0) state.pages[index] = state.page;
-    renderPageList(); showToast('Página publicada correctamente.'); setSaveState('saved', 'Publicado');
+    renderSiteSelect(); renderPageList(); renderBuilder();
+    showToast(activatingPortal ? 'Página publicada y portal activado. Ya puedes abrir la vista pública.' : 'Página publicada correctamente.');
+    setSaveState('saved', 'Publicado');
     const detail = await networkApi('get_page', { site_id: state.site.id, page_id: state.page.id }); state.versions = detail.versions || []; renderVersions();
   } catch (error) { showToast(error.message, true); } finally { setBusy(button, false); }
 }
@@ -1197,6 +1344,7 @@ function switchArea(area) {
   };
   byId('builder-area-kicker').textContent = labels[area][0]; byId('builder-area-title').textContent = labels[area][1];
   const add = byId('builder-area-add'); add.hidden = area === 'blocks' || area === 'components'; add.dataset.area = area;
+  add.title = `Agregar ${labels[area][1].toLowerCase()}`;
 }
 
 function requestConfirm(title, copy, requiredText = '') {
@@ -1227,6 +1375,9 @@ function bindEvents() {
   byId('builder-undo').addEventListener('click', undo); byId('builder-redo').addEventListener('click', redo);
   byId('builder-preview-link').addEventListener('click', () => {
     if (!state.site || !state.page) return;
+    if (state.site.id !== CULONES_SITE_ID && (state.site.status !== 'active' || state.page.status !== 'published')) {
+      showToast('Esta vista todavía no es pública. Pulsa Publicar para activar el portal y esta página.', true); return;
+    }
     const url = state.site.id === CULONES_SITE_ID && state.document?.kind === 'legacy'
       ? 'logs.html'
       : `site.html?site=${encodeURIComponent(state.site.slug)}&page=${encodeURIComponent(state.page.slug)}`;
@@ -1273,6 +1424,10 @@ function bindEvents() {
   byId('builder-toggle-outline').addEventListener('click', event => {
     const active = event.currentTarget.getAttribute('aria-pressed') !== 'true'; event.currentTarget.setAttribute('aria-pressed', String(active)); byId('builder-canvas').classList.toggle('has-outlines', active);
   });
+  byId('builder-a11y-status').addEventListener('click', openIssuesDialog);
+  byId('builder-help-open').addEventListener('click', () => byId('builder-help-dialog').showModal());
+  document.querySelectorAll('[data-open-builder-help]').forEach(button => button.addEventListener('click', () => byId('builder-help-dialog').showModal()));
+  byId('network-toast').querySelector('.network-toast-close')?.addEventListener('click', hideToast);
   document.querySelectorAll('[data-inspector-tab]').forEach(button => button.addEventListener('click', () => {
     document.querySelectorAll('[data-inspector-tab]').forEach(item => item.classList.toggle('is-active', item === button));
     document.querySelectorAll('[data-inspector-panel]').forEach(panel => panel.classList.toggle('hidden', panel.dataset.inspectorPanel !== button.dataset.inspectorTab));

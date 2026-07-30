@@ -963,6 +963,7 @@ as $$
 declare
   updated_page public.site_pages;
   next_version bigint;
+  site_activated boolean := false;
 begin
   perform pg_advisory_xact_lock(hashtextextended(input_page_id::text, 0));
   update public.site_pages set
@@ -973,6 +974,27 @@ begin
   returning * into updated_page;
   if not found then
     raise exception using errcode = 'P0002', message = 'La página no existe.';
+  end if;
+
+  -- Publicar la primera página también hace público el portal. Antes de esta
+  -- corrección una página podía quedar "published" dentro de un sitio "draft",
+  -- por lo que site.html no podía leerla mediante RLS.
+  update public.sites set
+    status = 'active',
+    updated_at = now()
+  where id = input_site_id and status = 'draft' and deleted_at is null;
+  site_activated := found;
+
+  if site_activated then
+    insert into public.site_audit_log (
+      site_id, auth_user_id, discord_user_id, actor_mode, action,
+      entity_type, entity_id, new_value, metadata
+    ) values (
+      input_site_id, input_created_by, input_created_by_discord_id,
+      'platform_owner', 'site.activate', 'site', input_site_id::text,
+      jsonb_build_object('status', 'active'),
+      jsonb_build_object('source', 'page.publish')
+    );
   end if;
 
   select coalesce(max(version_number), 0) + 1 into next_version

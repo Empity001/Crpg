@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#050505" />
   <title>Constructor · Empi Network</title>
   <link rel="icon" href="assets/network/empi-mark.png" />
-  <link rel="stylesheet" href="css/network.css?v=20260729-4" />
-  <link rel="stylesheet" href="css/network-builder.css?v=20260729-4" />
+  <link rel="stylesheet" href="css/network.css?v=20260729-5" />
+  <link rel="stylesheet" href="css/network-builder.css?v=20260729-5" />
 </head>
 <body class="network-page builder-page">
   <a class="skip-link" href="#builder-canvas">Saltar al lienzo</a>
@@ -22,6 +22,7 @@
     <div class="builder-actions">
       <button class="builder-icon-button" id="builder-undo" type="button" title="Deshacer (Ctrl+Z)" disabled>↶</button>
       <button class="builder-icon-button" id="builder-redo" type="button" title="Rehacer (Ctrl+Y)" disabled>↷</button>
+      <button class="network-button network-button-quiet" id="builder-help-open" type="button">Cómo se usa</button>
       <button class="network-button network-button-quiet" id="builder-preview-link" type="button">Vista pública</button>
       <button class="network-button network-button-quiet" id="builder-export" type="button">Exportar</button>
       <button class="network-button network-button-quiet" id="builder-import" type="button">Importar</button>
@@ -48,6 +49,12 @@
         </header>
 
         <div class="builder-area-panel" data-builder-panel="pages">
+          <section class="builder-onboarding-card">
+            <span class="network-overline">Ruta rápida</span>
+            <strong>Página → bloques → publicar</strong>
+            <p>Selecciona una página, abre Bloques y usa una sección lista. Todo se guarda primero como borrador.</p>
+            <button type="button" data-open-builder-help>Ver la guía completa</button>
+          </section>
           <div class="builder-page-list" id="builder-page-list"></div>
           <div class="builder-panel-actions">
             <button type="button" id="builder-duplicate-page">Duplicar página</button>
@@ -58,6 +65,10 @@
 
         <div class="builder-area-panel hidden" data-builder-panel="blocks">
           <label class="builder-search"><span class="sr-only">Buscar bloques</span><input id="builder-block-search" type="search" placeholder="Buscar bloques…" /></label>
+          <section class="builder-preset-section">
+            <div class="builder-preset-heading"><span class="network-overline">Secciones listas</span><small>Agrega una composición completa y luego personalízala.</small></div>
+            <div class="builder-preset-library" id="builder-preset-library"></div>
+          </section>
           <div class="builder-block-library" id="builder-block-library"></div>
           <p class="builder-help">Agrega el bloque dentro del contenedor seleccionado. Si no hay uno, se añadirá al final de la página.</p>
         </div>
@@ -95,7 +106,8 @@
         <div class="builder-preview-context">
           <label>Ver como <select id="builder-preview-mode"><option value="normal">Usuario</option><option value="site_admin_supreme">Administrador supremo</option><option value="platform_owner">Owner</option></select></label>
           <label>Rol <select id="builder-preview-role"><option value="">Ninguno</option></select></label>
-          <button id="builder-toggle-outline" type="button" aria-pressed="true">Guías</button>
+          <button class="builder-issue-button" id="builder-a11y-status" type="button" data-state="ok">Sin avisos</button>
+          <button id="builder-toggle-outline" type="button" aria-pressed="true">Contornos</button>
         </div>
       </header>
       <div class="builder-viewport-wrap">
@@ -105,7 +117,7 @@
       </div>
       <footer class="builder-statusbar">
         <span id="builder-breadcrumb">Página</span>
-        <span id="builder-a11y-status">Sin advertencias</span>
+        <span>Ctrl+S guarda el borrador</span>
         <span id="builder-selection-status">Nada seleccionado</span>
       </footer>
     </section>
@@ -256,9 +268,35 @@
     </form>
   </dialog>
 
+  <dialog class="network-dialog builder-dialog builder-help-dialog" id="builder-help-dialog">
+    <form method="dialog">
+      <header><span class="network-overline">Guía del constructor</span><h2>De cero a página pública</h2><button value="cancel" aria-label="Cerrar">×</button></header>
+      <div class="builder-help-steps">
+        <article><b>01</b><div><strong>Elige o crea una página</strong><p>En Páginas puedes crear, duplicar, configurar o archivar. Culones original permanece protegido.</p></div></article>
+        <article><b>02</b><div><strong>Agrega una sección lista</strong><p>En Bloques encontrarás portadas, tarjetas, contenido dividido, llamados y pies de página ya armados.</p></div></article>
+        <article><b>03</b><div><strong>Edita desde Propiedades</strong><p>Haz clic en cualquier elemento del lienzo. Capas sirve para seleccionar elementos anidados y reordenarlos.</p></div></article>
+        <article><b>04</b><div><strong>Guarda y publica</strong><p>Guardar borrador no cambia la web. Publicar activa el portal si todavía estaba en borrador y actualiza la vista pública.</p></div></article>
+      </div>
+      <section class="builder-help-map"><strong>Las áreas avanzadas</strong><p><b>Datos</b> crea contenido repetible; <b>Módulos</b> habilita funciones; <b>Flujos</b> automatiza acciones; <b>Componentes</b> reutiliza diseños.</p></section>
+      <footer><button class="network-button network-button-light" value="default">Entendido</button></footer>
+    </form>
+  </dialog>
+
+  <dialog class="network-dialog builder-dialog builder-compact-dialog" id="builder-issues-dialog">
+    <form method="dialog">
+      <header><span class="network-overline">Revisión automática</span><h2>Avisos de la página</h2><button value="cancel" aria-label="Cerrar">×</button></header>
+      <div class="builder-issues-list" id="builder-issues-list"></div>
+      <footer><button class="network-button network-button-light" value="default">Cerrar</button></footer>
+    </form>
+  </dialog>
+
   <input id="builder-import-input" class="hidden" type="file" accept="application/json,.json" />
-  <div class="network-toast" id="network-toast" role="status" aria-live="polite"></div>
+  <div class="network-toast" id="network-toast" role="status" aria-live="polite">
+    <span class="network-toast-icon" aria-hidden="true"></span>
+    <span class="network-toast-copy"></span>
+    <button class="network-toast-close" type="button" aria-label="Cerrar aviso">×</button>
+  </div>
   <script src="js/vendor/supabase.js"></script>
-  <script type="module" src="js/network/builder.js?v=20260729-4"></script>
+  <script type="module" src="js/network/builder.js?v=20260729-5"></script>
 </body>
 </html>

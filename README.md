@@ -175,6 +175,7 @@ Aplicar en orden desde Supabase SQL Editor:
 25. `sql/migration_025_empi_network_foundation.sql`
 26. `sql/migration_026_empi_network_builder.sql`
 27. `sql/migration_027_phase3_instance_defaults.sql`
+28. `sql/migration_028_builder_experience_and_publish.sql`
 
 Las migraciones nuevas reemplazan algunas RPC conservando sus firmas públicas. No deben ejecutarse fuera de orden.
 
@@ -197,6 +198,9 @@ aplican dentro de `network-public-api` y en la RPC transaccional.
 
 Si la 026 ya estaba aplicada antes del hotfix de creación de instancias, ejecuta
 también la 027. Corrige el valor visual inicial sin borrar ni transformar datos.
+Después ejecuta la 028: recupera portales que tenían una página publicada pero
+seguían en borrador y hace que futuras publicaciones activen el portal de forma
+atómica. No modifica `logs.html` ni el contenido legacy de Culones.
 
 ## Desarrollo local
 

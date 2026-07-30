@@ -19,7 +19,7 @@ git diff --check
 
 Los dos verificadores deben terminar en `*_VERIFIER_OK`. No publiques si alguno falla.
 
-## Hotfix obligatorio para instalaciones existentes
+## Hotfixes obligatorios para instalaciones existentes
 
 Si ya ejecutaste la migración 026, abre **SQL Editor**, pega el contenido completo de
 `sql/migration_027_phase3_instance_defaults.sql` y ejecútalo una vez. Esta corrección
@@ -29,14 +29,20 @@ una instancia. No necesitas volver a ejecutar la 026 ni redesplegar las Edge Fun
 Después publica los archivos web actualizados para recibir los avisos superiores,
 la explicación de compatibilidad de Culones y las mejoras de rendimiento del constructor.
 
+Luego pega y ejecuta `sql/migration_028_builder_experience_and_publish.sql`. Esta
+segunda corrección activa las instancias que ya tenían una página publicada y
+evita que vuelva a existir una página `published` dentro de un portal `draft`.
+Es la corrección del mensaje **Instancia no disponible** que podía aparecer después
+de publicar. Tampoco requiere redesplegar Edge Functions.
+
 ## 1. Aplicar la migración 026
 
 En Supabase Dashboard abre **SQL Editor**, crea una consulta nueva, pega el contenido completo de `sql/migration_026_empi_network_builder.sql` y ejecútalo una sola vez.
 
 La migración es aditiva y transaccional. Crea el constructor y sus políticas RLS, añade una página protegida que apunta a Culones legacy y prepara una página mínima para las demás instancias. No elimina tablas ni datos existentes.
 
-En una instalación nueva, aplica la 026 y después la 027 antes de crear la primera
-instancia. En una instalación donde la 026 ya está activa, aplica únicamente la 027.
+En una instalación nueva, aplica 026, 027 y 028 antes de crear la primera instancia.
+En una instalación existente, no repitas la 026: aplica 027 y después 028.
 
 Comprobaciones rápidas en **Table Editor**:
 
@@ -93,14 +99,15 @@ Realiza estas pruebas en este orden:
 2. Abre `site.html?site=culones-rpg`: debe redirigir a `logs.html`.
 3. Entra a `owner.html` con la cuenta Owner. Una cuenta distinta debe quedar en modo normal.
 4. Crea una instancia de prueba sin Guild ID. Debe nacer como borrador, con rol `<administrador>` y página `Inicio`.
-5. En `builder.html`, agrega título, texto, botones, grid y columnas; prueba escritorio, tablet y móvil.
-6. Guarda borrador, publica, cambia algo, restaura una versión y confirma que el historial no desaparece.
+5. En `builder.html`, prueba una sección lista y luego agrega título, texto, botones, grid y columnas; prueba escritorio, tablet y móvil.
+6. Guarda borrador y confirma que la vista pública siga cerrada. Publica y confirma que la instancia cambie a activa, que `site.html` abra y que el historial no desaparezca.
 7. Cambia tabs, posición móvil, buscador, paleta y tipografía. Comprueba borrador antes de publicar.
 8. Crea una colección pública activa con al menos un campo obligatorio y activa **Permitir formularios públicos**.
 9. Agrega un bloque Formulario, publica la página y envía una respuesta desde una ventana privada. Debe aparecer como registro en borrador dentro de la colección.
 10. Publica el registro y confirma que la vista de colección lo muestra. Archivarlo debe ocultarlo sin eliminarlo físicamente.
 11. Exporta la instancia, impórtala con otro slug y confirma que nace aislada, sin Guild ID, en borrador y sin publicar workflows ni capacidades externas.
 12. Asigna Guild IDs diferentes a dos instancias. Ninguna consulta, registro, página o búsqueda de una debe aparecer en la otra.
+13. Abre todos los diálogos largos y verifica que su contenido tenga scroll, mientras la cabecera y los botones inferiores permanecen visibles.
 
 ## Rollback seguro
 

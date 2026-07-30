@@ -12,13 +12,20 @@ function showToast(message, error = false) {
   const toast = document.getElementById('network-toast');
   if (!toast) return;
   const rawMessage = String(message || 'Ocurrió un error inesperado.');
-  toast.textContent = /draft_theme_config[\s\S]*not-null|null value[\s\S]*draft_theme_config/i.test(rawMessage)
+  const copy = toast.querySelector('.network-toast-copy') || toast;
+  copy.textContent = /draft_theme_config[\s\S]*not-null|null value[\s\S]*draft_theme_config/i.test(rawMessage)
     ? 'Falta aplicar la corrección 027 de la base de datos antes de crear instancias.'
     : rawMessage;
   toast.classList.toggle('is-error', error);
+  toast.setAttribute('role', error ? 'alert' : 'status');
   toast.classList.add('is-visible');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 3800);
+  toastTimer = setTimeout(() => toast.classList.remove('is-visible'), error ? 9000 : 5200);
+}
+
+function hideToast() {
+  clearTimeout(toastTimer);
+  document.getElementById('network-toast')?.classList.remove('is-visible');
 }
 
 function setBusy(button, busy, busyText = 'Guardando…') {
@@ -665,6 +672,7 @@ function bindTabs() {
 }
 
 function bindEvents() {
+  document.querySelector('#network-toast .network-toast-close')?.addEventListener('click', hideToast);
   document.getElementById('owner-new-site-btn')?.addEventListener('click', openNewSiteDialog);
   document.getElementById('new-site-name')?.addEventListener('input', event => {
     const slugInput = document.getElementById('new-site-slug');

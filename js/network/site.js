@@ -397,7 +397,7 @@ async function boot() {
   const { data, error } = await supabaseClient.from('sites')
     .select('id,slug,name,description,status,theme_config,navigation_config,search_config')
     .eq('slug', slug).eq('status', 'active').maybeSingle();
-  if (error || !data) { showFailure('La instancia no existe, no está publicada o todavía no se aplicó la migración de Empi Network.'); return; }
+  if (error || !data) { showFailure('Este portal todavía está en borrador, fue archivado o la dirección no existe. Vuelve al constructor y pulsa Publicar.'); return; }
   site = data;
   document.title = `${site.name} · Empi Network`;
   document.getElementById('instance-name').textContent = site.name;

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505" />
   <title>Owner · Empi Network</title>
   <link rel="icon" href="assets/network/empi-mark.png" />
-  <link rel="stylesheet" href="css/network.css?v=20260729-4" />
+  <link rel="stylesheet" href="css/network.css?v=20260729-5" />
 </head>
 <body class="network-page owner-page">
   <a class="skip-link" href="#owner-main">Saltar al panel</a>
@@ -204,8 +204,12 @@
     </form>
   </dialog>
 
-  <div class="network-toast" id="network-toast" role="status" aria-live="polite"></div>
+  <div class="network-toast" id="network-toast" role="status" aria-live="polite">
+    <span class="network-toast-icon" aria-hidden="true"></span>
+    <span class="network-toast-copy"></span>
+    <button class="network-toast-close" type="button" aria-label="Cerrar aviso">×</button>
+  </div>
   <script src="js/vendor/supabase.js"></script>
-  <script type="module" src="js/network/owner.js?v=20260729-4"></script>
+  <script type="module" src="js/network/owner.js?v=20260729-5"></script>
 </body>
 </html>
