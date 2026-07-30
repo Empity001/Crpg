@@ -19,11 +19,24 @@ git diff --check
 
 Los dos verificadores deben terminar en `*_VERIFIER_OK`. No publiques si alguno falla.
 
+## Hotfix obligatorio para instalaciones existentes
+
+Si ya ejecutaste la migración 026, abre **SQL Editor**, pega el contenido completo de
+`sql/migration_027_phase3_instance_defaults.sql` y ejecútalo una vez. Esta corrección
+es idempotente, no altera Culones y soluciona el error `draft_theme_config` al crear
+una instancia. No necesitas volver a ejecutar la 026 ni redesplegar las Edge Functions.
+
+Después publica los archivos web actualizados para recibir los avisos superiores,
+la explicación de compatibilidad de Culones y las mejoras de rendimiento del constructor.
+
 ## 1. Aplicar la migración 026
 
 En Supabase Dashboard abre **SQL Editor**, crea una consulta nueva, pega el contenido completo de `sql/migration_026_empi_network_builder.sql` y ejecútalo una sola vez.
 
 La migración es aditiva y transaccional. Crea el constructor y sus políticas RLS, añade una página protegida que apunta a Culones legacy y prepara una página mínima para las demás instancias. No elimina tablas ni datos existentes.
+
+En una instalación nueva, aplica la 026 y después la 027 antes de crear la primera
+instancia. En una instalación donde la 026 ya está activa, aplica únicamente la 027.
 
 Comprobaciones rápidas en **Table Editor**:
 

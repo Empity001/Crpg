@@ -16,10 +16,17 @@ alter table public.sites
   add column if not exists deleted_by uuid references auth.users(id) on delete set null,
   add column if not exists deletion_reason text,
   add column if not exists builder_config jsonb not null default '{"schemaVersion":1,"enabled":true}'::jsonb,
-  add column if not exists draft_theme_config jsonb,
+  add column if not exists draft_theme_config jsonb default '{
+    "mode":"dark",
+    "palette":{"background":"#050505","surface":"#101010","text":"#ffffff","muted":"#a3a3a3","accent":"#ffffff"}
+  }'::jsonb,
   add column if not exists published_theme_version bigint not null default 1;
 
 update public.sites set draft_theme_config = theme_config where draft_theme_config is null;
+alter table public.sites alter column draft_theme_config set default '{
+  "mode":"dark",
+  "palette":{"background":"#050505","surface":"#101010","text":"#ffffff","muted":"#a3a3a3","accent":"#ffffff"}
+}'::jsonb;
 alter table public.sites alter column draft_theme_config set not null;
 
 alter table public.sites drop constraint if exists sites_builder_config_object;

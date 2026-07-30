@@ -34,6 +34,9 @@ const state = {
 let toastTimer = null;
 let confirmResolver = null;
 let importBundle = null;
+let previewFrame = null;
+let previewNeedsLayers = false;
+let previewNeedsWarnings = false;
 
 const byId = id => document.getElementById(id);
 const slugify = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -42,7 +45,10 @@ const roleKey = value => slugify(value).replace(/-/g, '_');
 
 function showToast(message, error = false) {
   const toast = byId('network-toast');
-  toast.textContent = message;
+  const rawMessage = String(message || 'Ocurrió un error inesperado.');
+  toast.textContent = /draft_theme_config[\s\S]*not-null|null value[\s\S]*draft_theme_config/i.test(rawMessage)
+    ? 'Falta aplicar la corrección 027 de la base de datos antes de crear instancias.'
+    : rawMessage;
   toast.classList.toggle('is-error', error);
   toast.classList.add('is-visible');
   clearTimeout(toastTimer);
@@ -68,6 +74,7 @@ function setSaveState(kind, message) {
 }
 
 function markDirty() {
+  if (state.dirty) return;
   state.dirty = true;
   setSaveState('dirty', 'Cambios sin guardar');
 }
@@ -161,17 +168,33 @@ function renderCanvas() {
   if (state.document?.kind === 'legacy') {
     canvas.replaceChildren();
     const protectedPanel = document.createElement('section');
-    protectedPanel.className = 'empi-section';
-    protectedPanel.style.padding = '72px 28px';
+    protectedPanel.className = 'builder-legacy-guide';
     const title = document.createElement('h1');
-    title.textContent = 'Culones RPG está protegido';
+    title.textContent = 'Culones original no se edita aquí';
     const copy = document.createElement('p');
-    copy.textContent = 'Esta entrada conserva la experiencia original sin convertirla. Puedes crear páginas nuevas para Culones sin alterar Logs, Guías, Tierlist, Kits ni Herramientas.';
+    copy.textContent = 'Esta entrada abre logs.html y conserva intactos Logs, Guías, Tierlist, Kits y Herramientas. Para usar el constructor, crea una página nueva y editable dentro de Culones.';
+    const steps = document.createElement('div');
+    steps.className = 'builder-legacy-steps';
+    for (const [heading, detail] of [
+      ['1. Crea una página', 'Pulsa el botón de abajo y asigna su nombre y dirección.'],
+      ['2. Agrega bloques', 'Abre Bloques en la barra izquierda y elige títulos, texto, botones o secciones.'],
+      ['3. Publica', 'Guarda el borrador, revísalo y pulsa Publicar cuando esté listo.'],
+    ]) {
+      const step = document.createElement('article');
+      const stepTitle = document.createElement('strong'); stepTitle.textContent = heading;
+      const stepCopy = document.createElement('span'); stepCopy.textContent = detail;
+      step.append(stepTitle, stepCopy); steps.append(step);
+    }
+    const actions = document.createElement('div'); actions.className = 'builder-legacy-actions';
+    const create = document.createElement('button');
+    create.type = 'button'; create.className = 'network-button network-button-light'; create.textContent = 'Crear página editable';
+    create.addEventListener('click', () => openPageDialog());
     const link = document.createElement('a');
-    link.className = 'empi-button empi-button-primary';
+    link.className = 'network-button network-button-quiet';
     link.href = state.document.legacyUrl || 'logs.html';
     link.target = '_blank'; link.rel = 'noopener'; link.textContent = 'Abrir Culones original';
-    protectedPanel.append(title, copy, link);
+    actions.append(create, link);
+    protectedPanel.append(title, copy, steps, actions);
     canvas.append(protectedPanel);
   } else {
     renderPageDocument(state.document, canvas, previewContext());
@@ -258,7 +281,31 @@ function renderBreadcrumb() {
   byId('builder-breadcrumb').textContent = `${state.page?.name || 'Página'}${parts.length ? ` / ${parts.join(' / ')}` : ''}`;
 }
 
+function cancelPreviewRender() {
+  if (previewFrame != null) cancelAnimationFrame(previewFrame);
+  previewFrame = null;
+  previewNeedsLayers = false;
+  previewNeedsWarnings = false;
+}
+
+function schedulePreviewRender({ layers = false, warnings = false } = {}) {
+  previewNeedsLayers ||= layers;
+  previewNeedsWarnings ||= warnings;
+  if (previewFrame != null) return;
+  previewFrame = requestAnimationFrame(() => {
+    previewFrame = null;
+    const renderLayersNow = previewNeedsLayers;
+    const renderWarningsNow = previewNeedsWarnings;
+    previewNeedsLayers = false;
+    previewNeedsWarnings = false;
+    renderCanvas();
+    if (renderLayersNow) renderLayers();
+    if (renderWarningsNow) renderWarnings();
+  });
+}
+
 function renderBuilder() {
+  cancelPreviewRender();
   renderCanvas();
   renderLayers();
   renderInspector();
@@ -266,6 +313,10 @@ function renderBuilder() {
   renderBreadcrumb();
   const selected = state.selectedId ? findNode(state.document, state.selectedId) : null;
   byId('builder-selection-status').textContent = selected ? `#${selected.id}` : 'Nada seleccionado';
+  const legacy = state.document?.kind === 'legacy';
+  for (const id of ['builder-save', 'builder-publish', 'builder-duplicate-page', 'builder-page-settings', 'builder-archive-page']) {
+    byId(id).disabled = legacy;
+  }
 }
 
 function selectNode(nodeId) {
@@ -322,10 +373,14 @@ function fieldInput(field, node) {
     else next = input.value;
     setAtPath(node.props, field.path, next);
     markDirty();
-    renderCanvas(); renderLayers(); renderWarnings();
+    schedulePreviewRender({ layers: /(?:^|\.)(?:text|label)$/.test(field.path) });
   };
   input.addEventListener('input', update);
-  input.addEventListener('change', () => { update(); delete input.dataset.historyCaptured; });
+  input.addEventListener('change', () => {
+    update();
+    schedulePreviewRender({ layers: true, warnings: true });
+    delete input.dataset.historyCaptured;
+  });
   if (field.type === 'checkbox') wrapper.append(input, label);
   else wrapper.append(label, input);
   if (state.page) {
@@ -1130,6 +1185,10 @@ async function saveSelectedComponent(event) {
 }
 
 function switchArea(area) {
+  if (area === 'blocks' && state.document?.kind === 'legacy') {
+    showToast('Primero crea una página editable; Culones original está protegido.', true);
+    area = 'pages';
+  }
   document.querySelectorAll('[data-builder-area]').forEach(button => button.classList.toggle('is-active', button.dataset.builderArea === area));
   document.querySelectorAll('[data-builder-panel]').forEach(panel => panel.classList.toggle('hidden', panel.dataset.builderPanel !== area));
   const labels = {

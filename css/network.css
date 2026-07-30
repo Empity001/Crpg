@@ -148,12 +148,12 @@ a { color: inherit; }
 .network-principle-grid p { margin: 0; color: var(--net-muted); line-height: 1.55; }
 .network-footer { width: min(calc(100% - 48px), var(--net-max)); min-height: 150px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; color: var(--net-muted); }
 
-.network-toast { position: fixed; z-index: 200; right: 20px; bottom: 20px; max-width: min(420px, calc(100vw - 40px)); padding: 13px 16px; border: 1px solid var(--net-line-strong); border-radius: 10px; background: #f4f4f0; color: #111; box-shadow: 0 16px 60px rgba(0,0,0,.5); opacity: 0; transform: translateY(15px); pointer-events: none; transition: .2s ease; }
+.network-toast { position: fixed; z-index: 1000; top: max(16px, env(safe-area-inset-top)); right: 20px; bottom: auto; max-width: min(420px, calc(100vw - 40px)); max-height: min(45vh, 320px); overflow: auto; padding: 13px 16px; border: 1px solid var(--net-line-strong); border-radius: 10px; background: #f4f4f0; color: #111; box-shadow: 0 16px 60px rgba(0,0,0,.5); opacity: 0; transform: translateY(-15px); pointer-events: none; transition: opacity .18s ease, transform .18s ease; contain: layout paint; }
 .network-toast.is-visible { opacity: 1; transform: translateY(0); }
 .network-toast.is-error { background: #171717; color: #fff; border-color: #777; }
 
 /* Owner */
-.owner-header { position: sticky; top: 0; width: 100%; padding: 0 24px; background: rgba(5,5,5,.94); backdrop-filter: blur(18px); }
+.owner-header { position: sticky; top: 0; width: 100%; padding: 0 24px; background: #050505; }
 .owner-badge { justify-self: center; padding: 7px 11px; border: 1px solid var(--net-line); border-radius: 999px; color: #aaa; font: 700 10px/1 Inter, ui-sans-serif, system-ui, sans-serif; letter-spacing: .14em; }
 .owner-shell { min-height: calc(100vh - var(--net-header)); display: grid; grid-template-columns: 300px minmax(0,1fr); }
 .owner-sidebar { position: sticky; top: var(--net-header); height: calc(100vh - var(--net-header)); padding: 32px 20px; border-right: 1px solid var(--net-line); overflow-y: auto; }
@@ -174,10 +174,12 @@ a { color: inherit; }
 .owner-editor-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; padding-bottom: 28px; border-bottom: 1px solid var(--net-line); }
 .owner-editor-head h2 { margin: 7px 0 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: clamp(34px, 5vw, 58px); letter-spacing: -.055em; line-height: 1; font-weight: 500; }
 .owner-editor-actions { display: flex; gap: 8px; }
+.owner-compat-notice { display: grid; gap: 5px; margin: 18px 0 0; padding: 15px 17px; border: 1px solid #665b2d; border-radius: 12px; background: #17150c; color: #e9e2be; }
+.owner-compat-notice span { color: #aaa27e; font-size: 13px; line-height: 1.5; }
 .owner-tabs { display: flex; gap: 4px; margin: 24px 0; padding: 4px; border: 1px solid var(--net-line); border-radius: 12px; overflow-x: auto; }
 .owner-tabs button { flex: 1 0 max-content; min-height: 42px; padding: 0 16px; border: 0; border-radius: 8px; background: transparent; color: var(--net-muted); cursor: pointer; }
 .owner-tabs button.is-active { background: #ededeb; color: #090909; }
-.owner-panel { border: 1px solid var(--net-line); border-radius: var(--net-radius); background: rgba(10,10,10,.75); overflow: hidden; }
+.owner-panel { border: 1px solid var(--net-line); border-radius: var(--net-radius); background: #0a0a0a; overflow: hidden; }
 .owner-tab-panel { padding: clamp(22px, 4vw, 42px); }
 .owner-panel-intro { margin-bottom: 30px; }
 .owner-panel-intro h3 { margin: 0 0 7px; font-size: 24px; }
@@ -202,7 +204,7 @@ a { color: inherit; }
 .owner-role-actions button { min-height: 34px; padding: 0 11px; border: 1px solid var(--net-line); border-radius: 8px; background: transparent; color: #ccc; cursor: pointer; }
 
 .network-dialog { width: min(560px, calc(100vw - 30px)); padding: 0; border: 1px solid var(--net-line-strong); border-radius: var(--net-radius); background: #0b0b0b; color: #fff; box-shadow: 0 30px 100px rgba(0,0,0,.75); }
-.network-dialog::backdrop { background: rgba(0,0,0,.76); backdrop-filter: blur(5px); }
+.network-dialog::backdrop { background: rgba(0,0,0,.82); }
 .network-dialog form { display: grid; gap: 18px; padding: 28px; }
 .network-dialog header { display: grid; grid-template-columns: 1fr auto; }
 .network-dialog header .network-overline { grid-column: 1; }
@@ -342,6 +344,7 @@ a { color: inherit; }
 }
 
 @media (max-width: 680px) {
+  .network-toast { inset-inline: 12px; right: auto; max-width: none; }
   .network-header { min-height: 66px; }
   .network-account .network-button-quiet { display: none; }
   .network-button { min-height: 40px; padding: 0 14px; font-size: 13px; }

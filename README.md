@@ -174,6 +174,7 @@ Aplicar en orden desde Supabase SQL Editor:
 24. `sql/migration_024_performance_hardening.sql`
 25. `sql/migration_025_empi_network_foundation.sql`
 26. `sql/migration_026_empi_network_builder.sql`
+27. `sql/migration_027_phase3_instance_defaults.sql`
 
 Las migraciones nuevas reemplazan algunas RPC conservando sus firmas públicas. No deben ejecutarse fuera de orden.
 
@@ -193,6 +194,9 @@ El cierre de la web y del Owner Studio se despliega siguiendo
 `registro/DEPLOY_EMPI_NETWORK_PHASE3.md`. La función pública de formularios
 debe desplegarse con `--no-verify-jwt`; la validación, idempotencia y límites se
 aplican dentro de `network-public-api` y en la RPC transaccional.
+
+Si la 026 ya estaba aplicada antes del hotfix de creación de instancias, ejecuta
+también la 027. Corrige el valor visual inicial sin borrar ni transformar datos.
 
 ## Desarrollo local
 

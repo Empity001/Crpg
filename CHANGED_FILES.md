@@ -1,7 +1,8 @@
-# Empi Network · Fase 3 · archivos modificados
+# Empi Network · hotfix de Fase 3 · archivos modificados
 
-Esta entrega contiene los 18 archivos nuevos o modificados de la fase web
-completa. No incluye dependencias, secretos, `.git` ni `supabase/.temp`.
+Esta reparación contiene solo los 12 archivos nuevos o modificados. Corrige la
+creación de instancias, coloca los avisos arriba, explica el modo legacy de
+Culones y reduce el trabajo de renderizado del constructor.
 
 ## Archivos
 
@@ -9,23 +10,18 @@ completa. No incluye dependencias, secretos, `.git` ni `supabase/.temp`.
 - `CHANGED_FILES.md`
 - `css/network-builder.css`
 - `css/network.css`
-- `js/config.js`
-- `js/network/builder-schema.js`
 - `js/network/builder.js`
 - `js/network/owner.js`
-- `js/network/site.js`
 - `owner.html`
 - `README.md`
 - `registro/DEPLOY_EMPI_NETWORK_PHASE3.md`
 - `scripts/verify-phase3.mjs`
-- `site.html`
 - `sql/migration_026_empi_network_builder.sql`
-- `supabase/config.toml`
-- `supabase/functions/network-admin-api/index.ts`
-- `supabase/functions/network-public-api/index.ts`
+- `sql/migration_027_phase3_instance_defaults.sql`
 
-## Orden de despliegue
+## Aplicación inmediata
 
-Lee `registro/DEPLOY_EMPI_NETWORK_PHASE3.md`: backup, verificación local,
-migración 026, Edge Functions, web y matriz de aceptación. Culones RPG sigue
-usando `logs.html`, que no fue modificado.
+Si la migración 026 ya está instalada, ejecuta solamente
+`sql/migration_027_phase3_instance_defaults.sql` y publica los archivos web.
+No hace falta redesplegar las Edge Functions. Culones RPG continúa usando su
+experiencia original sin modificaciones.

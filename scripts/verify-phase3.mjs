@@ -24,6 +24,7 @@ const required = [
   'js/network/site.js', 'js/network/owner.js',
   'sql/migration_025_empi_network_foundation.sql',
   'sql/migration_026_empi_network_builder.sql',
+  'sql/migration_027_phase3_instance_defaults.sql',
   'supabase/functions/network-admin-api/index.ts',
   'supabase/functions/network-public-api/index.ts',
   'supabase/config.toml',
@@ -58,6 +59,7 @@ for (const [htmlPath, jsPath, dynamicIds] of [
 }
 
 const migration = source('sql/migration_026_empi_network_builder.sql');
+const hotfixMigration = source('sql/migration_027_phase3_instance_defaults.sql');
 const adminApi = source('supabase/functions/network-admin-api/index.ts');
 const publicApi = source('supabase/functions/network-public-api/index.ts');
 const supabaseConfig = source('supabase/config.toml');
@@ -67,6 +69,7 @@ const schema = source('js/network/builder-schema.js');
 const owner = source('js/network/owner.js');
 
 assert(/^begin;/im.test(migration) && /commit;\s*$/i.test(migration), 'Migración 026 es transaccional');
+assert(/^begin;/im.test(hotfixMigration) && /commit;\s*$/i.test(hotfixMigration), 'Migración 027 es transaccional');
 assert((migration.match(/\$\$/g) || []).length % 2 === 0, 'Bloques dollar-quoted SQL balanceados');
 for (const marker of [
   'site_pages', 'site_page_versions', 'site_theme_versions', 'site_reusable_components',
@@ -84,6 +87,8 @@ for (const table of ['site_module_capabilities', 'site_collection_fields', 'site
 assert(/'site_workflows','site_admin_controls','site_form_submissions'/.test(migration), 'Respuestas de formularios usan la política no-client');
 assert(migration.includes("input_site_id = '00000000-0000-4000-8000-000000000001'"), 'SQL protege Culones contra archivado');
 assert(migration.includes("'Apariencia inicial de la instancia'"), 'Cada instancia nace con versión visual inicial');
+assert(/draft_theme_config\s+set default/i.test(hotfixMigration), 'Hotfix 027 corrige el valor visual inicial');
+assert(hotfixMigration.includes('set draft_theme_config = theme_config'), 'Hotfix 027 recupera valores nulos de forma segura');
 assert(migration.includes('revoke all on function public.network_create_site(text,text,text,text,uuid,text) from public'), 'Creación de instancias queda reservada al service role');
 assert(/\[functions\.network-public-api\][\s\S]*?verify_jwt\s*=\s*false/.test(supabaseConfig), 'Formulario público desactiva JWT de plataforma explícitamente');
 assert(/\[functions\.network-admin-api\][\s\S]*?verify_jwt\s*=\s*true/.test(supabaseConfig), 'API Owner mantiene JWT obligatorio');
@@ -109,6 +114,7 @@ for (const marker of [
 for (const marker of [
   'toggleAdminExposure', 'previewMode', 'restoreVersion', 'exportCurrentSite',
   'submitImport', 'loadCollectionRecords', 'submitRecord', 'renderAudit',
+  'schedulePreviewRender', 'Crear página editable',
 ]) assert(builder.includes(marker), `Owner Studio soporta: ${marker}`);
 for (const marker of [
   'hydrateCollection', 'hydrateForm', 'runSearch', 'applyNavigation', 'applySearch',

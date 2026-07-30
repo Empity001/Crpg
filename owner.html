@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050505" />
   <title>Owner · Empi Network</title>
   <link rel="icon" href="assets/network/empi-mark.png" />
-  <link rel="stylesheet" href="css/network.css?v=20260729-3" />
+  <link rel="stylesheet" href="css/network.css?v=20260729-4" />
 </head>
 <body class="network-page owner-page">
   <a class="skip-link" href="#owner-main">Saltar al panel</a>
@@ -43,6 +43,11 @@
             <button class="network-button network-button-light" id="owner-save-site-btn" type="button">Guardar cambios</button>
           </div>
         </header>
+
+        <aside class="owner-compat-notice hidden" id="owner-legacy-notice">
+          <strong>Culones original está protegido.</strong>
+          <span>Estos ajustes visuales se aplican a las páginas nuevas de Empi Network; Logs, Guías, Tierlist, Kits y Herramientas siguen usando su diseño actual.</span>
+        </aside>
 
         <nav class="owner-tabs" aria-label="Configuración de instancia">
           <button class="is-active" type="button" data-owner-tab="identity">Identidad</button>
@@ -201,6 +206,6 @@
 
   <div class="network-toast" id="network-toast" role="status" aria-live="polite"></div>
   <script src="js/vendor/supabase.js"></script>
-  <script type="module" src="js/network/owner.js?v=20260729-3"></script>
+  <script type="module" src="js/network/owner.js?v=20260729-4"></script>
 </body>
 </html>

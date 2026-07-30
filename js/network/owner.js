@@ -11,7 +11,10 @@ let confirmResolver = null;
 function showToast(message, error = false) {
   const toast = document.getElementById('network-toast');
   if (!toast) return;
-  toast.textContent = message;
+  const rawMessage = String(message || 'Ocurrió un error inesperado.');
+  toast.textContent = /draft_theme_config[\s\S]*not-null|null value[\s\S]*draft_theme_config/i.test(rawMessage)
+    ? 'Falta aplicar la corrección 027 de la base de datos antes de crear instancias.'
+    : rawMessage;
   toast.classList.toggle('is-error', error);
   toast.classList.add('is-visible');
   clearTimeout(toastTimer);
@@ -275,6 +278,7 @@ function fillSiteForm(site) {
   builder.classList.toggle('hidden', !!site.deleted_at);
   const archiveButton = document.getElementById('owner-archive-site-btn');
   const protectedSite = site.id === '00000000-0000-4000-8000-000000000001';
+  document.getElementById('owner-legacy-notice')?.classList.toggle('hidden', !protectedSite);
   archiveButton.hidden = protectedSite;
   archiveButton.textContent = site.deleted_at ? 'Restaurar instancia' : 'Archivar instancia';
   archiveButton.dataset.action = site.deleted_at ? 'restore' : 'archive';
@@ -504,7 +508,9 @@ async function saveSite() {
     selectedSite = updated;
     fillSiteForm(updated);
     renderSiteList();
-    const message = themeScope === 'personal'
+    const message = selectedSite.id === '00000000-0000-4000-8000-000000000001'
+      ? 'Cambios guardados para las páginas nuevas. Culones original conserva su diseño actual.'
+      : themeScope === 'personal'
       ? 'Configuración guardada; la apariencia quedó solo en este navegador.'
       : themeScope === 'published'
         ? 'Instancia y apariencia publicadas con una nueva versión.'
