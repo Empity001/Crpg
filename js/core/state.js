@@ -87,7 +87,6 @@ export const state = {
   authSession: null,
   discordProfile: null,
   discordAdminEligible: false,
-  isPlatformOwner: false,
   discordMembership: 'unknown',
   discordAuthCheckedAt: 0,
   clientId: getOrCreateClientId(),

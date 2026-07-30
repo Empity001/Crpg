@@ -215,7 +215,7 @@ async function createSearchIndex() {
   // Accesos por nombre de sección. También permiten buscar "logs",
   // "guías", "kits", etc. aunque todavía no haya registros.
   [
-    ['logs', 'Logs', 'Consulta los cambios y eventos del servidor.', 'logs.html'],
+    ['logs', 'Logs', 'Consulta los cambios y eventos del servidor.', 'index.html'],
     ['guides', 'Guías', 'Consulta objetos, armas, rangos y sus formas de obtención.', 'guides.html'],
     ['tierlist', 'Tierlist', 'Clasificación de armas, accesorios y subarmas.', 'tierlist.html'],
     ['kits', 'Kits', 'Combinaciones recomendadas del servidor.', 'kits.html'],
@@ -243,7 +243,7 @@ async function createSearchIndex() {
     kind: 'Log',
     description: log.description,
     keywords: [log.category],
-    url: `logs.html?log=${encodeURIComponent(log.id)}`,
+    url: `index.html?log=${encodeURIComponent(log.id)}`,
   }));
 
   mobs.forEach(mob => {
@@ -257,7 +257,7 @@ async function createSearchIndex() {
       description: `${log.title}${mob.description ? ` · ${mob.description}` : ''}`,
       keywords: [mob.location, log.description],
       imageUrl: mob.image_url,
-      url: `logs.html?log=${encodeURIComponent(log.id)}&tab=mobs&entry=${encodeURIComponent(mob.id)}`,
+      url: `index.html?log=${encodeURIComponent(log.id)}&tab=mobs&entry=${encodeURIComponent(mob.id)}`,
     });
   });
 
@@ -273,7 +273,7 @@ async function createSearchIndex() {
       description: `${log.title}${item.description ? ` · ${item.description}` : ''}`,
       keywords: [item.tier, item.item_type, item.obtained_from, log.description],
       imageUrl: item.image_url,
-      url: `logs.html?log=${encodeURIComponent(log.id)}&tab=${libre ? 'blocks' : 'items'}&entry=${encodeURIComponent(item.id)}`,
+      url: `index.html?log=${encodeURIComponent(log.id)}&tab=${libre ? 'blocks' : 'items'}&entry=${encodeURIComponent(item.id)}`,
     });
   });
 

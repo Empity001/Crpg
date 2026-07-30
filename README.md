@@ -1,18 +1,12 @@
-# Empi Network
+# culones-rpg
 
-Portal multicomunidad de **Empi Network** y hogar de la instancia **Culones RPG**. La portada central, el control Owner y las instancias genéricas son independientes del CSS y de las funciones legacy de Culones, que continúa conectado al mismo proyecto de Supabase.
-
-La Fase 1 usa `site_id` como límite de datos, un `discord_guild_id` único por instancia y una Edge Function exclusiva para Owner. La Fase 3 añade el constructor universal, páginas y apariencia versionadas, contenido estructurado, formularios públicos seguros, módulos, workflows, controles administrativos declarativos e importación/exportación. La identidad `726444396970770494` es la única autorizada para crear o cambiar la estructura global.
+Plataforma web del servidor Minecraft RPG/Gacha **culones-rpg**. Reúne logs, guías, tierlist, kits recomendados, contenido del servidor y herramientas administrativas en un sitio estático conectado a Supabase.
 
 ## Secciones
 
 | Página | Contenido | Acceso |
 |---|---|---|
-| `index.html` | Portal central y catálogo de comunidades | Público |
-| `logs.html` | Logs, fichas, comentarios y likes de Culones | Público |
-| `site.html?site=slug` | Portada mínima de una instancia genérica | Público si la instancia está activa |
-| `owner.html` | Control de instancias, navegación, búsqueda y perfiles | Solo PLATFORM_OWNER |
-| `builder.html` | Owner Studio de páginas, bloques, datos, módulos y workflows | Solo PLATFORM_OWNER |
+| `index.html` | Logs, fichas, comentarios y likes | Público |
 | `guides.html` | Catálogo de guías, rangos y fabricación | Público |
 | `tierlist.html` | Clasificación por filas y columnas | Público |
 | `kits.html` | Combinaciones recomendadas | Público |
@@ -83,18 +77,6 @@ El shell compartido vive en `partials/header.html` y `partials/footer.html`. La 
 - Exportación JSON/XLSX e importación con análisis de conflictos.
 - Ajustes de fondo, favicon, banners, tema y preferencias visuales.
 
-### Owner Studio de Empi Network
-
-- Páginas libres compuestas por bloques anidados, capas, inspector y undo/redo.
-- Vista previa como usuario, administrador supremo u Owner, por rol y dispositivo.
-- Posición, visibilidad y comportamiento de tabs y búsqueda por breakpoint.
-- Paleta completa, tipografías, densidad, movimiento, assets y CSS personalizado validado.
-- Colecciones con campos dinámicos, registros, vistas, formularios y respuestas en borrador.
-- Componentes reutilizables, módulos con manifiesto estable, capacidades y workflows desactivables.
-- Controles concretos que Owner puede exponer posteriormente a roles administrativos.
-- Versiones restaurables de páginas y apariencia, auditoría, exportación e importación aislada.
-- Archivado recuperable de instancias; Culones RPG y su página legacy están protegidos.
-
 ### Herramientas para visitantes
 
 - Buscador global bajo demanda con enlaces profundos.
@@ -128,12 +110,10 @@ La paleta permite buscar acciones y navegación por nombre, muestra sus atajos y
 ## Arquitectura
 
 ```text
-assets/network/      identidad visual central de Empi Network
-css/                 estilos base, capas por sección y CSS aislado de Network
+css/                 estilos base, capas por sección y rebrand
 js/app/              shell, includes, bootstrap y Realtime
 js/core/             estado, utilidades, Storage, multimedia y auditoría
 js/features/         módulos funcionales por dominio
-js/network/          portal, sesión, Owner Studio y renderizador de instancias
 js/pages/            entry point de cada página
 js/vendor/           cliente local de Supabase
 partials/            header y footer compartidos
@@ -172,10 +152,6 @@ Aplicar en orden desde Supabase SQL Editor:
 22. `sql/migration_022_log_visibility.sql`
 23. `sql/migration_023_performance_content_versions.sql`
 24. `sql/migration_024_performance_hardening.sql`
-25. `sql/migration_025_empi_network_foundation.sql`
-26. `sql/migration_026_empi_network_builder.sql`
-27. `sql/migration_027_phase3_instance_defaults.sql`
-28. `sql/migration_028_builder_experience_and_publish.sql`
 
 Las migraciones nuevas reemplazan algunas RPC conservando sus firmas públicas. No deben ejecutarse fuera de orden.
 
@@ -187,21 +163,6 @@ El rediseño de Herramientas, el panel de salud y el respaldo v2 se despliegan
 siguiendo `DEPLOY_TOOLS_REFRESH_01.md`. No requieren migración SQL nueva, pero
 sí volver a desplegar `discord-admin-api` antes de publicar la página.
 
-La fundación multisitio se despliega siguiendo
-`registro/DEPLOY_EMPI_NETWORK_PHASE1.md`. Ese documento incluye staging,
-secreto Owner, prueba de aislamiento, cambio de OAuth y reversión segura.
-
-El cierre de la web y del Owner Studio se despliega siguiendo
-`registro/DEPLOY_EMPI_NETWORK_PHASE3.md`. La función pública de formularios
-debe desplegarse con `--no-verify-jwt`; la validación, idempotencia y límites se
-aplican dentro de `network-public-api` y en la RPC transaccional.
-
-Si la 026 ya estaba aplicada antes del hotfix de creación de instancias, ejecuta
-también la 027. Corrige el valor visual inicial sin borrar ni transformar datos.
-Después ejecuta la 028: recupera portales que tenían una página publicada pero
-seguían en borrador y hace que futuras publicaciones activen el portal de forma
-atómica. No modifica `logs.html` ni el contenido legacy de Culones.
-
 ## Desarrollo local
 
 El sitio debe servirse por HTTP porque los partials se cargan con `fetch()` y los módulos usan rutas relativas. Puede abrirse con Live Server desde VS Code. Abrir los HTML directamente con `file://` no es una prueba válida.
@@ -211,8 +172,6 @@ Pruebas mínimas antes de publicar:
 ```powershell
 $files = rg --files js -g '*.js'
 foreach ($file in $files) { node --check $file }
-node scripts/verify-phase1.mjs
-node scripts/verify-phase3.mjs
 git diff --check
 ```
 
@@ -227,7 +186,7 @@ Después, comprobar con Live Server:
 
 ## Bot de Discord
 
-El bot vive en el repositorio independiente `Empity001/empi-connect` y utiliza la misma aplicación de Discord que el login OAuth. La conversión multiserver corresponde a la Fase 2; hasta entonces, el bot de producción conserva el comportamiento de Culones. Publica Logs por elemento, procesa la cola del foro de Guías, escala pixel art, genera screenshots y comprueba el rol administrativo. `/getcode` fue retirado. La configuración actual está en `registro/GUIA_DESPLIEGUE_DISCORD_AUTH.md`.
+El bot vive en un repositorio independiente y utiliza la misma aplicación de Discord que el login OAuth. Publica Logs por elemento, procesa la cola del foro de Guías, escala pixel art, genera screenshots y comprueba el rol administrativo. `/getcode` fue retirado. La configuración completa está en `GUIA_DESPLIEGUE_DISCORD_AUTH.md`.
 
 ## Estado de mantenimiento
 

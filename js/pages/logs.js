@@ -1,5 +1,5 @@
 // =========================================================
-// pages/logs.js — Entry point de logs.html (📜 Logs)
+// pages/logs.js — Entry point de index.html (📜 Logs)
 // =========================================================
 // Carga y cablea EXCLUSIVAMENTE lo que pertenece a la sección de Logs:
 // el modal de log (con sus bloques de mob/item/libre embebidos), el
@@ -185,7 +185,7 @@ async function checkIncomingDraftLink() {
   const params = new URLSearchParams(window.location.search);
   const draftKey = params.get('draftKey');
   if (!draftKey) return;
-  window.history.replaceState({}, '', 'logs.html');
+  window.history.replaceState({}, '', 'index.html');
   const draft = await loadDraftByKey(draftKey);
   if (!draft) return;
   const logId = params.get('logId');

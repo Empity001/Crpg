@@ -206,7 +206,7 @@ function compareVersionSnapshots(previous, current, existingItems) {
   addSectionChange({
     section: 'logs', type: 'logs', singular: 'Log', plural: 'Logs',
     description: 'Hay cambios nuevos en los Logs.',
-    urlBuilder: id => id ? `logs.html?log=${encodeURIComponent(id)}` : 'logs.html',
+    urlBuilder: id => id ? `index.html?log=${encodeURIComponent(id)}` : 'index.html',
   });
   addSectionChange({
     section: 'guides', type: 'guides', singular: 'Guía', plural: 'Guías',
@@ -251,7 +251,7 @@ function compareSnapshots(previous, current, existingItems) {
           entityId: log.id,
           title: log.title,
           description: 'Nuevo log publicado',
-          url: `logs.html?log=${encodeURIComponent(log.id)}`,
+          url: `index.html?log=${encodeURIComponent(log.id)}`,
         }));
       }
     });

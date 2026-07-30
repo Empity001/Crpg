@@ -10,7 +10,7 @@ import { closeContextPanel } from '../core/context-actions.js';
 import { showToast } from '../core/utils.js';
 
 const PAGE_LINKS = [
-  { key: 'logs', label: 'Ir a Logs', url: 'logs.html', icon: '📜', shortcut: 'Alt 1' },
+  { key: 'logs', label: 'Ir a Logs', url: 'index.html', icon: '📜', shortcut: 'Alt 1' },
   { key: 'guides', label: 'Ir a Guías', url: 'guides.html', icon: '⚔️', shortcut: 'Alt 2' },
   { key: 'tierlist', label: 'Ir a Tierlist', url: 'tierlist.html', icon: '🏆', shortcut: 'Alt 3' },
   { key: 'kits', label: 'Ir a Kits', url: 'kits.html', icon: '🎒', shortcut: 'Alt 4' },

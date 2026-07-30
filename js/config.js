@@ -9,9 +9,7 @@
 export const SUPABASE_URL = 'https://xuaeaebypcggoqwgshjy.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_JTg72e9jfhMLYOErILzLVw_Ohd2bYmk';
 export const DISCORD_ADMIN_FUNCTION = 'discord-admin-api';
-export const NETWORK_ADMIN_FUNCTION = 'network-admin-api';
-export const NETWORK_PUBLIC_FUNCTION = 'network-public-api';
-export const OFFICIAL_SITE_URL = 'https://empity001.github.io/empi-network/';
+export const OFFICIAL_SITE_URL = 'https://empity001.github.io/culones-rpg/';
 
 function createUnavailableQuery(message) {
   const response = Promise.resolve({ data: [], error: { message } });
