@@ -28,6 +28,7 @@ const ADMIN_RPCS = new Set([
   'delete_tierlist_row','delete_weapon','delete_weapon_category','delete_weapon_rank',
   'delete_weapon_type','find_media_duplicate','get_draft','list_action_log','list_drafts',
   'list_kits','list_logs_admin','list_log_mobs_admin','list_log_items_admin','list_comments_admin',
+  'list_weapons_admin','list_weapon_ranks_admin',
   'list_media_assets','list_media_picker_assets','move_tierlist_item',
   'patch_weapon_rank','record_admin_action','reorder_tierlist_rows','replace_media_asset_file',
   'set_comment_hidden','set_log_published','set_weapon_published','update_app_setting','update_category',
@@ -41,6 +42,7 @@ const WRITE_RPCS = new Set([...ADMIN_RPCS].filter(name => ![
   'upsert_draft','delete_draft',
   'find_media_duplicate','get_draft','list_action_log','list_drafts','list_kits',
   'list_logs_admin','list_log_mobs_admin','list_log_items_admin','list_comments_admin',
+  'list_weapons_admin','list_weapon_ranks_admin',
   'list_media_assets','list_media_picker_assets',
 ].includes(name)));
 
