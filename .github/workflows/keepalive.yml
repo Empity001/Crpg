@@ -1,0 +1,24 @@
+name: Mantener Supabase despierto
+
+# El plan gratuito de Supabase pausa el proyecto tras una semana sin actividad y la
+# web se queda sin datos sin que nadie se entere. Esta consulta ligera cada dos días
+# cuenta como actividad. Si el proyecto ya estuviera pausado, la consulta falla y
+# GitHub avisa por correo. La URL y la clave son las públicas de js/config.js.
+on:
+  schedule:
+    - cron: '17 9 */2 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consulta ligera a la API
+        env:
+          SUPABASE_URL: https://pmswpieenktwtlwveqym.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_uu2k-Gd6jDorHSK4m_ua0w_W9W47ZoP
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            "$SUPABASE_URL/rest/v1/site_content_versions?select=section&limit=1" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -o /dev/null
+          echo "Supabase respondió correctamente."
