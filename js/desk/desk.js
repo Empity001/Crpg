@@ -248,9 +248,21 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     if (!entry) return;
     const alreadyOnTop = [...wins.values()].every((w) => w === entry || w.data.z < entry.data.z);
     if (alreadyOnTop) return;
-    zTop += 1;
-    entry.data.z = zTop;
-    entry.el.style.zIndex = String(zTop);
+    moveZ(id, 'front');
+  }
+
+  // Las capas siempre se renumeran de 1 a N: así nunca crecen sin límite y
+  // no pueden acabar por encima de la barra de tareas ni del editor.
+  function moveZ(id, where) {
+    const entry = wins.get(id);
+    if (!entry) return;
+    const sorted = [...wins.values()].sort((a, b) => a.data.z - b.data.z);
+    const at = sorted.indexOf(entry);
+    sorted.splice(at, 1);
+    const to = { front: sorted.length, back: 0, up: Math.min(sorted.length, at + 1), down: Math.max(0, at - 1) }[where];
+    sorted.splice(to ?? at, 0, entry);
+    sorted.forEach((w, index) => { w.data.z = index + 1; w.el.style.zIndex = String(index + 1); });
+    zTop = sorted.length;
   }
 
   function select(id) {
@@ -370,6 +382,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     wins.clear();
     zTop = 0;
     const list = clone(newLayout.windows);
+    [...list].sort((a, b) => a.z - b.z).forEach((data, index) => { data.z = index + 1; });
     list.forEach((data, index) => {
       zTop = Math.max(zTop, data.z);
       const entry = buildWindow(data, index);
@@ -419,11 +432,11 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     },
 
     add(data) {
-      zTop += 1;
-      data.z = zTop;
+      data.z = wins.size + 1;
       const entry = buildWindow(data, wins.size);
       wins.set(data.id, entry);
       root.append(entry.el);
+      moveZ(data.id, 'front');
       paint(entry);
       fillContent(entry);
       fitHeight();
@@ -444,15 +457,8 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     },
 
     reorder(id, where) {
-      const entry = wins.get(id);
-      if (!entry) return;
-      const sorted = [...wins.values()].sort((a, b) => a.data.z - b.data.z);
-      const at = sorted.indexOf(entry);
-      sorted.splice(at, 1);
-      const to = { front: sorted.length, back: 0, up: Math.min(sorted.length, at + 1), down: Math.max(0, at - 1) }[where];
-      sorted.splice(to ?? at, 0, entry);
-      sorted.forEach((w, index) => { w.data.z = index + 1; w.el.style.zIndex = String(index + 1); });
-      zTop = sorted.length;
+      if (!wins.has(id)) return;
+      moveZ(id, where);
       renderTaskbar();
       emit('commit', { id, kind: 'order' });
     },

@@ -143,14 +143,15 @@ export function cleanHref(value) {
 
 function cleanLinks(list, max, withIcons) {
   if (!Array.isArray(list)) return [];
-  return list.slice(0, max).map((row) => {
+  // Primero se descartan los inválidos y luego se aplica el cupo: una fila basura no debe quitar sitio a una buena.
+  return list.slice(0, 60).map((row) => {
     const label = cut(row?.label, LIMITS.label).trim();
     const href = cleanHref(row?.href);
     if (!label || !href) return null;
     const item = { label, href };
     if (withIcons) item.icon = PICKABLE_ICONS.includes(row?.icon) ? row.icon : 'link';
     return item;
-  }).filter(Boolean);
+  }).filter(Boolean).slice(0, max);
 }
 
 function cleanProps(type, raw) {
