@@ -29,7 +29,7 @@ const ICON_LABELS = {
   'file-text': 'Documento', folder: 'Carpeta', key: 'Llave', 'push-pin': 'Chincheta', 'arrow-square-out': 'Salir',
 };
 
-export function initEditor({ desk, stage, getSaved, save = saveLayout }) {
+export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit = () => true }) {
   const lifetime = new AbortController();
   const { signal } = lifetime;
   const host = stage.querySelector('.desk-stage');
@@ -93,6 +93,10 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout }) {
     if (editing) return;
     if (desk.stacked) {
       showToast('Para editar la portada necesitas una pantalla más ancha.', 'error');
+      return;
+    }
+    if (!canEdit()) {
+      showToast('No se cargó la portada guardada, así que no se puede editar sin pisarla. Recarga la página.', 'error');
       return;
     }
     desk.resetView(getSaved());
@@ -239,9 +243,12 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout }) {
 
     if (mode === 'idle') {
       const enter = bar.querySelector('[data-act="enter"]');
-      enter.disabled = desk.stacked;
+      const blocked = !canEdit();
+      enter.disabled = desk.stacked || blocked;
       enter.title = desk.stacked ? 'Para editar la portada necesitas una pantalla más ancha.' : '';
-      note.textContent = desk.stacked ? 'Necesitas una pantalla más ancha para editar' : 'Modo administrador';
+      note.textContent = blocked
+        ? 'No se cargó la portada guardada: recarga para editar'
+        : desk.stacked ? 'Necesitas una pantalla más ancha para editar' : 'Modo administrador';
       return;
     }
 
@@ -477,6 +484,7 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout }) {
   renderBar();
 
   return {
+    refresh: renderBar,
     dispose() {
       window.clearTimeout(commitTimer);
       if (editing) leave({ force: true });

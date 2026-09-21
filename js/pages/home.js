@@ -21,6 +21,10 @@ import { defaultLayout, normalizeLayout } from '../desk/layout.js';
 let desk = null;
 let editor = null;
 let editorLoading = null;
+// Solo se puede editar si la disposición guardada se cargó de verdad. Si la
+// carga falla, la pantalla muestra la composición inicial y guardar encima
+// pisaría la portada real.
+let savedLayoutLoaded = false;
 
 const savedOrDefaultLayout = () => normalizeLayout(state.homeLayout) || defaultLayout();
 
@@ -28,7 +32,12 @@ async function ensureEditor() {
   if (editor || editorLoading || !desk || !isAdmin()) return;
   editorLoading = import('../desk/editor.js')
     .then((module) => {
-      editor = module.initEditor({ desk, stage: document.getElementById('desk-shell'), getSaved: savedOrDefaultLayout });
+      editor = module.initEditor({
+        desk,
+        stage: document.getElementById('desk-shell'),
+        getSaved: savedOrDefaultLayout,
+        canEdit: () => savedLayoutLoaded,
+      });
     })
     .catch((error) => console.warn('[Portada] No se pudo cargar el editor:', error))
     .finally(() => { editorLoading = null; });
@@ -46,10 +55,18 @@ async function init() {
 
   // Los ajustes (incluida la disposición guardada) se cargan en segundo plano
   // desde bootShell; aquí se espera esa misma petición, con tiempo límite.
+  const pending = loadAppSettings('home');
   try {
-    await withTimeout(loadAppSettings('home'), 5000, 'La configuración de la portada');
+    savedLayoutLoaded = (await withTimeout(pending, 5000, 'La configuración de la portada')) === true;
   } catch (error) {
     console.warn('[Portada] Se usa la disposición predeterminada:', error);
+    // Si la carga termina más tarde, se coloca lo guardado y se habilita el editor.
+    pending.then((ok) => {
+      if (ok !== true) return;
+      savedLayoutLoaded = true;
+      if (desk && !desk.editing) desk.resetView(savedOrDefaultLayout());
+      editor?.refresh();
+    }).catch(() => {});
   }
 
   const ctx = {
