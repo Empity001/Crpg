@@ -131,6 +131,8 @@ El proyecto es una MPA estática sin bundler ni build step. Usa ES Modules nativ
 
 Las fuentes (Space Grotesk, JetBrains Mono y Press Start 2P, licencia OFL) se sirven desde `assets/fonts/`; ya no se piden a Google. Los iconos son Phosphor (MIT) en un sprite local: para añadir uno, apunta su nombre en `tools/build-icons.mjs`, ejecuta `npm install --no-save @phosphor-icons/core` y `node tools/build-icons.mjs`.
 
+`node tools/check-admin-rpcs.mjs` comprueba que `ADMIN_RPCS` y `CODELESS_RPCS` de la Edge Function encajan con las firmas de las migraciones (una RPC nueva sin `input_code` en su firma debe ir en `CODELESS_RPCS`, si no falla en producción). Ejecútalo antes de desplegar `discord-admin-api`.
+
 ## La portada (escritorio de ventanas)
 
 `index.html` es un lienzo de ventanas. Cada ventana es `{ id, type, title, chrome, x, y, w, h, z, props }`: `x` y `w` en porcentaje del ancho (se adapta a cualquier pantalla), `y` y `h` en píxeles. Tres carrocerías (`chrome`): **retro** (borde grueso y sombra dura), **cristal** (barra pastel) y **HUD** (esquinas y líneas finas).

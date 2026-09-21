@@ -55,6 +55,8 @@ const CODELESS_RPCS = new Set([
   'list_log_mobs_admin',
   'list_log_items_admin',
   'list_comments_admin',
+  'list_weapons_admin',
+  'list_weapon_ranks_admin',
   'set_log_published',
 ]);
 

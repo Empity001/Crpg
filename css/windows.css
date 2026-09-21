@@ -125,8 +125,13 @@ body.cw-skin[data-page='logs'].pw-on .app-main { max-width: 1500px; }
 }
 body.cw-skin[data-page='logs'] .pw { padding: 0 0 4px; }
 body.cw-skin[data-page='logs'] .pw-bar { margin: 0 0 0; }
+/* IMPORTANTE: el alto mínimo del espacio de trabajo debe ser igual al del
+   inspector (rebrand-logs.css: calc(100dvh - 44px)). js/features/logs.js saca el
+   inspector del flujo (position: fixed) al hacer scroll; si el espacio de trabajo
+   fuera más bajo, la página encogería en ese instante, el navegador volvería
+   arriba y el scroll rebotaba sin parar al llegar al final. */
 body.cw-skin .pw .logs-workspace {
-  min-height: max(520px, calc(100dvh - 210px));
+  min-height: calc(100dvh - 44px);
   border: 0;
   border-radius: 0 0 3px 3px;
   background: none;
