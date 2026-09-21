@@ -9,13 +9,20 @@
 
 import { disableQueryRetry, supabaseClient } from '../config.js';
 import { isAdmin, state } from '../core/state.js';
-import { showToast, withTimeout } from '../core/utils.js';
+import { renderLoadError, showToast, withTimeout } from '../core/utils.js';
 import { getAdminLogsBundle } from '../core/admin-api.js';
 
 let logsLoadPromise = null;
 let activeLogsLoadAdminMode = null;
 let logsLoadGeneration = 0;
 const logBlocksLoadPromises = new Map();
+
+// Un fallo de carga deja un aviso con "Reintentar" en lugar del spinner eterno. Solo se sustituye
+// la lista si todavía no hay nada que mostrar: un refresco fallido en segundo plano no borra lo visible.
+function showLogsLoadError(message) {
+  showToast(message, 'error');
+  if (!state.logs.length) renderLoadError(document.getElementById('logs-grid'), message);
+}
 
 function attachSignal(request, signal) {
   const stableRequest = disableQueryRetry(request);
@@ -200,7 +207,7 @@ async function performLogsLoad(adminLoad) {
 
     if (logsRes.error) {
       console.error(logsRes.error);
-      showToast('No se pudieron cargar los logs', 'error');
+      showLogsLoadError('No se pudieron cargar los logs.');
       return false;
     }
 
@@ -226,7 +233,7 @@ async function performLogsLoad(adminLoad) {
     return true;
   } catch (error) {
     if (error?.name !== 'AbortError') console.error('[Logs] Error de carga:', error);
-    showToast('La carga de logs tardó demasiado. Revisa tu conexión.', 'error');
+    showLogsLoadError('La carga de logs tardó demasiado. Revisa tu conexión.');
     return false;
   } finally {
     window.clearTimeout(timer);

@@ -1,6 +1,6 @@
 import { disableQueryRetry, supabaseClient } from '../config.js';
 import { KIT_COLUMNS, isAdmin, state, suppressNextKitsReload } from '../core/state.js';
-import { buildShareUrl, cloneData, confirmAction, copyEditorPayload, copyLink, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast, withTimeout } from '../core/utils.js';
+import { buildShareUrl, cloneData, confirmAction, copyEditorPayload, copyLink, escapeHtml, getEditorPayload, hasEditorPayload, renderLoadError, safeUrl, showToast, withTimeout } from '../core/utils.js';
 import { openMediaPicker } from './media-library-lazy.js';
 import { appendActionGrid, appendDisclosure, openContextPanel } from '../core/context-actions.js';
 import { guideLinkUrl, hydrateGuideLinkSelect, parseGuideLinkValue } from './guide-links.js';
@@ -141,7 +141,7 @@ async function performKitsLoad() {
     if (requestId !== kitsLoadRequestId) return false;
     if (error) {
       console.error(error);
-      if (grid) grid.innerHTML = `<div class="logs-empty"><p>No se pudieron cargar los kits. Revisa si la migración 016 ya fue aplicada.</p></div>`;
+      renderLoadError(grid, 'No se pudieron cargar los kits.');
       return false;
     }
 
@@ -161,7 +161,7 @@ async function performKitsLoad() {
     return true;
   } catch (error) {
     if (error?.name !== 'AbortError') console.error('[Kits]', error);
-    if (grid) grid.innerHTML = `<div class="logs-empty"><p>La carga de kits tardó demasiado. Revisa tu conexión.</p></div>`;
+    renderLoadError(grid, 'La carga de kits tardó demasiado. Revisa tu conexión.');
     return false;
   } finally {
     window.clearTimeout(timer);

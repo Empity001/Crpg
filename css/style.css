@@ -2384,3 +2384,6 @@ body.is-admin-mode .toast.toast-success {
   flex-basis: 100%;
   width: 100%;
 }
+
+/* Aviso de error de carga con botón de reintento */
+.load-error-retry { margin-top: 14px; }

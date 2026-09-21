@@ -8,7 +8,7 @@
 
 import { disableQueryRetry, supabaseClient } from '../config.js';
 import { isAdmin, state } from '../core/state.js';
-import { withTimeout } from '../core/utils.js';
+import { renderLoadError, withTimeout } from '../core/utils.js';
 import { renderWeaponCategoryFilters, renderWeaponTypeFilters, renderWeaponsGrid } from './weapons-catalog.js';
 import { renderWeaponDetail } from './weapons-detail.js';
 
@@ -59,7 +59,7 @@ async function performLoadWeaponMeta() {
   } catch (error) {
     if (error?.name !== 'AbortError') console.error('[Weapons meta]', error);
     const grid = document.getElementById('weapons-grid');
-    if (grid) grid.innerHTML = `<div class="logs-empty"><p>La carga de Guías tardó demasiado. Revisa tu conexión.</p></div>`;
+    renderLoadError(grid, 'La carga de Guías tardó demasiado. Revisa tu conexión.');
     return false;
   } finally {
     window.clearTimeout(timer);
@@ -84,7 +84,7 @@ async function performReloadWeaponData() {
     const [weaponsRes, ranksRes] = await withTimeout(requests, 9000, 'La carga del catálogo de Guías');
     if (weaponsRes.error || ranksRes.error) {
       console.error(weaponsRes.error || ranksRes.error);
-      if (grid) grid.innerHTML = `<div class="logs-empty"><p>No se pudo cargar el catálogo de armas.</p></div>`;
+      renderLoadError(grid, 'No se pudo cargar el catálogo de Guías.');
       return false;
     }
     state.weapons = weaponsRes.data || [];
@@ -98,7 +98,7 @@ async function performReloadWeaponData() {
     return true;
   } catch (error) {
     if (error?.name !== 'AbortError') console.error('[Weapons data]', error);
-    if (grid) grid.innerHTML = `<div class="logs-empty"><p>La carga del catálogo tardó demasiado. Revisa tu conexión.</p></div>`;
+    renderLoadError(grid, 'La carga del catálogo tardó demasiado. Revisa tu conexión.');
     return false;
   } finally {
     window.clearTimeout(timer);

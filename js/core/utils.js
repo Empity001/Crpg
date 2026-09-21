@@ -52,6 +52,17 @@ export function showToast(message, type = 'default') {
   window.setTimeout(() => toast.remove(), 4000);
 }
 
+// Aviso de error de carga dentro de un contenedor, con botón para reintentar.
+// Sin acción propia, reintentar recarga la página.
+export function renderLoadError(container, message, onRetry = () => window.location.reload()) {
+  if (!container) return;
+  container.innerHTML = `<div class="logs-empty load-error" role="alert">
+    <p>${escapeHtml(message)}</p>
+    <button type="button" class="link-btn load-error-retry">Reintentar</button>
+  </div>`;
+  container.querySelector('.load-error-retry')?.addEventListener('click', onRetry);
+}
+
 export function buildShareUrl(page, params = {}) {
   const url = new URL(page || window.location.pathname, window.location.href);
   url.hash = '';

@@ -9,7 +9,7 @@
 import { disableQueryRetry, supabaseClient } from '../config.js';
 import { TIER_COLUMNS, isAdmin, state, suppressNextTierlistReload } from '../core/state.js';
 import { initImageUploader, updateAssetPreview, uploadImageToStorage } from '../core/storage.js';
-import { buildShareUrl, confirmAction, copyEditorPayload, copyLink, escapeHtml, getEditorPayload, hasEditorPayload, safeUrl, showToast, withTimeout } from '../core/utils.js';
+import { buildShareUrl, confirmAction, copyEditorPayload, copyLink, escapeHtml, getEditorPayload, hasEditorPayload, renderLoadError, safeUrl, showToast, withTimeout } from '../core/utils.js';
 import { appendActionGrid, openContextPanel } from '../core/context-actions.js';
 import { getGuideLinkFromFields, hydrateGuideLinkSelect, openGuideLink, readGuideLinkSelect, setGuideLinkInFields } from './guide-links.js';
 
@@ -177,7 +177,7 @@ async function performTierlistLoad() {
 
     if (rowsRes.error || itemsRes.error) {
       console.error(rowsRes.error || itemsRes.error);
-      if (board) board.innerHTML = `<div class="logs-empty"><p>No se pudo cargar la tierlist.</p></div>`;
+      renderLoadError(board, 'No se pudo cargar la tierlist.');
       return false;
     }
 
@@ -188,7 +188,7 @@ async function performTierlistLoad() {
     return true;
   } catch (error) {
     if (error?.name !== 'AbortError') console.error('[Tierlist]', error);
-    if (board) board.innerHTML = `<div class="logs-empty"><p>La carga de la tierlist tardó demasiado. Revisa tu conexión.</p></div>`;
+    renderLoadError(board, 'La carga de la tierlist tardó demasiado. Revisa tu conexión.');
     return false;
   } finally {
     window.clearTimeout(timer);
