@@ -22,7 +22,7 @@
 // =========================================================
 
 import { loadSharedShell } from './include.js';
-import { closeAdminLoginModal, initializeDiscordAuth, logoutDiscord, openAdminLoginModal, prepareAdminLoginModal, signInWithDiscord, toggleAdminMode, updateAdminUI } from '../features/auth.js';
+import { closeAdminLoginModal, initializeDiscordAuth, logoutAdminCode, logoutDiscord, openAdminLoginModal, prepareAdminLoginModal, signInWithCode, signInWithDiscord, toggleAdminMode, updateAdminUI } from '../features/auth.js';
 import { loadAppSettings } from '../features/field-config.js';
 import { isAdmin, state } from '../core/state.js';
 import { openAssetFullscreen } from '../core/storage.js';
@@ -196,8 +196,16 @@ function wireHeaderNav(pageKey) {
 
 function wireAdminModal() {
   document.getElementById('admin-toggle-btn')?.addEventListener('click', () => {
-    if (!state.authSession) openAdminLoginModal();
+    if (!state.authSession && !state.codeAdmin) openAdminLoginModal();
     else void toggleAdminMode();
+  });
+  document.getElementById('admin-code-form')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const input = document.getElementById('admin-code-input');
+    void signInWithCode(input?.value).then(result => { if (result?.ok && input) input.value = ''; });
+  });
+  document.getElementById('admin-code-logout-btn')?.addEventListener('click', () => {
+    logoutAdminCode();
   });
   document.getElementById('sidebar-account-manage-btn')?.addEventListener('click', openAdminLoginModal);
   document.getElementById('close-admin-modal')?.addEventListener('click', closeAdminLoginModal);

@@ -1,0 +1,6 @@
+project_id = "pmswpieenktwtlwveqym"
+
+# La función decide ella misma quién entra (sesión de Discord válida o código de
+# administrador), así que la puerta de Supabase no debe exigir un JWT.
+[functions.discord-admin-api]
+verify_jwt = false

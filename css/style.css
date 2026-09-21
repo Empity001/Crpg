@@ -2387,3 +2387,10 @@ body.is-admin-mode .toast.toast-success {
 
 /* Aviso de error de carga con botón de reintento */
 .load-error-retry { margin-top: 14px; }
+
+/* Acceso de administrador por código */
+.admin-code-form { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.admin-code-label { display: block; margin-bottom: 8px; font-size: 0.85rem; opacity: 0.8; }
+.admin-code-row { display: flex; gap: 8px; align-items: stretch; }
+.admin-code-row .modal-input { flex: 1 1 auto; min-width: 0; width: auto; }
+.admin-code-row .btn-primary { flex: 0 0 auto; width: auto; min-width: 96px; }

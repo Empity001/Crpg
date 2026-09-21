@@ -4,7 +4,7 @@
     <button class="modal-close" id="close-admin-modal" aria-label="Cerrar">✕</button>
     <span class="discord-account-eyebrow">Cuenta y administración</span>
     <h3 class="modal-title" id="admin-login-title">Tu cuenta de Discord</h3>
-    <p class="discord-account-intro">Conecta tu cuenta para mostrar tu identidad en la página. El modo administrador solo aparece si conservas el rol configurado en el servidor.</p>
+    <p class="discord-account-intro">Conecta tu cuenta para mostrar tu identidad en la página. El modo administrador solo aparece si conservas el rol configurado en el servidor o si entras con el código de administrador.</p>
 
     <div class="discord-account-card">
       <div class="discord-account-avatar-wrap">
@@ -20,8 +20,16 @@
     <div class="discord-account-actions">
       <button class="btn-primary" id="discord-login-btn" type="button">Iniciar sesión con Discord</button>
       <button class="btn-primary hidden" id="discord-admin-mode-btn" type="button">Activar modo administrador</button>
-      <button class="btn-secondary hidden" id="discord-logout-btn" type="button">Cerrar sesión</button>
+      <button class="btn-secondary-admin hidden" id="discord-logout-btn" type="button">Cerrar sesión</button>
+      <button class="btn-secondary-admin hidden" id="admin-code-logout-btn" type="button">Cerrar acceso por código</button>
     </div>
+    <form class="admin-code-form" id="admin-code-form" autocomplete="off">
+      <label class="admin-code-label" for="admin-code-input">¿Tienes un código de administrador?</label>
+      <div class="admin-code-row">
+        <input class="modal-input" id="admin-code-input" type="password" autocomplete="off" spellcheck="false" maxlength="64" placeholder="Escribe el código" />
+        <button class="btn-primary" id="admin-code-submit" type="submit">Entrar</button>
+      </div>
+    </form>
     <div class="modal-error hidden" id="discord-auth-error"></div>
   </div>
 </div>

@@ -2,7 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-admin-code',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
@@ -36,7 +36,9 @@ const ADMIN_RPCS = new Set([
   'update_weapon_category','update_weapon_type','create_category',
 ]);
 
+// Los borradores son copias de trabajo personales (el autoguardado escribe cada 30 s): no se auditan.
 const WRITE_RPCS = new Set([...ADMIN_RPCS].filter(name => ![
+  'upsert_draft','delete_draft',
   'find_media_duplicate','get_draft','list_action_log','list_drafts','list_kits',
   'list_logs_admin','list_log_mobs_admin','list_log_items_admin','list_comments_admin',
   'list_media_assets','list_media_picker_assets',
@@ -195,7 +197,93 @@ async function loadAuthenticatedUser(userClient: any, token: string) {
   return request;
 }
 
+// ---------------------------------------------------------------------------
+// Acceso de administrador por código (temporal, hasta configurar el rol de
+// Discord). El código vive solo en el secreto ADMIN_CODE: la web lo envía en la
+// cabecera x-admin-code y aquí se compara en tiempo constante. Cinco fallos
+// desde la misma IP en diez minutos bloquean nuevos intentos.
+// ---------------------------------------------------------------------------
+const CODE_FAIL_LIMIT = 5;
+const CODE_FAIL_WINDOW_MS = 10 * 60 * 1000;
+const codeFailures = new Map<string, { count: number; firstAt: number }>();
+
+function clientAddress(req: Request) {
+  const forwarded = (req.headers.get('x-forwarded-for') || '').split(',')[0];
+  return safeText(req.headers.get('cf-connecting-ip') || forwarded || 'desconocida', 80);
+}
+
+async function sha256Bytes(value: string) {
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
+}
+
+async function constantTimeEqual(a: string, b: string) {
+  const [hashA, hashB] = await Promise.all([sha256Bytes(a), sha256Bytes(b)]);
+  let difference = 0;
+  for (let index = 0; index < hashA.length; index += 1) difference |= hashA[index] ^ hashB[index];
+  return difference === 0;
+}
+
+async function authenticateWithCode(req: Request, code: string) {
+  const expected = Deno.env.get('ADMIN_CODE') || '';
+  if (!expected) {
+    throw Object.assign(new Error('El acceso por código no está activado.'), { code: 'CODE_LOGIN_DISABLED', status: 403 });
+  }
+
+  const address = clientAddress(req);
+  const now = Date.now();
+  const failures = codeFailures.get(address);
+  const insideWindow = !!failures && now - failures.firstAt < CODE_FAIL_WINDOW_MS;
+  if (insideWindow && failures!.count >= CODE_FAIL_LIMIT) {
+    throw Object.assign(new Error('Demasiados intentos. Espera unos minutos.'), { code: 'CODE_RATE_LIMITED', status: 429 });
+  }
+
+  if (!(await constantTimeEqual(code, expected))) {
+    const current = insideWindow ? failures! : { count: 0, firstAt: now };
+    current.count += 1;
+    codeFailures.set(address, current);
+    if (codeFailures.size > 500) {
+      for (const [key, value] of codeFailures) if (now - value.firstAt >= CODE_FAIL_WINDOW_MS) codeFailures.delete(key);
+    }
+    await new Promise(resolve => setTimeout(resolve, 700));
+    throw Object.assign(new Error('Código incorrecto.'), { code: 'CODE_INVALID', status: 401 });
+  }
+  codeFailures.delete(address);
+
+  const supabaseUrl = env('SUPABASE_URL');
+  const serviceKey = env('SUPABASE_SERVICE_ROLE_KEY');
+  const rawService = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  // Sin Discord configurado puede no existir la fila del servidor: en ese caso se sigue con una configuración vacía.
+  const config = (await loadGuildConfig(rawService).catch(() => null)) || {};
+  const profile = { discordId: '', username: 'Administrador', globalName: '', displayName: 'Administrador (código)', avatarUrl: '' };
+  const requestId = crypto.randomUUID();
+  const service = createClient(supabaseUrl, serviceKey, {
+    global: { headers: {
+      'x-culones-auth-user': '',
+      'x-culones-discord-user': 'codigo',
+      'x-culones-actor-b64': base64Utf8(profile.displayName),
+      'x-culones-avatar-b64': '',
+      'x-culones-request-id': requestId,
+    } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return {
+    service,
+    user: { id: null },
+    identity: { id: 'codigo', username: 'codigo', globalName: '', avatarUrl: '' },
+    profile,
+    member: null,
+    config,
+    isMember: true,
+    isAdmin: true,
+    requestId,
+    viaCode: true,
+  };
+}
+
 async function authenticate(req: Request) {
+  const adminCode = req.headers.get('x-admin-code') || '';
+  if (adminCode) return authenticateWithCode(req, adminCode);
+
   const supabaseUrl = env('SUPABASE_URL');
   const anonKey = env('SUPABASE_ANON_KEY');
   const serviceKey = env('SUPABASE_SERVICE_ROLE_KEY');
@@ -895,7 +983,7 @@ Deno.serve(async req => {
     const action = safeText(body.action, 80);
 
     if (action === 'status') {
-      return json({ data: { isAdmin: ctx.isAdmin, isMember: ctx.isMember, profile: ctx.profile, roleConfigured: !!ctx.config.admin_role_id } });
+      return json({ data: { isAdmin: ctx.isAdmin, isMember: ctx.isMember, profile: ctx.profile, roleConfigured: !!ctx.config?.admin_role_id, viaCode: !!ctx.viaCode } });
     }
     if (action === 'admin_health') return json({ data: await adminHealth(ctx) });
     if (action === 'backup_bundle') return json({ data: await backupBundle(ctx, body.scope) });

@@ -87,6 +87,7 @@ export const state = {
   authSession: null,
   discordProfile: null,
   discordAdminEligible: false,
+  codeAdmin: false,
   discordMembership: 'unknown',
   discordAuthCheckedAt: 0,
   clientId: getOrCreateClientId(),
@@ -204,7 +205,7 @@ export const DEFAULT_ITEM_FIELDS = [
 // UTILIDADES
 // ---------------------------------------------------------
 
-export function isAdmin() { return !!(state.adminMode && state.discordAdminEligible && state.authSession); }
+export function isAdmin() { return !!(state.adminMode && (state.codeAdmin || (state.discordAdminEligible && state.authSession))); }
 
 
 export function getCategory(slug) {

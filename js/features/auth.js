@@ -4,7 +4,7 @@
 // administrador. El rol se valida en una Edge Function segura.
 // =========================================================
 
-import { OFFICIAL_SITE_URL, supabaseClient } from '../config.js';
+import { OFFICIAL_SITE_URL, getAdminCode, setAdminCode, supabaseClient } from '../config.js';
 import { getDiscordAdminStatus } from '../core/admin-api.js';
 import { isAdmin, state } from '../core/state.js';
 import { showToast } from '../core/utils.js';
@@ -55,8 +55,13 @@ function cacheDiscordStatus(data, session = state.authSession) {
   } catch { /* almacenamiento no disponible */ }
 }
 
+// Una identidad administrativa puede venir del rol de Discord o del código de acceso.
+function hasAdminIdentity() {
+  return !!(state.codeAdmin || (state.discordAdminEligible && state.authSession));
+}
+
 function setAdminMode(enabled) {
-  const next = !!(enabled && state.discordAdminEligible && state.authSession);
+  const next = !!(enabled && hasAdminIdentity());
   state.adminMode = next;
   if (next) sessionStorage.setItem('culones_admin_mode', '1');
   else sessionStorage.removeItem('culones_admin_mode');
@@ -68,7 +73,7 @@ function resetIdentity({ clearCache = true } = {}) {
   state.discordAdminEligible = false;
   state.discordMembership = 'unknown';
   state.discordAuthCheckedAt = 0;
-  setAdminMode(false);
+  if (!state.codeAdmin) setAdminMode(false);
   if (clearCache) clearCachedDiscordStatus();
 }
 
@@ -79,28 +84,34 @@ function profileName(profile) {
 function updateAccountModal() {
   const profile = state.discordProfile;
   const loggedIn = !!state.authSession;
+  const viaCode = !!state.codeAdmin;
   const avatar = document.getElementById('discord-account-avatar');
   const name = document.getElementById('discord-account-name');
   const status = document.getElementById('discord-account-status');
   const login = document.getElementById('discord-login-btn');
   const logout = document.getElementById('discord-logout-btn');
   const toggle = document.getElementById('discord-admin-mode-btn');
+  const codeForm = document.getElementById('admin-code-form');
+  const codeLogout = document.getElementById('admin-code-logout-btn');
   const error = document.getElementById('discord-auth-error');
 
   if (avatar) {
     avatar.src = profile?.avatarUrl || '';
     avatar.classList.toggle('hidden', !profile?.avatarUrl);
   }
-  if (name) name.textContent = loggedIn ? profileName(profile) : 'Discord no conectado';
+  if (name) name.textContent = loggedIn ? profileName(profile) : (viaCode ? 'Administrador' : 'Discord no conectado');
   if (status) {
-    if (!loggedIn) status.textContent = 'Conecta tu cuenta para identificarte en la página.';
+    if (!loggedIn && viaCode) status.textContent = isAdmin() ? 'Modo administrador activo (acceso por código).' : 'Acceso por código verificado.';
+    else if (!loggedIn) status.textContent = 'Conecta tu cuenta para identificarte en la página.';
     else if (state.discordAdminEligible) status.textContent = isAdmin() ? 'Modo administrador activo.' : 'Tu cuenta tiene el rol administrativo.';
     else if (state.discordMembership === 'not_member') status.textContent = 'Esta cuenta no pertenece actualmente al servidor.';
     else status.textContent = 'Sesión normal: esta cuenta no tiene el rol administrativo.';
   }
   login?.classList.toggle('hidden', loggedIn);
   logout?.classList.toggle('hidden', !loggedIn);
-  toggle?.classList.toggle('hidden', !loggedIn || !state.discordAdminEligible);
+  toggle?.classList.toggle('hidden', !hasAdminIdentity());
+  codeForm?.classList.toggle('hidden', viaCode);
+  codeLogout?.classList.toggle('hidden', !viaCode);
   if (toggle) toggle.textContent = isAdmin() ? 'Desactivar modo administrador' : 'Activar modo administrador';
   error?.classList.add('hidden');
 }
@@ -155,10 +166,12 @@ export function updateAdminUI() {
   const accountManage = document.getElementById('sidebar-account-manage-btn');
   const admin = isAdmin();
   const loggedIn = !!state.authSession;
-  const eligible = !!state.discordAdminEligible;
+  const viaCode = !!state.codeAdmin;
+  const eligible = viaCode || !!state.discordAdminEligible;
   const notificationKey = JSON.stringify({
     admin,
     loggedIn,
+    viaCode,
     eligible,
     membership: state.discordMembership,
     userId: state.authSession?.user?.id || null,
@@ -178,17 +191,18 @@ export function updateAdminUI() {
   accountWrap?.classList.toggle('is-active', admin);
 
   if (label) {
-    if (!loggedIn) label.textContent = 'Iniciar sesión';
-    else label.textContent = profileName(state.discordProfile);
+    if (loggedIn) label.textContent = profileName(state.discordProfile);
+    else label.textContent = viaCode ? 'Administrador' : 'Iniciar sesión';
   }
   if (sublabel) {
-    if (!loggedIn) sublabel.textContent = 'Discord y administración';
+    if (!loggedIn && viaCode) sublabel.textContent = admin ? 'Acceso por código · Edición activa' : 'Acceso por código verificado';
+    else if (!loggedIn) sublabel.textContent = 'Discord y administración';
     else if (!eligible && state.discordMembership === 'not_member') sublabel.textContent = 'Cuenta fuera del servidor';
     else if (!eligible) sublabel.textContent = 'Sesión de visitante';
     else sublabel.textContent = admin ? 'Rol verificado · Edición activa' : 'Rol administrativo verificado';
   }
   if (accountAction) {
-    if (!loggedIn) accountAction.textContent = 'Conectar cuenta';
+    if (!loggedIn && !viaCode) accountAction.textContent = 'Conectar cuenta';
     else if (!eligible) accountAction.textContent = 'Revisar acceso';
     else accountAction.textContent = admin ? 'Desactivar edición' : 'Activar edición';
   }
@@ -198,7 +212,7 @@ export function updateAdminUI() {
     accountAvatar.classList.toggle('hidden', !state.discordProfile?.avatarUrl);
   }
   accountFallback?.classList.toggle('hidden', !!state.discordProfile?.avatarUrl);
-  accountManage?.classList.toggle('hidden', !loggedIn);
+  accountManage?.classList.toggle('hidden', !loggedIn && !viaCode);
 
   const adminOnlyIds = [
     'open-new-log-btn', 'open-field-config-btn', 'open-action-log-btn',
@@ -248,6 +262,62 @@ export async function logoutDiscord() {
   else showToast('Sesión de Discord cerrada');
 }
 
+function setCodeBusy(busy) {
+  const submit = document.getElementById('admin-code-submit');
+  const input = document.getElementById('admin-code-input');
+  if (input) input.disabled = !!busy;
+  if (submit) {
+    submit.disabled = !!busy;
+    submit.textContent = busy ? 'Verificando…' : 'Entrar';
+  }
+}
+
+// Entra con el código de administrador. La Edge Function lo verifica en el servidor;
+// aquí solo se guarda mientras la pestaña siga abierta.
+export async function signInWithCode(rawCode) {
+  const code = String(rawCode || '').trim();
+  if (!code) {
+    showAuthError('Escribe el código de administrador.');
+    return { ok: false };
+  }
+  const previous = getAdminCode();
+  setAdminCode(code);
+  setCodeBusy(true);
+  const { data, error } = await getDiscordAdminStatus();
+  setCodeBusy(false);
+  if (error || !data?.isAdmin || !data?.viaCode) {
+    setAdminCode(previous);
+    showAuthError(error?.message || 'Ese código no es válido.');
+    return { ok: false };
+  }
+  state.codeAdmin = true;
+  setAdminMode(true);
+  updateAdminUI();
+  closeAdminLoginModal();
+  showToast('Modo administrador activado', 'success');
+  return { ok: true };
+}
+
+export function logoutAdminCode() {
+  setAdminCode('');
+  state.codeAdmin = false;
+  if (!(state.discordAdminEligible && state.authSession)) setAdminMode(false);
+  updateAdminUI();
+  showToast('Acceso por código cerrado');
+}
+
+// Al cambiar de página el código sigue guardado en la pestaña: se vuelve a comprobar en segundo plano.
+async function validateStoredAdminCode() {
+  const { data, error } = await getDiscordAdminStatus();
+  const rejected = ['CODE_INVALID', 'CODE_LOGIN_DISABLED'].includes(error?.code) || (!error && !data?.viaCode);
+  if (!rejected) return;
+  setAdminCode('');
+  state.codeAdmin = false;
+  if (!(state.discordAdminEligible && state.authSession)) setAdminMode(false);
+  updateAdminUI();
+  showToast('El código de administrador ya no es válido.', 'error');
+}
+
 export async function revalidateDiscordAccess({ force = false, silent = false, reason = 'manual', notifyUi = true } = {}) {
   if (!state.authSession) {
     resetIdentity();
@@ -266,7 +336,7 @@ export async function revalidateDiscordAccess({ force = false, silent = false, r
       clearCachedDiscordStatus();
       state.discordAdminEligible = false;
       state.discordMembership = 'unknown';
-      setAdminMode(false);
+      if (!state.codeAdmin) setAdminMode(false);
       if (notifyUi) updateAdminUI();
       if (!silent) showToast(`No se pudo verificar tu rol: ${error.message}`, 'error');
       return { isAdmin: false, error, reason };
@@ -277,7 +347,7 @@ export async function revalidateDiscordAccess({ force = false, silent = false, r
     state.discordMembership = data?.isMember ? 'member' : 'not_member';
     state.discordAuthCheckedAt = now;
     cacheDiscordStatus(data);
-    if (!state.discordAdminEligible) setAdminMode(false);
+    if (!state.discordAdminEligible && !state.codeAdmin) setAdminMode(false);
     if (notifyUi) updateAdminUI();
     return data;
   })().finally(() => { validationPromise = null; });
@@ -287,7 +357,7 @@ export async function revalidateDiscordAccess({ force = false, silent = false, r
 
 export async function toggleAdminMode() {
   if (adminTogglePromise) return adminTogglePromise;
-  if (!state.authSession) {
+  if (!state.authSession && !state.codeAdmin) {
     openAdminLoginModal();
     return;
   }
@@ -295,6 +365,13 @@ export async function toggleAdminMode() {
     setAdminMode(false);
     updateAdminUI();
     showToast('Modo administrador desactivado');
+    return;
+  }
+  if (state.codeAdmin) {
+    // El código ya se verificó en el servidor: activar la edición no necesita otra consulta.
+    setAdminMode(true);
+    updateAdminUI();
+    showToast('Modo administrador activado', 'success');
     return;
   }
 
@@ -354,11 +431,14 @@ export function initializeDiscordAuth({ awaitValidation = false } = {}) {
     const { data: { session }, error } = await supabaseClient.auth.getSession();
     if (error) console.warn('[Auth] No se pudo recuperar la sesión:', error.message);
 
+    // El código guardado en esta pestaña se restaura antes de resetIdentity() para conservar el modo activo.
+    if (getAdminCode()) state.codeAdmin = true;
     state.authSession = session || null;
     lastObservedSessionToken = session?.access_token || null;
     if (!session) resetIdentity();
     else readCachedDiscordStatus(session);
     updateAdminUI();
+    if (state.codeAdmin) void validateStoredAdminCode();
 
     const listener = supabaseClient.auth.onAuthStateChange((event, nextSession) => {
       const nextToken = nextSession?.access_token || null;

@@ -142,8 +142,14 @@ Después, en el panel de Supabase:
 
 1. **Authentication → Providers → Discord:** Client ID y Client Secret de la aplicación de Discord.
 2. **Authentication → URL Configuration:** Site URL `https://empity001.github.io/Crpg/` y Redirect URL `https://empity001.github.io/Crpg/**`.
-3. **Edge Functions → Secrets:** `DISCORD_BOT_TOKEN` y `DISCORD_GUILD_ID`.
+3. **Edge Functions → Secrets:** `DISCORD_BOT_TOKEN` y `DISCORD_GUILD_ID` (y `ADMIN_CODE` si quieres el acceso por código de abajo).
 4. **Rol administrador de la web** (no necesita el bot): `update public.discord_guild_config set admin_role_id = 'ID_DEL_ROL' where guild_id = 'ID_DEL_SERVIDOR';`. La Edge Function crea la fila del servidor sola en el primer inicio de sesión.
+
+### Acceso de administrador por código (temporal)
+
+Mientras el acceso con Discord no esté configurado, la web admite un código: guárdalo como secreto `ADMIN_CODE` de la Edge Function y escríbelo en el modal de cuenta (**¿Tienes un código de administrador?**). La función lo compara en el servidor en tiempo constante y bloquea nuevos intentos durante 10 minutos tras 5 fallos desde una misma IP; el navegador solo lo guarda en la pestaña abierta. Usa un código largo y aleatorio, cámbialo cuando quieras editando el secreto, y bórralo cuando el acceso por Discord esté listo.
+
+Para que esto funcione la función se despliega **sin** verificación de JWT en la puerta de Supabase (`supabase/config.toml`), porque decide ella misma: sesión de Discord válida o código correcto.
 
 ### Qué corrigen las migraciones 014 a 020
 

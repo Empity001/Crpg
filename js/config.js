@@ -6,8 +6,8 @@
 // Discord antes de cualquier escritura administrativa.
 // =========================================================
 
-export const SUPABASE_URL = 'https://xuaeaebypcggoqwgshjy.supabase.co';
-export const SUPABASE_ANON_KEY = 'sb_publishable_JTg72e9jfhMLYOErILzLVw_Ohd2bYmk';
+export const SUPABASE_URL = 'https://pmswpieenktwtlwveqym.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_uu2k-Gd6jDorHSK4m_ua0w_W9W47ZoP';
 export const DISCORD_ADMIN_FUNCTION = 'discord-admin-api';
 export const OFFICIAL_SITE_URL = 'https://empity001.github.io/Crpg/';
 
@@ -64,6 +64,34 @@ function createUnavailableClient(message) {
   };
 }
 
+// Acceso de administrador por código (temporal). El código se guarda solo en esta
+// pestaña (sessionStorage) y se envía únicamente a la Edge Function, que lo
+// verifica en el servidor: aquí nunca se decide nada.
+const ADMIN_CODE_STORAGE_KEY = 'culones_admin_code_v1';
+
+export function getAdminCode() {
+  try { return sessionStorage.getItem(ADMIN_CODE_STORAGE_KEY) || ''; } catch { return ''; }
+}
+
+export function setAdminCode(code) {
+  try {
+    const clean = String(code || '').trim();
+    if (clean) sessionStorage.setItem(ADMIN_CODE_STORAGE_KEY, clean);
+    else sessionStorage.removeItem(ADMIN_CODE_STORAGE_KEY);
+  } catch { /* almacenamiento no disponible */ }
+}
+
+// Añade la cabecera del código a las llamadas a las Edge Functions (todas las
+// acciones administrativas pasan por ahí) y a nada más.
+function fetchWithAdminCode(input, init) {
+  const url = typeof input === 'string' ? input : (input?.url || '');
+  const code = url.includes('/functions/v1/') ? getAdminCode() : '';
+  if (!code) return fetch(input, init);
+  const headers = new Headers(init?.headers || (typeof input === 'object' ? input.headers : undefined));
+  headers.set('x-admin-code', code);
+  return fetch(input, { ...init, headers });
+}
+
 const factory = window.supabase?.createClient;
 const rawClient = typeof factory === 'function'
   ? factory(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -76,7 +104,7 @@ const rawClient = typeof factory === 'function'
       },
       db: { timeout: 12000 },
       realtime: { params: { eventsPerSecond: 5 } },
-      global: { headers: { 'x-client-info': 'culones-rpg-web' } },
+      global: { headers: { 'x-client-info': 'culones-rpg-web' }, fetch: fetchWithAdminCode },
     })
   : createUnavailableClient('No se pudo cargar el cliente local de Supabase.');
 
