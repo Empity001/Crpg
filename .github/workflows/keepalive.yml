@@ -1,12 +1,13 @@
 name: Mantener Supabase despierto
 
-# El plan gratuito de Supabase pausa el proyecto tras una semana sin actividad y la
-# web se queda sin datos sin que nadie se entere. Esta consulta ligera cada dos días
-# cuenta como actividad. Si el proyecto ya estuviera pausado, la consulta falla y
-# GitHub avisa por correo. La URL y la clave son las públicas de js/config.js.
+# El plan gratuito de Supabase pausa el proyecto si en una semana no recibe suficiente
+# actividad (su documentación habla de unas pocas consultas al día) y la web se queda
+# sin datos sin que nadie se entere. Este workflow hace tres consultas ligeras cada 6
+# horas. Si el proyecto ya estuviera pausado, fallan y GitHub avisa por correo. La URL
+# y la clave son las públicas de js/config.js.
 on:
   schedule:
-    - cron: '17 9 */2 * *'
+    - cron: '17 */6 * * *'
   workflow_dispatch:
 
 # GitHub desactiva los workflows programados de un repo público tras 60 días sin
@@ -19,14 +20,19 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Consulta ligera a la API
+      - name: Consultas ligeras a la API
         env:
           SUPABASE_URL: https://pmswpieenktwtlwveqym.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_uu2k-Gd6jDorHSK4m_ua0w_W9W47ZoP
         run: |
-          curl --fail --silent --show-error --max-time 30 \
-            "$SUPABASE_URL/rest/v1/site_content_versions?select=section&limit=1" \
-            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -o /dev/null
+          for consulta in \
+            "site_content_versions?select=section&limit=1" \
+            "categories?select=*&limit=1" \
+            "tierlist_rows?select=*&limit=1"; do
+            curl --fail --silent --show-error --max-time 30 \
+              "$SUPABASE_URL/rest/v1/$consulta" \
+              -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -o /dev/null
+          done
           echo "Supabase respondió correctamente."
 
       - name: Mantener activo este workflow
