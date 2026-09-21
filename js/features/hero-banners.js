@@ -17,7 +17,7 @@ export const HERO_BANNER_PAGES = [
   { key: 'guides', label: 'Guías' },
   { key: 'tierlist', label: 'Tierlist' },
   { key: 'kits', label: 'Kits' },
-  { key: 'about', label: 'Acerca del servidor' },
+  { key: 'about', label: 'Acerca de' },
   { key: 'admin', label: 'Herramientas' },
 ];
 

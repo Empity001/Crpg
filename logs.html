@@ -23,8 +23,9 @@
 <link rel="stylesheet" href="css/admin-entry-cards.css?v=20260716-1" />
 <link rel="stylesheet" href="css/theme-system.css?v=20260712-1" />
 <link rel="stylesheet" href="css/culones.css?v=20260921-1" />
+<link rel="stylesheet" href="css/windows.css?v=20260921-2" />
 </head>
-<body>
+<body class="cw-skin">
 
 <!-- Header, nav y footer compartidos: se inyectan en runtime desde
      partials/ (ver js/app/shell.js). Así evitamos duplicar ese HTML
@@ -39,9 +40,9 @@
           <div class="logs-section-title-wrap">
             <span class="logs-section-icon" aria-hidden="true">📖</span>
             <div>
-              <span class="logs-section-eyebrow">Registro del servidor</span>
+              <span class="logs-section-eyebrow">Registro</span>
               <h1>Logs</h1>
-              <p>Explora eventos, cambios y mecánicas sin perder de vista el detalle.</p>
+              <p>Novedades y cambios, con todo el detalle.</p>
             </div>
           </div>
           <button class="btn-new-log hidden admin-create-toolbar-fallback" id="open-new-log-btn" type="button">
@@ -76,7 +77,7 @@
           <!-- Las filas de logs se renderizan desde js/features/logs.js -->
           <div class="logs-empty" id="logs-empty">
             <div class="spinner"></div>
-            <p>Cargando registros del servidor...</p>
+            <p>Cargando registros...</p>
           </div>
         </div>
       </section>

@@ -38,42 +38,94 @@ let commandCenterModulePromise = null;
 
 const PAGE_HERO_COPY = {
   logs: {
-    eyebrow: 'Registro del servidor',
-    title: 'Centro de Logs',
-    normal: 'Explora los eventos, cambios y mecánicas más importantes del servidor.',
-    admin: 'Explora y administra los eventos, cambios y mecánicas más importantes del servidor.',
+    eyebrow: 'Registro',
+    title: 'Logs',
+    normal: 'Novedades, cambios y todo lo que va pasando.',
+    admin: 'Publica y administra las novedades y los cambios.',
   },
   guides: {
-    eyebrow: 'Catálogo y progresión',
-    title: 'Guías del servidor',
-    normal: 'Consulta armas, objetos, rangos, estadísticas y formas de obtención.',
-    admin: 'Consulta y administra armas, objetos, rangos, estadísticas y formas de obtención.',
+    eyebrow: 'Catálogo',
+    title: 'Guías',
+    normal: 'Consulta el catálogo con todos sus detalles.',
+    admin: 'Consulta y administra el catálogo y sus detalles.',
   },
   tierlist: {
-    eyebrow: 'Clasificación oficial',
+    eyebrow: 'Clasificación',
     title: 'Tierlist',
-    normal: 'Compara armas, subarmas y accesorios organizados por su rendimiento.',
-    admin: 'Organiza y administra las posiciones de armas, subarmas y accesorios.',
+    normal: 'Compara elementos ordenados por nivel.',
+    admin: 'Organiza los elementos por nivel.',
   },
   kits: {
-    eyebrow: 'Combinaciones recomendadas',
+    eyebrow: 'Combinaciones',
     title: 'Kits',
-    normal: 'Descubre combinaciones de arma, accesorio y subarma preparadas para el servidor.',
-    admin: 'Crea y administra combinaciones de arma, accesorio y subarma para el servidor.',
+    normal: 'Combinaciones recomendadas, listas para usar.',
+    admin: 'Crea y administra combinaciones recomendadas.',
   },
   about: {
-    eyebrow: 'Nuestra comunidad',
-    title: 'Acerca del servidor',
-    normal: 'Conoce el mundo, la comunidad y la identidad detrás de Culones-RPG.',
-    admin: 'Conoce y administra la información pública que representa a Culones-RPG.',
+    eyebrow: 'Información',
+    title: 'Acerca de',
+    normal: 'Quiénes somos y de qué va todo esto.',
+    admin: 'Edita la información pública del sitio.',
   },
   admin: {
     eyebrow: 'Gestión completa',
     title: 'Herramientas',
-    normal: 'Área privada de administración del servidor.',
+    normal: 'Área privada de administración.',
     admin: 'Administra recursos, copias de seguridad, borradores y ajustes globales del sitio.',
   },
 };
+
+
+// Cada página interior vive dentro de una ventana, igual que la portada: barra con
+// tres puntos (cerrar vuelve a la portada, minimizar pliega, maximizar ensancha)
+// y la ruta de la sección. No mueve el contenido: solo añade la barra.
+const FRAME_LABELS = { logs: 'Logs', guides: 'Guías', tierlist: 'Tierlist', kits: 'Kits', about: 'Acerca de', admin: 'Herramientas' };
+const WIDE_KEY = 'culones_pw_wide';
+
+function ensurePageFrame(pageKey) {
+  const label = FRAME_LABELS[pageKey];
+  const panel = document.querySelector('.tab-panel.is-active') || document.querySelector('.tab-panel');
+  if (!label || !panel || panel.classList.contains('pw')) return;
+
+  let wide = false;
+  try { wide = window.localStorage.getItem(WIDE_KEY) === '1'; } catch { /* sin almacenamiento */ }
+
+  panel.classList.add('pw');
+  document.body.classList.add('pw-on');
+  document.body.classList.toggle('pw-wide', wide);
+
+  const bar = document.createElement('div');
+  bar.className = 'pw-bar';
+  bar.innerHTML = `
+    <div class="pw-dots">
+      <a class="pw-dot pw-dot-close" href="index.html" aria-label="Cerrar ${label} y volver a la portada" title="Volver a la portada"></a>
+      <button class="pw-dot pw-dot-min" type="button" aria-label="Minimizar ${label}" aria-expanded="true" title="Minimizar"></button>
+      <button class="pw-dot pw-dot-max" type="button" aria-label="Ensanchar ${label}" aria-pressed="${wide}" title="Ensanchar"></button>
+    </div>
+    <p class="pw-title">${label}</p>
+    <span class="pw-path" aria-hidden="true">~/${pageKey}</span>`;
+  panel.prepend(bar);
+
+  const min = bar.querySelector('.pw-dot-min');
+  const max = bar.querySelector('.pw-dot-max');
+  const setWide = (next) => {
+    document.body.classList.toggle('pw-wide', next);
+    max.setAttribute('aria-pressed', String(next));
+    max.setAttribute('aria-label', `${next ? 'Volver al ancho normal de' : 'Ensanchar'} ${label}`);
+    try { window.localStorage.setItem(WIDE_KEY, next ? '1' : '0'); } catch { /* sin almacenamiento */ }
+  };
+  if (wide) setWide(true);
+  min.addEventListener('click', () => {
+    const collapsed = panel.classList.toggle('pw-collapsed');
+    min.setAttribute('aria-expanded', String(!collapsed));
+    min.setAttribute('aria-label', `${collapsed ? 'Restaurar' : 'Minimizar'} ${label}`);
+  });
+  max.addEventListener('click', () => setWide(!document.body.classList.contains('pw-wide')));
+  bar.addEventListener('dblclick', (event) => {
+    if (event.target.closest('.pw-dot')) return;
+    setWide(!document.body.classList.contains('pw-wide'));
+  });
+}
 
 function ensurePageHero(pageKey) {
   const panel = document.querySelector('.tab-panel.is-active') || document.querySelector('.tab-panel');
@@ -86,13 +138,8 @@ function ensurePageHero(pageKey) {
   hero.innerHTML = `
     <div class="page-hero-copy">
       <span class="page-hero-eyebrow">${copy.eyebrow}</span>
-      <h1 id="page-title-${pageKey}">${copy.title}<span class="hero-spark" aria-hidden="true">✦</span></h1>
+      <h1 id="page-title-${pageKey}">${copy.title}</h1>
       <p><span class="hero-copy-normal">${copy.normal}</span><span class="hero-copy-admin">${copy.admin}</span></p>
-    </div>
-    <div class="page-hero-art" aria-hidden="true">
-      <span class="hero-moon"></span>
-      <span class="hero-castle"></span>
-      <span class="hero-flag"></span>
     </div>`;
   panel.prepend(hero);
 }
@@ -345,6 +392,7 @@ export function bootShell(pageKey) {
     document.body.dataset.page = pageKey;
     wireHeaderNav(pageKey);
     ensurePageHero(pageKey);
+    ensurePageFrame(pageKey);
     wireMobileSidebar();
     wireAdminModal();
     wireAssetFullscreenDelegation();

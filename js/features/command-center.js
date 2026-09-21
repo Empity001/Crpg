@@ -15,7 +15,7 @@ const PAGE_LINKS = [
   { key: 'guides', label: 'Ir a Guías', url: 'guides.html', icon: '⚔️', shortcut: 'Alt 2' },
   { key: 'tierlist', label: 'Ir a Tierlist', url: 'tierlist.html', icon: '🏆', shortcut: 'Alt 3' },
   { key: 'kits', label: 'Ir a Kits', url: 'kits.html', icon: '🎒', shortcut: 'Alt 4' },
-  { key: 'about', label: 'Ir a Acerca del servidor', url: 'about.html', icon: '🎮', shortcut: 'Alt 5' },
+  { key: 'about', label: 'Ir a Acerca de', url: 'about.html', icon: '🎮', shortcut: 'Alt 5' },
   { key: 'admin', label: 'Ir a Herramientas', url: 'admin.html', icon: '🛠', shortcut: 'Alt 6', adminOnly: true },
 ];
 

@@ -1,0 +1,399 @@
+/* =========================================================
+   windows.css: el lenguaje de ventanas en TODAS las páginas
+   ---------------------------------------------------------
+   Se carga después de culones.css (y de desk.css en la portada).
+   Todo cuelga de body.cw-skin, que pone shell.js, para ganarle en
+   especificidad a las hojas heredadas sin tocarlas.
+
+   Reglas de forma (una sola escala, sin excepciones):
+     retro  lo que está en la página: radios de 4px (controles) y 6px
+            (tarjetas y ventanas), borde de 2-3px, sombra dura SOLO en lo
+            que se pulsa o flota sobre la página.
+     cristal lo que flota y desaparece: búsqueda, novedades, ajustes,
+            paleta de comandos, avisos. Radio de 18px, desenfoque.
+     HUD    lecturas y paneles de datos: línea fina y radio de 2px.
+   Los colores salen de las variables --theme-*-rgb, así que el editor
+   de tema recolorea todo esto.
+   ========================================================= */
+
+body.cw-skin {
+  --sk-line: rgb(var(--theme-primary-soft-rgb, 180 108 255) / 0.5);
+  --sk-line-soft: rgb(var(--theme-primary-soft-rgb, 180 108 255) / 0.26);
+  --sk-hard: rgb(var(--theme-primary-rgb, 139 61 255) / 0.5);
+  --sk-bar: repeating-linear-gradient(90deg, rgb(0 0 0 / 0.14) 0 2px, transparent 2px 6px), var(--cw-primary);
+  --sk-glass: color-mix(in srgb, var(--cw-panel) 78%, transparent);
+}
+
+/* ---------------------------------------------------------
+   1. MARCO DE PÁGINA (.pw): cada sección vive en una ventana
+   --------------------------------------------------------- */
+body.cw-skin.pw-on .app-main { max-width: 1280px; }
+body.cw-skin.pw-on.pw-wide .app-main { max-width: none; }
+
+.pw {
+  --pw-pad: clamp(16px, 2.4vw, 30px);
+  position: relative;
+  padding: 0 var(--pw-pad) 30px;
+  border: 3px solid var(--cw-primary-soft);
+  border-radius: 6px;
+  background: var(--cw-panel);
+  box-shadow: 7px 7px 0 var(--sk-hard);
+}
+.pw-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 42px;
+  margin: 0 calc(var(--pw-pad) * -1) 24px;
+  padding: 0 14px;
+  border-bottom: 3px solid var(--cw-primary-soft);
+  border-radius: 3px 3px 0 0;
+  background: var(--sk-bar);
+  color: var(--cw-on-primary);
+  user-select: none;
+}
+.pw-dots { display: flex; gap: 9px; flex: 0 0 auto; }
+.pw-dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: transparent;
+  font: 700 12px/1 var(--cw-sans);
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.15s var(--cw-ease), filter 0.15s;
+}
+.pw-dot::before { content: ''; position: absolute; inset: -5px; }
+.pw-dot-close { background: var(--cw-close); }
+.pw-dot-min { background: var(--cw-warn); }
+.pw-dot-max { background: var(--cw-ok); }
+.pw-dot-close::after { content: '\00d7'; }
+.pw-dot-min::after { content: '\2212'; }
+.pw-dot-max::after { content: '+'; }
+.pw-dot:hover, .pw-dot:focus-visible { color: rgb(0 0 0 / 0.72); filter: brightness(1.08); }
+.pw-dot:active { transform: scale(0.9); }
+.pw-dot:focus-visible { outline: 3px solid var(--cw-lilac); outline-offset: 3px; }
+.pw-title { margin: 0; font: 400 11px/1 var(--cw-pixel); white-space: nowrap; }
+.pw-path { margin-left: auto; font: 500 12px/1 var(--cw-mono); opacity: 0.8; white-space: nowrap; }
+.pw-collapsed { padding-bottom: 0; }
+.pw-collapsed .pw-bar { margin-bottom: 0; border-bottom: 0; border-radius: 3px; }
+.pw-collapsed > :not(.pw-bar) { display: none !important; }
+
+/* ---------- cabecera de la página dentro del marco ---------- */
+body.cw-skin.pw-on .page-hero:not(.has-custom-banner) {
+  display: block;
+  min-height: 0;
+  margin: 0 0 22px;
+  padding: 0 0 18px;
+  border: 0;
+  border-bottom: 2px dashed var(--sk-line-soft);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+}
+body.cw-skin.pw-on .page-hero:not(.has-custom-banner)::before,
+body.cw-skin.pw-on .page-hero:not(.has-custom-banner)::after { display: none; }
+body.cw-skin.pw-on .page-hero.has-custom-banner {
+  min-height: 170px;
+  margin: 0 0 22px;
+  padding: 26px;
+  border: 3px solid var(--cw-primary-soft);
+  border-radius: 4px;
+  box-shadow: none;
+}
+body.cw-skin.pw-on .page-hero-copy { max-width: 720px; }
+body.cw-skin.pw-on .page-hero-eyebrow { font-family: var(--cw-mono); letter-spacing: 0.14em; }
+body.cw-skin.pw-on .page-hero h1 {
+  margin: 0;
+  font: 700 clamp(28px, 4vw, 40px)/1.05 var(--cw-sans);
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+body.cw-skin.pw-on .page-hero p { max-width: 62ch; margin-top: 10px; color: var(--cw-ink-2); }
+
+/* Logs: el espacio de trabajo ya trae su propia cabecera y sus columnas */
+body.cw-skin.pw-on[data-page='logs'] .page-hero { display: none; }
+body.cw-skin[data-page='logs'].pw-on .app-main { max-width: 1500px; }
+@media (min-width: 901px) {
+  body.cw-skin[data-page='logs'] .logs-page-main { padding: 76px 30px 72px 30px; }
+}
+body.cw-skin[data-page='logs'] .pw { padding: 0 0 4px; }
+body.cw-skin[data-page='logs'] .pw-bar { margin: 0 0 0; }
+body.cw-skin .pw .logs-workspace {
+  min-height: 0;
+  border: 0;
+  border-radius: 0 0 3px 3px;
+  background: none;
+  box-shadow: none;
+}
+
+/* ---------------------------------------------------------
+   2. BARRA LATERAL: un dock con botones de ventana
+   --------------------------------------------------------- */
+body.cw-skin .tab-item {
+  min-height: 48px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  font-weight: 600;
+}
+body.cw-skin .tab-item::before { display: none; }
+body.cw-skin .tab-item:hover { border-color: var(--sk-line-soft); background: rgb(var(--theme-primary-rgb, 139 61 255) / 0.1); transform: none; }
+body.cw-skin .tab-item.is-active {
+  border-color: var(--cw-primary-soft);
+  background: var(--cw-primary);
+  color: var(--cw-on-primary);
+  box-shadow: 3px 3px 0 rgb(0 0 0 / 0.4);
+}
+body.cw-skin .tab-item:focus-visible { outline: 3px solid var(--cw-lilac); outline-offset: 2px; }
+body.cw-skin .sidebar-section-label { font-family: var(--cw-mono); letter-spacing: 0.18em; }
+body.cw-skin .sidebar-session-card {
+  border: 2px solid var(--sk-line);
+  border-radius: 6px;
+  box-shadow: 3px 3px 0 var(--sk-hard);
+}
+
+/* ---------------------------------------------------------
+   3. CONTROLES
+   --------------------------------------------------------- */
+body.cw-skin :is(.btn-primary, .btn-secondary-admin, .btn-danger, .link-btn, .btn-new-log, .btn-load-more, .back-btn, .weapon-back-btn, .media-action-btn, .media-primary-btn, .btn-export, .btn-export-excel, .btn-block-add, .btn-add-about-block, .btn-media-picker, .btn-upload-zone, .btn-compact, .editor-mini-btn, .kit-add-item-btn) {
+  border: 2px solid var(--sk-line);
+  border-radius: 4px;
+  font-family: var(--cw-sans);
+  font-weight: 700;
+  letter-spacing: 0;
+  box-shadow: 3px 3px 0 rgb(0 0 0 / 0.35);
+  transition: transform 0.14s var(--cw-ease), box-shadow 0.14s var(--cw-ease), background-color 0.14s, border-color 0.14s;
+}
+body.cw-skin :is(.btn-primary, .btn-new-log, .media-primary-btn) {
+  border-color: var(--cw-primary-soft);
+  background: var(--cw-primary);
+  color: var(--cw-on-primary);
+}
+body.cw-skin :is(.btn-primary, .btn-secondary-admin, .btn-danger, .link-btn, .btn-new-log, .btn-load-more, .back-btn, .weapon-back-btn, .media-action-btn, .media-primary-btn, .btn-export, .btn-block-add, .btn-media-picker, .btn-compact, .editor-mini-btn):hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 rgb(0 0 0 / 0.4);
+}
+body.cw-skin :is(.btn-primary, .btn-secondary-admin, .btn-danger, .link-btn, .btn-new-log, .btn-load-more, .back-btn, .weapon-back-btn, .media-action-btn, .media-primary-btn, .btn-export, .btn-block-add, .btn-media-picker, .btn-compact, .editor-mini-btn):active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+body.cw-skin :is(.btn-primary, .btn-secondary-admin, .btn-danger, .link-btn, .btn-new-log, .btn-load-more, .back-btn, .media-action-btn, .btn-export, .btn-block-add):focus-visible {
+  outline: 3px solid var(--cw-lilac);
+  outline-offset: 2px;
+}
+body.cw-skin :is(button, .btn-primary, .btn-secondary-admin):disabled { box-shadow: none; transform: none; }
+
+body.cw-skin :is(.modal-input, .modal-select, .modal-textarea, .media-input, .sort-select, .weapons-search-input, .dk-input) {
+  border: 2px solid var(--sk-line);
+  border-radius: 4px;
+  background: rgb(var(--theme-input-rgb, 29 34 64));
+  color: var(--cw-ink);
+}
+body.cw-skin :is(.modal-input, .modal-select, .modal-textarea, .media-input, .sort-select, .weapons-search-input):focus-visible {
+  outline: 3px solid var(--cw-lilac);
+  outline-offset: 1px;
+  border-color: var(--cw-primary-soft);
+}
+body.cw-skin :is(.modal-input, .modal-select, .modal-textarea)::placeholder { color: var(--theme-text-muted, #6d6a87); }
+
+body.cw-skin .pill {
+  border: 2px solid var(--sk-line-soft);
+  border-radius: 4px;
+  font-weight: 600;
+  transition: background-color 0.14s, border-color 0.14s, transform 0.14s var(--cw-ease);
+}
+body.cw-skin .pill:hover { border-color: var(--cw-primary-soft); }
+body.cw-skin .pill.is-active,
+body.cw-skin .pill[aria-selected='true'] {
+  border-color: var(--cw-primary-soft);
+  background: var(--cw-primary);
+  color: var(--cw-on-primary);
+  box-shadow: 2px 2px 0 rgb(0 0 0 / 0.4);
+}
+body.cw-skin :is(.optional-tag, .log-category-tag, .log-relevance-badge, .weapon-cat-badge, .weapon-type-badge, .draft-local-tag, .weapon-unpublished-tag, .log-unpublished-tag, .media-kind-badge, .enchant-tag) {
+  border-radius: 4px;
+  font-family: var(--cw-mono);
+}
+
+/* ---------------------------------------------------------
+   4. TARJETAS y PANELES
+   --------------------------------------------------------- */
+body.cw-skin :is(.log-list-card, .kit-card, .weapon-card, .media-card, .about-stat-card, .admin-create-card, .tools-quick-card, .data-format-card, .theme-scope-card, .weapon-ability-card, .inspector-entity-card, .guide-change-card, .discord-account-card) {
+  border: 2px solid var(--sk-line-soft);
+  border-radius: 6px;
+  box-shadow: none;
+  transition: transform 0.16s var(--cw-ease), box-shadow 0.16s var(--cw-ease), border-color 0.16s;
+}
+@media (hover: hover) {
+  body.cw-skin :is(.log-list-card, .kit-card, .weapon-card, .media-card, .admin-create-card, .tools-quick-card, .data-format-card):hover {
+    border-color: var(--cw-primary-soft);
+    box-shadow: 4px 4px 0 var(--sk-hard);
+    transform: translate(-2px, -2px);
+  }
+}
+body.cw-skin :is(.log-list-card, .kit-card, .weapon-card, .media-card, .admin-create-card, .tools-quick-card):focus-visible {
+  outline: 3px solid var(--cw-lilac);
+  outline-offset: 3px;
+}
+
+body.cw-skin :is(.admin-section, .weapon-section-block, .logs-inspector-section, .block-detail-panel, .guide-relation-panel, .guide-forum-panel, .health-panel, .theme-scope-panel, .media-library-section, .data-import-section, .identity-section, .theme-editor-section, .hero-banner-admin-section, .guides-catalog-controls, .health-card) {
+  border: 1px solid var(--sk-line);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--cw-page) 55%, transparent);
+  box-shadow: none;
+}
+body.cw-skin :is(.admin-section-title, .weapon-section-title, .health-panel-head) { font-family: var(--cw-mono); letter-spacing: 0.06em; }
+
+body.cw-skin .tier-row-label,
+body.cw-skin .tier-label { border-radius: 4px; }
+body.cw-skin :is(.tier-row, .tier-row-items, .tierlist-bench-section) { border-radius: 6px; }
+
+/* ---------------------------------------------------------
+   5. MODALES: una ventana de verdad, con su barra
+   --------------------------------------------------------- */
+body.cw-skin .modal-overlay,
+body.cw-skin .app-confirm-overlay {
+  background: rgb(var(--theme-page-rgb, 7 9 20) / 0.78);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+body.cw-skin :is(.modal-box, .media-modal-box, .kit-modal-box, .weapon-recipe-modal-box, .app-confirm-box, .media-picker-box, .media-edit-box) {
+  position: relative;
+  padding-top: 62px;
+  border: 3px solid var(--cw-primary-soft);
+  border-radius: 6px;
+  background: var(--cw-panel);
+  box-shadow: 8px 8px 0 var(--sk-hard);
+}
+body.cw-skin :is(.modal-box, .media-modal-box, .kit-modal-box, .weapon-recipe-modal-box, .app-confirm-box, .media-picker-box, .media-edit-box)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  border-bottom: 3px solid var(--cw-primary-soft);
+  background:
+    radial-gradient(circle at 22px 50%, var(--cw-close) 0 6px, transparent 6.5px),
+    radial-gradient(circle at 44px 50%, var(--cw-warn) 0 6px, transparent 6.5px),
+    radial-gradient(circle at 66px 50%, var(--cw-ok) 0 6px, transparent 6.5px),
+    var(--sk-bar);
+  pointer-events: none;
+}
+body.cw-skin :is(.modal-box, .media-modal-box) > .modal-close,
+body.cw-skin .modal-close {
+  top: 6px;
+  right: 8px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  color: var(--cw-on-primary) !important;
+  font-size: 16px;
+}
+body.cw-skin .modal-close:hover { background: rgb(0 0 0 / 0.22) !important; border-color: transparent !important; color: var(--cw-on-primary) !important; }
+body.cw-skin .modal-title { font-family: var(--cw-pixel); font-size: 12px; line-height: 1.6; letter-spacing: 0; }
+body.cw-skin .modal-error { border-radius: 4px; }
+
+/* ---------------------------------------------------------
+   6. LO QUE FLOTA: cristal
+   --------------------------------------------------------- */
+body.cw-skin :is(.global-search-popover, .site-notification-panel, .visitor-settings-panel, .command-palette, .context-action-panel) {
+  border: 1px solid rgb(var(--theme-primary-soft-rgb, 180 108 255) / 0.4);
+  border-radius: 18px;
+  background: var(--sk-glass);
+  box-shadow: 0 22px 54px rgb(0 0 0 / 0.42), inset 0 1px 0 rgb(255 255 255 / 0.1);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+}
+body.cw-skin .toast {
+  border: 1px solid rgb(var(--theme-primary-soft-rgb, 180 108 255) / 0.4);
+  border-radius: 14px;
+  background: var(--sk-glass);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.08);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  body.cw-skin :is(.global-search-popover, .site-notification-panel, .visitor-settings-panel, .command-palette, .context-action-panel, .toast) { background: var(--cw-panel); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  body.cw-skin :is(.global-search-popover, .site-notification-panel, .visitor-settings-panel, .command-palette, .context-action-panel, .toast, .modal-overlay, .app-confirm-overlay) {
+    background: var(--cw-panel);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+body.cw-skin .site-notification-toggle,
+body.cw-skin .global-search-toggle,
+body.cw-skin .visitor-settings-toggle {
+  border: 2px solid var(--sk-line);
+  border-radius: 6px;
+  box-shadow: 3px 3px 0 rgb(0 0 0 / 0.35);
+}
+
+/* ---------------------------------------------------------
+   6b. HERRAMIENTAS (administrador)
+   --------------------------------------------------------- */
+body.cw-skin.pw-on[data-page='admin'] .page-hero { display: none; }
+body.cw-skin .tools-hero {
+  min-height: 140px;
+  padding: 26px 28px;
+  border: 1px solid var(--sk-line);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--cw-page) 60%, transparent);
+  box-shadow: none;
+}
+body.cw-skin .tools-hero-status { border-radius: 4px; }
+body.cw-skin .tools-nav {
+  top: 24px;
+  border: 1px solid var(--sk-line);
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+body.cw-skin .tools-nav-btn { border: 2px solid transparent; border-radius: 4px; }
+body.cw-skin .tools-nav-btn > span { border-radius: 4px; }
+body.cw-skin .tools-nav-btn:hover { border-color: var(--sk-line-soft); transform: none; }
+body.cw-skin .tools-nav-btn.is-active {
+  border-color: var(--cw-primary-soft);
+  background: var(--cw-primary);
+  box-shadow: 3px 3px 0 rgb(0 0 0 / 0.4);
+}
+body.cw-skin .tools-nav-btn.is-active :is(strong, small, span) { color: var(--cw-on-primary); }
+
+/* ---------------------------------------------------------
+   6c. ESCALA DE FORMAS: los radios heredados (12 a 24px) bajan a la escala
+   --------------------------------------------------------- */
+body.cw-skin :is(.about-content, .about-block-highlight, .about-block-image, .weapons-toolbar, .weapon-detail-header, .weapon-recipe-method, .tierlist-bench-section, .placeholder-panel, .logs-empty, .weapons-empty, .admin-empty, .media-empty, .media-toolbar, .admin-terminal-panel, .export-option-group, .logs-toolbar, .logs-inspector, .logs-inspector-tab-empty, .log-cover-field, .kit-editor-item, .theme-preview-card, .theme-color-group, .hero-banner-live-preview, .identity-icon-editor, .appearance-nav, .bg-mode-option, .recipe-editor-workbench, .recipe-result-properties, .boot-error-panel, .discord-account-card) {
+  border-radius: 6px;
+}
+body.cw-skin :is(.tier-row-label, .tier-cell, .tier-bench-cell, .tier-item-chip, .draft-list-row, .import-conflict-row, .site-notification-item, .global-search-result, .media-card-picker, .recipe-editor-slot, .kit-context-item, .context-disclosure, .log-cover-image-preview, .context-image-preview, .favicon-preview, .site-logo-preview, .theme-color-control, .bg-tab-checkbox, .health-card, .forum-reactions-status, .weapon-card-thumb, .tools-quick-icon, .data-format-icon, .import-drop-icon, .logs-section-icon, .logs-inspector-empty-icon, .admin-toggle-emblem, .btn-admin-toggle) {
+  border-radius: 4px;
+}
+body.cw-skin .pw .logs-master-column { border-radius: 0; }
+
+/* ---------------------------------------------------------
+   7. ESTRECHO
+   --------------------------------------------------------- */
+@media (max-width: 900px) {
+  .pw { box-shadow: 5px 5px 0 var(--sk-hard); }
+  body.cw-skin .app-main { padding-inline: 14px; }
+}
+@media (max-width: 560px) {
+  .pw-path { display: none; }
+  .pw { border-width: 2px; }
+  .pw-bar { border-bottom-width: 2px; }
+  body.cw-skin :is(.modal-box, .media-modal-box, .kit-modal-box, .weapon-recipe-modal-box, .app-confirm-box) { border-width: 2px; box-shadow: 5px 5px 0 var(--sk-hard); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pw-dot, body.cw-skin :is(.log-list-card, .kit-card, .weapon-card, .media-card, .admin-create-card, .tools-quick-card, .data-format-card, .pill) { transition: none; }
+}

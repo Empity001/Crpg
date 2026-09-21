@@ -17,7 +17,7 @@ const SECTION_META = {
   guides: { label: 'Guías', icon: '⚔️', order: 1 },
   tierlist: { label: 'Tierlist', icon: '🏆', order: 2 },
   kits: { label: 'Kits', icon: '🎒', order: 3 },
-  about: { label: 'Acerca del servidor', icon: '🎮', order: 4 },
+  about: { label: 'Acerca de', icon: '🎮', order: 4 },
   admin: { label: 'Herramientas', icon: '🛠️', order: 5 },
 };
 
@@ -121,7 +121,7 @@ function collectNamedRecipeValues(value, result = [], seen = new Set()) {
 
 function buildAboutEntries(entries, seen, sourceBlocks = state.aboutBlocks) {
   const blocks = Array.isArray(sourceBlocks) ? sourceBlocks : [];
-  let currentHeading = 'Acerca del servidor';
+  let currentHeading = 'Acerca de';
 
   blocks.forEach((block, index) => {
     const kind = String(block?.kind || '');
@@ -135,7 +135,7 @@ function buildAboutEntries(entries, seen, sourceBlocks = state.aboutBlocks) {
         title: content,
         sectionKey: 'about',
         kind: kind === 'heading' ? 'Título' : 'Destacado',
-        description: kind === 'heading' ? 'Sección de Acerca del servidor' : content,
+        description: kind === 'heading' ? 'Sección de Acerca de' : content,
         url: `about.html?block=${index}`,
       });
       return;
@@ -225,7 +225,7 @@ async function createSearchIndex() {
     ['guides', 'Guías', 'Consulta objetos, armas, rangos y sus formas de obtención.', 'guides.html'],
     ['tierlist', 'Tierlist', 'Clasificación de armas, accesorios y subarmas.', 'tierlist.html'],
     ['kits', 'Kits', 'Combinaciones recomendadas del servidor.', 'kits.html'],
-    ['about', 'Acerca del servidor', 'Información general de la comunidad y el proyecto.', 'about.html'],
+    ['about', 'Acerca de', 'Información general de la comunidad y el proyecto.', 'about.html'],
   ].forEach(([sectionKey, title, description, url]) => addEntry(entries, seen, {
     key: `page:${sectionKey}`, title, sectionKey, kind: 'Sección', description, url,
   }));
