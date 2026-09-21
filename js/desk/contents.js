@@ -237,8 +237,8 @@ const RENDER = {
 };
 
 export function renderContent(win, body, ctx) {
-  const render = RENDER[win.type];
-  if (!render || !TYPES[win.type]) {
+  const render = Object.hasOwn(RENDER, win.type) ? RENDER[win.type] : null;
+  if (!render || !Object.hasOwn(TYPES, win.type)) {
     body.innerHTML = emptyState('Este tipo de ventana ya no existe.', false);
     return undefined;
   }

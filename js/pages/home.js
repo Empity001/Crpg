@@ -26,12 +26,19 @@ let editorLoading = null;
 // pisaría la portada real.
 let savedLayoutLoaded = false;
 
-const savedOrDefaultLayout = () => normalizeLayout(state.homeLayout) || defaultLayout();
+// Nunca lanza: si lo guardado no se puede leer, se muestra la composición inicial.
+const savedOrDefaultLayout = () => {
+  try { return normalizeLayout(state.homeLayout) || defaultLayout(); } catch (error) {
+    console.warn('[Portada] La disposición guardada no es válida:', error);
+    return defaultLayout();
+  }
+};
 
 async function ensureEditor() {
   if (editor || editorLoading || !desk || !isAdmin()) return;
   editorLoading = import('../desk/editor.js')
     .then((module) => {
+      if (!isAdmin()) return; // se cerró la sesión mientras cargaba el editor
       editor = module.initEditor({
         desk,
         stage: document.getElementById('desk-shell'),

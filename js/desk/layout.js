@@ -169,7 +169,7 @@ function cleanProps(type, raw) {
 }
 
 export function normalizeWindow(raw, index = 0) {
-  if (!raw || typeof raw !== 'object' || !TYPES[raw.type]) return null;
+  if (!raw || typeof raw !== 'object' || !Object.hasOwn(TYPES, raw.type)) return null;
   const spec = TYPES[raw.type];
   const w = round1(clamp(raw.w, LIMITS.minW, LIMITS.maxW, spec.size.w));
   const id = /^[a-z0-9_-]{1,24}$/i.test(String(raw.id ?? '')) ? String(raw.id) : uid();
@@ -177,7 +177,7 @@ export function normalizeWindow(raw, index = 0) {
     id,
     type: raw.type,
     title: cut(raw.title, LIMITS.title) || spec.title,
-    chrome: CHROMES[raw.chrome] ? raw.chrome : spec.chrome,
+    chrome: Object.hasOwn(CHROMES, raw.chrome) ? raw.chrome : spec.chrome,
     w,
     x: round1(clamp(raw.x, 0, 100 - w, 0)),
     y: Math.round(clamp(raw.y, 0, LIMITS.maxY, 0)),
@@ -193,7 +193,9 @@ export function normalizeLayout(raw) {
   const seen = new Set();
   const windows = [];
   raw.windows.slice(0, LIMITS.windows).forEach((row, index) => {
-    const win = normalizeWindow(row, index);
+    // Una fila corrupta no debe tumbar toda la portada: se descarta y se sigue.
+    let win = null;
+    try { win = normalizeWindow(row, index); } catch (error) { console.warn('[Portada] Ventana descartada:', error); }
     if (!win) return;
     while (seen.has(win.id)) win.id = uid();
     seen.add(win.id);

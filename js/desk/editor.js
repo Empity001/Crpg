@@ -13,7 +13,7 @@
 import { icon, PICKABLE_ICONS } from '../core/icons.js';
 import { escapeHtml, showToast } from '../core/utils.js';
 import {
-  CHROMES, LIMITS, TYPES, TYPE_KEYS, cleanHref, defaultLayout, newWindow, normalizeWindow, uid,
+  CHROMES, LIMITS, TYPES, TYPE_KEYS, cleanHref, defaultLayout, newWindow, normalizeLayout, normalizeWindow, uid,
 } from './layout.js';
 import { saveLayout } from './store.js';
 
@@ -22,6 +22,7 @@ const attr = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/"/g,
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const markInvalid = (el, bad) => { if (bad) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid'); };
 const HISTORY_MAX = 60;
+const DRAFT_KEY = 'culones_desk_draft_v1';
 const ICON_LABELS = {
   house: 'Casa', scroll: 'Pergamino', sword: 'Espada', trophy: 'Trofeo', backpack: 'Mochila', info: 'Información',
   'game-controller': 'Mando', 'discord-logo': 'Discord', globe: 'Mundo', link: 'Enlace', image: 'Imagen',
@@ -82,6 +83,29 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
     renderBar();
   }
 
+  // Si el editor se cierra sin guardar (sesión que caduca, recarga de la página),
+  // el borrador queda en sessionStorage y se ofrece recuperarlo al volver a editar.
+  function stashDraft() {
+    if (!isDirty()) return;
+    try { window.sessionStorage.setItem(DRAFT_KEY, json()); } catch { /* sin almacenamiento */ }
+  }
+
+  function takeDraft() {
+    try {
+      const raw = window.sessionStorage.getItem(DRAFT_KEY);
+      window.sessionStorage.removeItem(DRAFT_KEY);
+      return raw ? normalizeLayout(JSON.parse(raw)) : null;
+    } catch { return null; }
+  }
+
+  function flushRecord() {
+    window.clearTimeout(commitTimer);
+    commitTimer = 0;
+    record();
+  }
+  function undo() { flushRecord(); restore(cursor - 1); }
+  function redo() { flushRecord(); restore(cursor + 1); }
+
   function scheduleRecord() {
     window.clearTimeout(commitTimer);
     commitTimer = window.setTimeout(record, 600);
@@ -107,6 +131,12 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
     cursor = 0;
     panelOpen = true;
     document.body.classList.add('desk-editing');
+    const rescued = takeDraft();
+    if (rescued && JSON.stringify(rescued) !== savedJson
+        && window.confirm('La última vez se cerró el editor con cambios sin guardar. ¿Recuperarlos?')) {
+      desk.setLayout(rescued);
+      record();
+    }
     seedDraft();
     renderBar();
     renderPanel();
@@ -127,13 +157,16 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
 
   async function commitSave() {
     if (saving || !editing) return;
-    window.clearTimeout(commitTimer);
-    record();
+    flushRecord();
+    const layout = desk.getLayout();
+    const sent = JSON.stringify(layout);
     saving = true;
     renderBar();
     try {
-      await save(desk.getLayout());
-      savedJson = json();
+      await save(layout);
+      // Lo editado mientras la petición estaba en vuelo no se marca como guardado.
+      savedJson = sent;
+      try { window.sessionStorage.removeItem(DRAFT_KEY); } catch { /* sin almacenamiento */ }
       showToast('Portada guardada.', 'success');
     } catch (error) {
       console.warn('[Portada] Guardado fallido:', error);
@@ -162,8 +195,7 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
     record();
   }
 
-  function removeSelected() {
-    const id = desk.selectedId;
+  function removeSelected(id = desk.selectedId) {
     if (!id) return;
     desk.remove(id);
     record();
@@ -173,6 +205,10 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
   function duplicateSelected() {
     const win = desk.get(desk.selectedId);
     if (!win) return;
+    if (desk.getLayout().windows.length >= LIMITS.windows) {
+      showToast(`La portada admite hasta ${LIMITS.windows} ventanas.`, 'error');
+      return;
+    }
     const copy = normalizeWindow({ ...clone(win), id: uid(), x: Math.min(win.x + 3, 100 - win.w), y: win.y + 24 });
     desk.add(copy);
     desk.select(copy.id);
@@ -183,9 +219,13 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
     const current = desk.get(id);
     if (!current) return;
     const merged = normalizeWindow({ ...current, ...patch });
+    // x, y, w y h se limitan entre sí (x + w no puede pasar de 100): se aplican juntos.
+    const keys = new Set(Object.keys(patch));
+    if (['x', 'y', 'w', 'h'].some((key) => keys.has(key))) ['x', 'y', 'w', 'h'].forEach((key) => keys.add(key));
     const applied = {};
-    Object.keys(patch).forEach((key) => { applied[key] = merged[key]; });
+    keys.forEach((key) => { applied[key] = merged[key]; });
     desk.update(id, applied);
+    syncGeometryInputs();
     if (immediate) { window.clearTimeout(commitTimer); record(); } else scheduleRecord();
   }
 
@@ -219,9 +259,9 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
     bar.className = 'dk-bar is-editing';
     bar.innerHTML = `
       <div class="dk-menu-wrap">
-        <button type="button" class="dk-btn" data-act="add-menu" aria-haspopup="true" aria-expanded="false">${icon('plus')}<span>Añadir ventana</span></button>
-        <div class="dk-menu" data-menu hidden role="menu">
-          ${TYPE_KEYS.map((type) => `<button type="button" role="menuitem" data-add="${type}">${icon(TYPES[type].icon)}<span>${esc(TYPES[type].label)}</span></button>`).join('')}
+        <button type="button" class="dk-btn" data-act="add-menu" aria-controls="dk-add-menu" aria-expanded="false">${icon('plus')}<span>Añadir ventana</span></button>
+        <div class="dk-menu" id="dk-add-menu" data-menu hidden>
+          ${TYPE_KEYS.map((type) => `<button type="button" data-add="${type}">${icon(TYPES[type].icon)}<span>${esc(TYPES[type].label)}</span></button>`).join('')}
         </div>
       </div>
       <span class="dk-sep" aria-hidden="true"></span>
@@ -233,7 +273,7 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
       <span class="dk-grow"></span>
       <span class="dk-note" data-note role="status"></span>
       <button type="button" class="dk-btn dk-btn-ghost" data-act="leave">Salir</button>
-      <button type="button" class="dk-btn dk-btn-primary" data-act="save">${icon('floppy-disk')}<span>Guardar</span></button>`;
+      <button type="button" class="dk-btn dk-btn-primary" id="dk-save-btn" data-act="save">${icon('floppy-disk')}<span>Guardar</span></button>`;
   }
 
   function renderBar() {
@@ -262,21 +302,30 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
     note.textContent = saving ? 'Guardando…' : dirty ? 'Cambios sin guardar' : 'Todo guardado';
   }
 
+  function closeMenu({ returnFocus = false } = {}) {
+    const menu = bar.querySelector('[data-menu]');
+    const opener = bar.querySelector('[data-act="add-menu"]');
+    if (!menu || menu.hidden) return;
+    menu.hidden = true;
+    opener?.setAttribute('aria-expanded', 'false');
+    if (returnFocus) opener?.focus();
+  }
+
   bar.addEventListener('click', (event) => {
     const button = event.target.closest('button');
     if (!button || button.disabled) return;
     const menu = bar.querySelector('[data-menu]');
     if (button.dataset.add) {
       addWindow(button.dataset.add);
-      if (menu) menu.hidden = true;
+      closeMenu();
       return;
     }
     switch (button.dataset.act) {
       case 'enter': enter(); break;
       case 'leave': leave(); break;
       case 'save': void commitSave(); break;
-      case 'undo': restore(cursor - 1); break;
-      case 'redo': restore(cursor + 1); break;
+      case 'undo': undo(); break;
+      case 'redo': redo(); break;
       case 'snap': snapOn = !snapOn; desk.setSnap(snapOn); renderBar(); break;
       case 'reset':
         if (window.confirm('Se sustituirá la composición actual por la inicial (puedes deshacerlo antes de guardar). ¿Seguir?')) {
@@ -286,7 +335,13 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
           renderPanel();
         }
         break;
-      case 'panel': panelOpen = !panelOpen; renderPanel(); renderBar(); break;
+      case 'panel':
+        panelOpen = !panelOpen;
+        renderPanel();
+        renderBar();
+        // Al abrirlo con el teclado, el foco entra en el panel (está al final del documento).
+        if (panelOpen) panel.querySelector('input, button, select, textarea')?.focus();
+        break;
       case 'add-menu': {
         if (!menu) break;
         menu.hidden = !menu.hidden;
@@ -299,10 +354,7 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
   });
   document.addEventListener('click', (event) => {
     const menu = bar.querySelector('[data-menu]');
-    if (menu && !menu.hidden && !event.target.closest('.dk-menu-wrap')) {
-      menu.hidden = true;
-      bar.querySelector('[data-act="add-menu"]')?.setAttribute('aria-expanded', 'false');
-    }
+    if (menu && !menu.hidden && !event.target.closest('.dk-menu-wrap')) closeMenu();
   }, { signal });
 
   // ---------- panel de propiedades ----------
@@ -346,7 +398,25 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
     return `<ul class="dk-layers">${list.map((win) => `<li><button type="button" data-select="${attr(win.id)}">${icon(TYPES[win.type]?.icon || 'cube')}<span>${esc(win.title)}</span><small>${esc(TYPES[win.type]?.label || win.type)}</small></button></li>`).join('')}</ul>`;
   }
 
+  // Al reconstruir el panel el elemento con foco se destruye: se recuerda cuál era
+  // (por id o por atributo data-*) y se vuelve a enfocar su equivalente.
+  function panelFocusKey() {
+    const el = document.activeElement;
+    if (!el || !panel.contains(el)) return null;
+    if (el.id) return `#${CSS.escape(el.id)}`;
+    for (const name of ['data-chrome', 'data-order', 'data-act2', 'data-select', 'data-link-add', 'data-panel-close']) {
+      if (el.hasAttribute(name)) return `[${name}="${CSS.escape(el.getAttribute(name))}"]`;
+    }
+    return null;
+  }
+
   function renderPanel() {
+    const key = panelFocusKey();
+    renderPanelContent();
+    if (key) panel.querySelector(key)?.focus();
+  }
+
+  function renderPanelContent() {
     if (!editing || !panelOpen) { panel.hidden = true; return; }
     panel.hidden = false;
     const win = desk.get(desk.selectedId);
@@ -452,26 +522,31 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
 
   // ---------- eventos del motor ----------
 
-  desk.on('commit', () => { record(); syncGeometryInputs(); });
-  desk.on('select', () => { if (!editing) return; seedDraft(); renderPanel(); });
-  desk.on('mode', ({ stacked }) => {
-    if (stacked && editing) { leave({ force: true }); showToast('La pantalla es demasiado estrecha para editar: se cerró el editor.', 'error'); }
-    renderBar();
-  });
-  desk.on('delete-request', () => { if (editing) removeSelected(); });
+  // Estrechar la pantalla ya no cierra el editor ni descarta lo hecho: las ventanas
+  // se apilan (sin arrastre) y todo lo demás sigue funcionando.
+  const unsubscribe = [
+    desk.on('commit', () => { record(); syncGeometryInputs(); }),
+    desk.on('select', () => { if (!editing) return; seedDraft(); renderPanel(); }),
+    desk.on('mode', ({ stacked }) => {
+      if (stacked && editing) showToast('La pantalla es estrecha: las ventanas se ven apiladas y no se pueden mover, pero tus cambios siguen aquí.', 'error');
+      renderBar();
+    }),
+    desk.on('delete-request', ({ id }) => { if (editing) removeSelected(id); }),
+  ];
 
   // ---------- teclado y salida de la página ----------
 
   document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeMenu({ returnFocus: true });
     if (!editing) return;
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(event.target?.tagName || '');
     const mod = event.ctrlKey || event.metaKey;
     if (mod && !event.altKey && event.key.toLowerCase() === 'z' && !typing) {
       event.preventDefault();
-      restore(event.shiftKey ? cursor + 1 : cursor - 1);
+      if (event.shiftKey) redo(); else undo();
     } else if (mod && !event.altKey && event.key.toLowerCase() === 'y' && !typing) {
       event.preventDefault();
-      restore(cursor + 1);
+      redo();
     }
   }, { signal });
 
@@ -480,6 +555,7 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
     event.preventDefault();
     event.returnValue = '';
   }, { signal });
+  window.addEventListener('pagehide', stashDraft, { signal });
 
   renderBar();
 
@@ -487,7 +563,8 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
     refresh: renderBar,
     dispose() {
       window.clearTimeout(commitTimer);
-      if (editing) leave({ force: true });
+      if (editing) { stashDraft(); leave({ force: true }); }
+      unsubscribe.forEach((off) => off());
       lifetime.abort();
       bar.remove();
       panel.remove();

@@ -242,7 +242,7 @@ function saveButton() {
     const byId = firstEnabled(['[id^="submit-"]', '[id$="-save-btn"]', '.btn-primary'], modal);
     if (byId && !/eliminar|borrar|despublicar/i.test(byId.textContent)) return byId;
   }
-  return firstEnabled(['#draft-manual-save-btn', '#save-about-editor-btn', '#theme-save-btn', '#bg-save-btn', '#hero-banner-save-btn', '#favicon-save-btn']);
+  return firstEnabled(['#dk-save-btn', '#draft-manual-save-btn', '#save-about-editor-btn', '#theme-save-btn', '#bg-save-btn', '#hero-banner-save-btn', '#favicon-save-btn']);
 }
 
 function confirmButton() {

@@ -81,7 +81,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
 
   function applyChrome(entry) {
     entry.el.className = entry.el.className.replace(/\bcw-(retro|glass|hud)\b/g, '').trim();
-    entry.el.classList.add(`cw-${CHROMES[entry.data.chrome] ? entry.data.chrome : 'retro'}`);
+    entry.el.classList.add(`cw-${Object.hasOwn(CHROMES, entry.data.chrome) ? entry.data.chrome : 'retro'}`);
   }
 
   function applyGeometry(entry) {
@@ -106,6 +106,10 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     entry.el.classList.toggle('is-max', entry.data.id === maximizedId);
     entry.el.setAttribute('aria-hidden', entry.hidden ? 'true' : 'false');
     entry.el.inert = entry.hidden;
+    if (editing) entry.el.tabIndex = 0; else entry.el.removeAttribute('tabindex');
+    const minDot = entry.el.querySelector('.cw-dot-min');
+    if (stacked) minDot.setAttribute('aria-expanded', String(!entry.collapsed));
+    else minDot.removeAttribute('aria-expanded');
   }
 
   function fillContent(entry) {
@@ -157,6 +161,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     });
 
     el.addEventListener('keydown', (event) => onWindowKey(event, entry));
+    el.addEventListener('focus', () => { if (editing) select(entry.data.id); });
   }
 
   function startGesture(event, entry, mode, handle, dir = '') {
@@ -315,10 +320,27 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     const prev = maximizedId;
     maximizedId = next;
     if (prev && wins.get(prev)) paint(wins.get(prev));
-    if (next) { paint(entry); bringToFront(id); }
+    if (next) paint(entry);
     scrim.hidden = !next;
     document.body.classList.toggle('desk-has-max', !!next);
     if (next) entry.el.querySelector('.cw-dot-max')?.focus?.();
+  }
+
+  // Salida directa del estado maximizado, sin pasar por toggleMax (que no hace
+  // nada en modo apilado ni si la ventana ya no existe).
+  function clearMax() {
+    maximizedId = null;
+    scrim.hidden = true;
+    document.body.classList.remove('desk-has-max');
+    wins.forEach((entry) => entry.el.classList.remove('is-max'));
+  }
+
+  // El DOM sigue el orden visual (y, x): así el foco con Tab y los lectores de
+  // pantalla recorren las ventanas en el mismo orden en que se ven, también apiladas.
+  function sortDom() {
+    [...wins.values()]
+      .sort((a, b) => a.data.y - b.data.y || a.data.x - b.data.x)
+      .forEach((entry) => root.append(entry.el));
   }
 
   function fitHeight() {
@@ -339,6 +361,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     if (stacked) return;
     const list = taskbar.querySelector('[data-taskbar-list]');
     if (!list) return;
+    const focusedId = document.activeElement?.closest?.('.cw-task')?.dataset.id;
     list.innerHTML = '';
     [...wins.values()].sort((a, b) => a.data.z - b.data.z).forEach((entry) => {
       const button = document.createElement('button');
@@ -357,6 +380,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
       });
       list.append(button);
     });
+    if (focusedId) list.querySelector(`.cw-task[data-id="${CSS.escape(focusedId)}"]`)?.focus();
   }
 
   // ---------- modo libre / apilado ----------
@@ -367,12 +391,11 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     if (next === stacked && root.classList.contains('is-stacked') === next) return;
     stacked = next;
     root.classList.toggle('is-stacked', stacked);
-    if (stacked && maximizedId) toggleMax(maximizedId);
+    if (stacked && maximizedId) clearMax();
     // En modo apilado no hay barra de tareas para reabrir ventanas: se muestran todas.
-    if (stacked) wins.forEach((entry) => { if (entry.hidden) { entry.hidden = false; paint(entry); } });
-    const order = [...wins.values()].sort((a, b) => a.data.y - b.data.y || a.data.x - b.data.x);
-    order.forEach((entry, index) => { entry.el.style.order = String(index); });
-    if (!stacked) wins.forEach((entry) => { entry.el.style.order = ''; });
+    if (stacked) wins.forEach((entry) => { entry.hidden = false; });
+    wins.forEach(paint);
+    sortDom();
     fitHeight();
     renderTaskbar();
     emit('mode', { stacked });
@@ -385,6 +408,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
   function mount(newLayout) {
     root.querySelectorAll('.cw').forEach((node) => node.remove());
     wins.clear();
+    clearMax();
     zTop = 0;
     const list = clone(newLayout.windows);
     [...list].sort((a, b) => a.z - b.z).forEach((data, index) => { data.z = index + 1; });
@@ -397,6 +421,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
       fillContent(entry);
     });
     if (selectedId && !wins.has(selectedId)) selectedId = null;
+    sortDom();
     root.classList.toggle('cw-enter', firstPaint && !reduceMotion());
     firstPaint = false;
     window.setTimeout(() => root.classList.remove('cw-enter'), 1400);
@@ -406,7 +431,14 @@ export function createDesk({ root, taskbar, ctx, layout }) {
   }
 
   const api = {
-    on(name, callback) { listeners[name]?.push(callback); },
+    on(name, callback) {
+      listeners[name]?.push(callback);
+      return () => {
+        const list = listeners[name];
+        const index = list ? list.indexOf(callback) : -1;
+        if (index >= 0) list.splice(index, 1);
+      };
+    },
     getLayout: snapshot,
     setLayout(newLayout) { mount(newLayout); },
     has: (id) => wins.has(id),
@@ -444,6 +476,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
       moveZ(data.id, 'front');
       paint(entry);
       fillContent(entry);
+      sortDom();
       fitHeight();
       applyMode();
       renderTaskbar();
@@ -453,7 +486,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     remove(id) {
       const entry = wins.get(id);
       if (!entry) return;
-      if (maximizedId === id) toggleMax(id);
+      if (maximizedId === id) clearMax();
       entry.el.remove();
       wins.delete(id);
       if (selectedId === id) select(null);

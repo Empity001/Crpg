@@ -151,6 +151,12 @@ async function buildSnapshot() {
   return (await tryBuildVersionSnapshot()) || buildLegacySnapshot();
 }
 
+// Las novedades guardadas en el navegador antes de mover los Logs a logs.html
+// apuntan a index.html, que ahora es la portada.
+function legacyLogsUrl(url) {
+  return /^index\.html(\?|$)/.test(String(url || '')) ? String(url).replace(/^index\.html/, 'logs.html') : url;
+}
+
 function createNotification({ id, type, entityId = '', title, description, url }) {
   return {
     id,
@@ -342,7 +348,7 @@ function renderPanel(items = getItems()) {
   }
 
   list.innerHTML = items.map(item => `
-    <a class="site-notification-item ${item.read ? '' : 'is-unread'}" href="${escapeHtml(safeUrl(item.url) || '#')}">
+    <a class="site-notification-item ${item.read ? '' : 'is-unread'}" href="${escapeHtml(safeUrl(legacyLogsUrl(item.url)) || '#')}">
       <span class="site-notification-icon" aria-hidden="true">${iconForType(item.type)}</span>
       <span class="site-notification-copy">
         <strong>${escapeHtml(item.title || 'Novedad')}</strong>

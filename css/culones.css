@@ -18,6 +18,7 @@
   --cw-line: rgb(var(--theme-primary-soft-rgb, 180 108 255) / 0.55);
   --cw-lilac: color-mix(in srgb, var(--cw-primary-soft) 50%, #ffffff);
   --cw-lilac-ink: #1d1238;
+  --cw-on-primary: var(--theme-primary-text, #ffffff);
   --cw-close: rgb(var(--theme-danger-rgb, 239 68 68));
   --cw-warn: rgb(var(--theme-warning-rgb, 245 197 66));
   --cw-ok: rgb(var(--theme-confirmation-rgb, 53 217 139));
