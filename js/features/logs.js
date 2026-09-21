@@ -319,7 +319,7 @@ function bindCardEvents(card) {
   const copyBtn = card.querySelector('[data-action="copy-log-link"]');
   if (copyBtn) copyBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    void copyLink(buildShareUrl('index.html', { log: copyBtn.dataset.logId }));
+    void copyLink(buildShareUrl('logs.html', { log: copyBtn.dataset.logId }));
   });
 
   const actionsBtn = card.querySelector('[data-action="log-actions"]');
@@ -619,7 +619,7 @@ function renderLogInspector() {
       event.stopPropagation();
       const type = button.dataset.entryType;
       const tab = type === 'mob' ? 'mobs' : type === 'item' ? 'items' : 'blocks';
-      void copyLink(buildShareUrl('index.html', {
+      void copyLink(buildShareUrl('logs.html', {
         log: log.id,
         tab,
         entry: button.dataset.inspectorCopyEntry,
@@ -641,7 +641,7 @@ function renderLogInspector() {
   });
   inspector.querySelector('[data-inspector-action="open-full"]')?.addEventListener('click', () => openDetailModal(log.id));
   inspector.querySelector('[data-inspector-action="copy-link"]')?.addEventListener('click', () => {
-    void copyLink(buildShareUrl('index.html', { log: log.id }));
+    void copyLink(buildShareUrl('logs.html', { log: log.id }));
   });
   inspector.querySelector('[data-inspector-action="like"]')?.addEventListener('click', () => toggleLike(log.id));
   inspector.querySelector('[data-inspector-action="edit"]')?.addEventListener('click', () => openEditLogModal(log.id));

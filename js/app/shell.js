@@ -191,7 +191,7 @@ function wireHeaderNav(pageKey) {
     else tab.removeAttribute('aria-current');
   });
   const pathEl = document.getElementById('active-tab-path');
-  if (pathEl) pathEl.textContent = pageKey;
+  if (pathEl) pathEl.textContent = pageKey === 'home' ? 'portada' : pageKey;
 }
 
 function wireAdminModal() {

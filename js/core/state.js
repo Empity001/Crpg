@@ -112,6 +112,8 @@ export const state = {
   fieldConfigDraft: { mob: [], item: [] },
   aboutBlocks: null,
   aboutEditorBlocks: [],
+  // Disposición de ventanas de la portada (app_settings.layout_home). null = predeterminada.
+  homeLayout: null,
   backgroundConfig: { image_url: '', mode: 'fixed', tabs: [], presentation: null, opacity: 1 },
   heroBannerConfig: {},
   faviconUrl: '',

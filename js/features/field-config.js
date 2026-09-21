@@ -28,6 +28,7 @@ function appSettingKeysForPage(pageKey = '') {
     keys.add('item_fields');
   }
   if (pageKey === 'about' || pageKey === 'admin') keys.add('about_blocks');
+  if (pageKey === 'home') keys.add('layout_home');
   return [...keys];
 }
 
@@ -38,6 +39,7 @@ export function setFieldConfigSavedHandler(handler) {
 function applyDefaultAppSettings() {
   state.fieldConfig = { mob: DEFAULT_MOB_FIELDS, item: DEFAULT_ITEM_FIELDS };
   state.aboutBlocks = null;
+  state.homeLayout = null;
   state.backgroundConfig = { image_url: '', mode: 'fixed', tabs: [], presentation: null, opacity: 1 };
   state.heroBannerConfig = normalizeHeroBannerConfig({});
   state.faviconUrl = '';
@@ -92,6 +94,8 @@ async function performLoadAppSettings(pageKey = '') {
   if (mobRow  && Array.isArray(mobRow.value)  && mobRow.value.length  > 0) state.fieldConfig.mob  = mobRow.value;
   if (itemRow && Array.isArray(itemRow.value) && itemRow.value.length > 0) state.fieldConfig.item = itemRow.value;
   if (aboutRow && Array.isArray(aboutRow.value)) state.aboutBlocks = aboutRow.value;
+  const layoutRow = data.find(r => r.key === 'layout_home');
+  if (layoutRow && layoutRow.value && typeof layoutRow.value === 'object') state.homeLayout = layoutRow.value;
 
   if (bgRow && bgRow.value && typeof bgRow.value === 'object') {
     state.backgroundConfig = {

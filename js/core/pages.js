@@ -1,4 +1,4 @@
-export const PAGE_KEYS = Object.freeze(['logs', 'guides', 'tierlist', 'kits', 'about', 'admin']);
+export const PAGE_KEYS = Object.freeze(['home', 'logs', 'guides', 'tierlist', 'kits', 'about', 'admin']);
 
 export function normalizePageKey(value) {
   return value === 'weapons' ? 'guides' : value;

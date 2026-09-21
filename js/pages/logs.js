@@ -1,5 +1,5 @@
 // =========================================================
-// pages/logs.js — Entry point de index.html (📜 Logs)
+// pages/logs.js — Entry point de logs.html (📜 Logs)
 // =========================================================
 // Carga y cablea EXCLUSIVAMENTE lo que pertenece a la sección de Logs:
 // el modal de log (con sus bloques de mob/item/libre embebidos), el
@@ -18,7 +18,7 @@ import { cancelReply, deleteCommentAction, startReplyTo, submitComment, toggleCo
 import { initBeforeUnload, restoreDraft, saveDraft, stopDraftAutosave } from '../features/drafts.js';
 import { loadDraftByKey } from '../features/drafts-store.js';
 import { openFieldConfigModal, saveFieldConfig, setFieldConfigSavedHandler } from '../features/field-config.js';
-import { initDesktopLogInspectorTracking, initSortControl, loadLogs, openEditLogModal, openLogFromSearch, openNewLogModal, renderLogs, submitLog, updateLogCoverPreview } from '../features/logs.js?v=20260716-1';
+import { initDesktopLogInspectorTracking, initSortControl, loadLogs, openEditLogModal, openLogFromSearch, openNewLogModal, renderLogs, submitLog, updateLogCoverPreview } from '../features/logs.js?v=20260921-1';
 import { attachMediaPickerButton, openMediaPicker } from '../features/media-library-lazy.js';
 import { isAdmin, state } from '../core/state.js';
 import { initImageUploader, updateAssetPreview } from '../core/storage.js';
@@ -185,7 +185,7 @@ async function checkIncomingDraftLink() {
   const params = new URLSearchParams(window.location.search);
   const draftKey = params.get('draftKey');
   if (!draftKey) return;
-  window.history.replaceState({}, '', 'index.html');
+  window.history.replaceState({}, '', 'logs.html');
   const draft = await loadDraftByKey(draftKey);
   if (!draft) return;
   const logId = params.get('logId');

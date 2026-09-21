@@ -10,7 +10,8 @@ import { closeContextPanel } from '../core/context-actions.js';
 import { showToast } from '../core/utils.js';
 
 const PAGE_LINKS = [
-  { key: 'logs', label: 'Ir a Logs', url: 'index.html', icon: '📜', shortcut: 'Alt 1' },
+  { key: 'home', label: 'Ir a la Portada', url: 'index.html', icon: '🏠', shortcut: 'Alt 0' },
+  { key: 'logs', label: 'Ir a Logs', url: 'logs.html', icon: '📜', shortcut: 'Alt 1' },
   { key: 'guides', label: 'Ir a Guías', url: 'guides.html', icon: '⚔️', shortcut: 'Alt 2' },
   { key: 'tierlist', label: 'Ir a Tierlist', url: 'tierlist.html', icon: '🏆', shortcut: 'Alt 3' },
   { key: 'kits', label: 'Ir a Kits', url: 'kits.html', icon: '🎒', shortcut: 'Alt 4' },
@@ -694,7 +695,10 @@ function resolveShortcut(event) {
     return null;
   }
 
-  if (alt && !ctrl && !shift && /^[1-6]$/.test(key)) return `navigate:${PAGE_LINKS[Number(key) - 1].key}`;
+  if (alt && !ctrl && !shift && /^[0-6]$/.test(key)) {
+    const target = PAGE_LINKS.find(item => item.shortcut === `Alt ${key}`);
+    if (target) return `navigate:${target.key}`;
+  }
   if (alt && !ctrl && !shift && lower === 'n') return 'create';
   if (alt && !ctrl && !shift && lower === 'e') return 'edit';
   if (ctrl && !alt && !shift && lower === 's') return 'save';

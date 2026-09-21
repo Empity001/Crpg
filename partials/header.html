@@ -69,37 +69,41 @@
   <nav class="browser-tabs" aria-label="Secciones">
     <span class="sidebar-section-label">Explorar</span>
 
-    <a class="tab-item" data-page="logs" href="index.html" aria-current="false">
-      <span class="tab-icon" aria-hidden="true">📜</span>
+    <a class="tab-item" data-page="home" href="index.html" aria-current="false">
+      <span class="tab-icon" aria-hidden="true"><svg class="cw-ic"><use href="assets/icons.svg#i-house"/></svg></span>
+      <span class="tab-label">Portada</span>
+    </a>
+    <a class="tab-item" data-page="logs" href="logs.html" aria-current="false">
+      <span class="tab-icon" aria-hidden="true"><svg class="cw-ic"><use href="assets/icons.svg#i-scroll"/></svg></span>
       <span class="tab-label">Logs</span>
     </a>
     <a class="tab-item" data-page="guides" href="guides.html" aria-current="false">
-      <span class="tab-icon" aria-hidden="true">⚔️</span>
+      <span class="tab-icon" aria-hidden="true"><svg class="cw-ic"><use href="assets/icons.svg#i-sword"/></svg></span>
       <span class="tab-label">Guías</span>
     </a>
     <a class="tab-item" data-page="tierlist" href="tierlist.html" aria-current="false">
-      <span class="tab-icon" aria-hidden="true">🏆</span>
+      <span class="tab-icon" aria-hidden="true"><svg class="cw-ic"><use href="assets/icons.svg#i-trophy"/></svg></span>
       <span class="tab-label">Tierlist</span>
     </a>
     <a class="tab-item" data-page="kits" href="kits.html" aria-current="false">
-      <span class="tab-icon" aria-hidden="true">🎒</span>
+      <span class="tab-icon" aria-hidden="true"><svg class="cw-ic"><use href="assets/icons.svg#i-backpack"/></svg></span>
       <span class="tab-label">Kits</span>
     </a>
     <a class="tab-item" data-page="about" href="about.html" aria-current="false">
-      <span class="tab-icon" aria-hidden="true">🎮</span>
+      <span class="tab-icon" aria-hidden="true"><svg class="cw-ic"><use href="assets/icons.svg#i-game-controller"/></svg></span>
       <span class="tab-label">Acerca del servidor</span>
     </a>
 
     <div class="sidebar-admin-group">
       <span class="sidebar-section-label">Administración</span>
       <a class="tab-item admin-tab hidden" data-page="admin" href="admin.html" aria-current="false" id="admin-panel-tab">
-        <span class="tab-icon" aria-hidden="true">🛠</span>
+        <span class="tab-icon" aria-hidden="true"><svg class="cw-ic"><use href="assets/icons.svg#i-wrench"/></svg></span>
         <span class="tab-label">Herramientas</span>
       </a>
     </div>
 
     <div class="tab-spacer"></div>
-    <div class="tab-fake-url" aria-hidden="true">culones-rpg.gg/<span id="active-tab-path">logs</span></div>
+    <div class="tab-fake-url" aria-hidden="true">culones://<span id="active-tab-path">portada</span></div>
   </nav>
 
   <div class="sidebar-footer">
