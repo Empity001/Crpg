@@ -52,9 +52,9 @@ export const TYPES = Object.freeze({
       { key: 'buttons', label: 'Botones', kind: 'links', max: 2 },
     ],
     props: {
-      heading: 'Bienvenido a Culones RPG',
-      text: 'Aquí vas a encontrar los logs del server, las guías de armas, la tierlist y los kits.\n\nTodavía estoy armando todo esto, así que si algo se ve raro es que voy a mitad de obra ;3',
-      buttons: [{ label: 'Ver los logs', href: 'logs.html' }, { label: 'Guías de armas', href: 'guides.html' }],
+      heading: 'Bienvenido',
+      text: 'Cuéntales aquí de qué va tu sitio.\n\nEdita este texto desde el modo edición.',
+      buttons: [],
     },
   },
   texto: {
@@ -67,18 +67,10 @@ export const TYPES = Object.freeze({
     label: 'Lista de enlaces', icon: 'folder-open', chrome: 'glass', title: 'Explorar',
     size: { w: 36, h: 322 },
     fields: [{ key: 'items', label: 'Enlaces', kind: 'links', max: LIMITS.links, icons: true }],
-    props: {
-      items: [
-        { label: 'Logs', href: 'logs.html', icon: 'scroll' },
-        { label: 'Guías', href: 'guides.html', icon: 'sword' },
-        { label: 'Tierlist', href: 'tierlist.html', icon: 'trophy' },
-        { label: 'Kits', href: 'kits.html', icon: 'backpack' },
-        { label: 'Acerca del servidor', href: 'about.html', icon: 'game-controller' },
-      ],
-    },
+    props: { items: [{ label: 'Inicio', href: 'index.html', icon: 'house' }] },
   },
   ip: {
-    label: 'Dirección del servidor', icon: 'globe', chrome: 'hud', title: 'Conectar',
+    label: 'Dirección de conexión', icon: 'globe', chrome: 'hud', title: 'Conectar',
     size: { w: 30, h: 190 },
     fields: [
       { key: 'address', label: 'Dirección (IP o dominio)', kind: 'text', max: 120 },
@@ -109,7 +101,7 @@ export const TYPES = Object.freeze({
     props: { limit: 6 },
   },
   estadisticas: {
-    label: 'Números del server', icon: 'chart-bar', chrome: 'hud', title: 'Estado',
+    label: 'Números del sitio', icon: 'chart-bar', chrome: 'hud', title: 'Estado',
     size: { w: 30, h: 220 },
     fields: [],
     props: {},
@@ -215,14 +207,70 @@ export function newWindow(type, patch = {}) {
   });
 }
 
-// Composición inicial: se usa mientras el admin no haya guardado ninguna.
+// La portada nace en blanco: nada inventado sobre el sitio. Para no empezar de
+// cero, el editor ofrece plantillas de partida (TEMPLATES) para distintos nichos.
 export function defaultLayout() {
-  const make = (type, patch) => newWindow(type, patch);
+  return { v: LAYOUT_VERSION, windows: [] };
+}
+
+const make = (type, patch) => newWindow(type, patch);
+
+// Cada plantilla es solo una composición inicial de ventanas: el texto es genérico,
+// el admin lo cambia después. No hay datos de ningún servidor concreto.
+export const TEMPLATES = Object.freeze([
+  {
+    id: 'blanco',
+    label: 'En blanco',
+    hint: 'Sin ventanas: lo construyes todo tú.',
+    build: () => defaultLayout(),
+  },
+  {
+    id: 'minecraft',
+    label: 'Servidor de Minecraft',
+    hint: 'Bienvenida, explorador, últimos logs y armas nuevas.',
+    build: () => minecraftStarter(),
+  },
+  {
+    id: 'informacion',
+    label: 'Lista de información',
+    hint: 'Un titular, un índice de enlaces y una nota.',
+    build: () => ({
+      v: LAYOUT_VERSION,
+      windows: [
+        make('bienvenida', { id: 'inicio', x: 3, y: 0, w: 60, h: 300, z: 2, props: { heading: 'Mi lista de información', text: 'Aquí voy reuniendo todo lo importante en un solo sitio.\n\nEdita este texto desde el modo edición.', buttons: [] } }),
+        make('enlaces', { id: 'indice', x: 66, y: 24, w: 31, h: 300, z: 3, title: 'Índice', props: { items: [{ label: 'Acerca de', href: 'about.html', icon: 'info' }] } }),
+        make('texto', { id: 'nota', x: 3, y: 330, w: 60, h: 220, z: 4, title: 'Nota.txt', props: { text: 'Escribe aquí lo que quieras contar.' } }),
+      ],
+    }),
+  },
+  {
+    id: 'comunidad',
+    label: 'Comunidad o network',
+    hint: 'Bienvenida, dirección de conexión y enlaces.',
+    build: () => ({
+      v: LAYOUT_VERSION,
+      windows: [
+        make('bienvenida', { id: 'inicio', x: 3, y: 0, w: 58, h: 300, z: 2, props: { heading: 'Bienvenido a la comunidad', text: 'Cuéntales aquí de qué va todo esto.\n\nEdita este texto desde el modo edición.', buttons: [] } }),
+        make('ip', { id: 'conectar', x: 64, y: 0, w: 33, h: 190, z: 3, title: 'Conectar' }),
+        make('enlaces', { id: 'enlaces', x: 64, y: 210, w: 33, h: 240, z: 4, title: 'Enlaces', props: { items: [] } }),
+      ],
+    }),
+  },
+]);
+
+// La composición que tenía la portada antes de nacer en blanco.
+export function minecraftStarter() {
   return {
     v: LAYOUT_VERSION,
     windows: [
-      make('bienvenida', { id: 'bienvenida', x: 2, y: 0, w: 55, h: 330, z: 2 }),
-      make('enlaces', { id: 'explorar', x: 60, y: 18, w: 38, h: 322, z: 3 }),
+      make('bienvenida', { id: 'bienvenida', x: 2, y: 0, w: 55, h: 330, z: 2, props: { heading: 'Bienvenido al servidor', text: 'Aquí vas a encontrar los logs del server, las guías de armas, la tierlist y los kits.\n\nEdita este texto desde el modo edición.', buttons: [{ label: 'Ver los logs', href: 'logs.html' }, { label: 'Guías de armas', href: 'guides.html' }] } }),
+      make('enlaces', { id: 'explorar', x: 60, y: 18, w: 38, h: 322, z: 3, props: { items: [
+        { label: 'Logs', href: 'logs.html', icon: 'scroll' },
+        { label: 'Guías', href: 'guides.html', icon: 'sword' },
+        { label: 'Tierlist', href: 'tierlist.html', icon: 'trophy' },
+        { label: 'Kits', href: 'kits.html', icon: 'backpack' },
+        { label: 'Acerca del servidor', href: 'about.html', icon: 'game-controller' },
+      ] } }),
       make('logs', { id: 'logs', x: 7, y: 316, w: 44, h: 300, z: 5 }),
       make('armas', { id: 'armas', x: 54, y: 364, w: 44, h: 290, z: 4 }),
     ],

@@ -30,7 +30,7 @@ const round1 = (n) => Math.round(n * 10) / 10;
 const snapTo = (n, step) => Math.round(n / step) * step;
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export function createDesk({ root, taskbar, ctx, layout }) {
+export function createDesk({ root, taskbar, ctx, layout, renderEmpty = null }) {
   const listeners = { commit: [], select: [], 'delete-request': [], mode: [] };
   const lifetime = new AbortController();
   const wins = new Map();            // id -> { data, el, body, hidden, collapsed }
@@ -41,6 +41,19 @@ export function createDesk({ root, taskbar, ctx, layout }) {
   let maximizedId = null;
   let stacked = false;
   let firstPaint = true;
+
+  // Mensaje que se ve cuando la portada no tiene ninguna ventana.
+  const emptyEl = document.createElement('div');
+  emptyEl.className = 'desk-empty';
+  emptyEl.hidden = true;
+  root.append(emptyEl);
+  function syncEmpty() {
+    const empty = wins.size === 0;
+    emptyEl.hidden = !empty;
+    if (empty && renderEmpty) renderEmpty(emptyEl);
+    root.classList.toggle('is-empty', empty);
+    if (taskbar) taskbar.hidden = stacked || empty;
+  }
 
   const scrim = document.createElement('div');
   scrim.className = 'cw-scrim';
@@ -398,6 +411,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     sortDom();
     fitHeight();
     renderTaskbar();
+    syncEmpty();
     emit('mode', { stacked });
   }
 
@@ -422,6 +436,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     });
     if (selectedId && !wins.has(selectedId)) selectedId = null;
     sortDom();
+    syncEmpty();
     root.classList.toggle('cw-enter', firstPaint && !reduceMotion());
     firstPaint = false;
     window.setTimeout(() => root.classList.remove('cw-enter'), 1400);
@@ -447,6 +462,10 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     get stacked() { return stacked; },
     get editing() { return editing; },
     select,
+    /** Vuelve a pintar el mensaje de portada vacía (por ejemplo, al entrar o salir un admin). */
+    refreshEmpty: syncEmpty,
+    /** Recoloca el DOM en orden visual (y, x): necesario tras cambiar posiciones sin arrastrar. */
+    resort() { sortDom(); renderTaskbar(); },
 
     setEditing(value) {
       editing = !!value;
@@ -480,6 +499,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
       fitHeight();
       applyMode();
       renderTaskbar();
+      syncEmpty();
       return clone(data);
     },
 
@@ -492,6 +512,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
       if (selectedId === id) select(null);
       fitHeight();
       renderTaskbar();
+      syncEmpty();
     },
 
     reorder(id, where) {

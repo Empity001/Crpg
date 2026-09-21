@@ -217,6 +217,7 @@
 .desk.is-stacked .cw-dot-close, .desk.is-stacked .cw-dot-max { display: none; }
 .desk.is-stacked .cw-dot-min { color: rgb(0 0 0 / 0.72); }
 .desk.is-stacked .cw.is-collapsed .cw-body { display: none; }
+.desk.is-stacked .cw-grip { display: none !important; }
 .desk.is-stacked .cw-retro { box-shadow: 5px 5px 0 rgb(var(--theme-primary-rgb, 139 61 255) / 0.55); }
 
 /* ---------- barra de tareas ---------- */
@@ -545,3 +546,18 @@ select.dk-input { padding-right: 6px; }
 .cw-glass .cw-grip-se { right: 4px; bottom: 4px; }
 
 @media (max-width: 900px) { .dk-panel { top: auto; width: 100%; max-height: 60vh; border-right: 0; border-top: 1px solid var(--cw-line); border-radius: 16px 16px 0 0; } }
+
+
+/* ---------- portada en blanco ---------- */
+.desk-empty { display: grid; place-items: center; min-height: 360px; padding: 24px; }
+.desk-empty[hidden] { display: none; }
+.desk-empty-card {
+  display: grid; gap: 12px; max-width: 540px; padding: 34px 30px; text-align: center;
+  border: 2px dashed var(--cw-line); border-radius: 8px;
+  background: color-mix(in srgb, var(--cw-panel) 60%, transparent);
+}
+.desk-empty-card h2 { margin: 0; color: var(--cw-ink); font: 700 clamp(22px, 2.4vw, 30px)/1.1 var(--cw-sans); letter-spacing: -0.02em; }
+.desk-empty-card p { margin: 0; color: var(--cw-ink-2); font-size: 15px; line-height: 1.55; }
+.desk-empty-card .cw-btn { justify-self: center; margin-top: 6px; }
+.dk-menu-copy { display: grid; gap: 2px; text-align: left; }
+.dk-menu-copy small { color: var(--cw-ink-2); font-size: 12.5px; font-weight: 400; line-height: 1.35; }

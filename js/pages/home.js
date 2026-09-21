@@ -34,6 +34,26 @@ const savedOrDefaultLayout = () => {
   }
 };
 
+// Lo que se ve cuando la portada no tiene ventanas: a las visitas, un aviso amable;
+// al administrador, el camino para empezar.
+function renderEmptyDesk(el) {
+  if (isAdmin()) {
+    el.innerHTML = `<div class="desk-empty-card">
+      <h2>Tu portada está en blanco</h2>
+      <p>Aquí puedes construir lo que quieras: una web de servidor, una comunidad, una lista de información. Elige una plantilla de partida o añade tu primera ventana.</p>
+      <button type="button" class="cw-btn" data-empty-edit>Editar portada</button>
+    </div>`;
+    el.querySelector('[data-empty-edit]')?.addEventListener('click', () => {
+      document.querySelector('.dk-bar [data-act="enter"]')?.click();
+    });
+  } else {
+    el.innerHTML = `<div class="desk-empty-card">
+      <h2>Esta portada todavía está en blanco</h2>
+      <p>Aún no se ha publicado nada aquí. Vuelve pronto.</p>
+    </div>`;
+  }
+}
+
 async function ensureEditor() {
   if (editor || editorLoading || !desk || !isAdmin()) return;
   editorLoading = import('../desk/editor.js')
@@ -52,6 +72,7 @@ async function ensureEditor() {
 }
 
 function syncEditorWithSession(admin) {
+  desk?.refreshEmpty();
   if (admin) { void ensureEditor(); return; }
   editor?.dispose();
   editor = null;
@@ -85,6 +106,7 @@ async function init() {
     taskbar: document.getElementById('desk-taskbar'),
     ctx,
     layout: savedOrDefaultLayout(),
+    renderEmpty: renderEmptyDesk,
   });
 
   document.getElementById('desk-reset')?.addEventListener('click', () => {

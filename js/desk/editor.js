@@ -13,7 +13,7 @@
 import { icon, PICKABLE_ICONS } from '../core/icons.js';
 import { escapeHtml, showToast } from '../core/utils.js';
 import {
-  CHROMES, LIMITS, TYPES, TYPE_KEYS, cleanHref, defaultLayout, newWindow, normalizeLayout, normalizeWindow, uid,
+  CHROMES, LIMITS, TEMPLATES, TYPES, TYPE_KEYS, cleanHref, newWindow, normalizeLayout, normalizeWindow, uid,
 } from './layout.js';
 import { saveLayout } from './store.js';
 
@@ -115,10 +115,6 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
 
   function enter() {
     if (editing) return;
-    if (desk.stacked) {
-      showToast('Para editar la portada necesitas una pantalla más ancha.', 'error');
-      return;
-    }
     if (!canEdit()) {
       showToast('No se cargó la portada guardada, así que no se puede editar sin pisarla. Recarga la página.', 'error');
       return;
@@ -268,7 +264,12 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
       <button type="button" class="dk-icon-btn" data-act="undo" aria-label="Deshacer" title="Deshacer (Ctrl+Z)">${icon('arrow-counter-clockwise')}</button>
       <button type="button" class="dk-icon-btn" data-act="redo" aria-label="Rehacer" title="Rehacer (Ctrl+Mayús+Z)">${icon('arrow-clockwise')}</button>
       <button type="button" class="dk-btn dk-btn-ghost" data-act="snap" title="Alinear a una cuadrícula al mover y redimensionar">${icon('grid-four')}<span>Cuadrícula</span></button>
-      <button type="button" class="dk-btn dk-btn-ghost" data-act="reset" title="Volver a la composición inicial">${icon('magic-wand')}<span>Restaurar</span></button>
+      <div class="dk-menu-wrap">
+        <button type="button" class="dk-btn dk-btn-ghost" data-act="tpl-menu" aria-controls="dk-tpl-menu" aria-expanded="false" title="Empezar desde una composición de ejemplo">${icon('magic-wand')}<span>Plantillas</span></button>
+        <div class="dk-menu" id="dk-tpl-menu" data-menu-tpl hidden>
+          ${TEMPLATES.map((tpl) => `<button type="button" data-tpl="${tpl.id}"><span class="dk-menu-copy"><strong>${esc(tpl.label)}</strong><small>${esc(tpl.hint)}</small></span></button>`).join('')}
+        </div>
+      </div>
       <button type="button" class="dk-btn dk-btn-ghost" data-act="panel">${icon('stack')}<span>Panel</span></button>
       <span class="dk-grow"></span>
       <span class="dk-note" data-note role="status"></span>
@@ -284,11 +285,11 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
     if (mode === 'idle') {
       const enter = bar.querySelector('[data-act="enter"]');
       const blocked = !canEdit();
-      enter.disabled = desk.stacked || blocked;
-      enter.title = desk.stacked ? 'Para editar la portada necesitas una pantalla más ancha.' : '';
+      enter.disabled = blocked;
+      enter.title = '';
       note.textContent = blocked
         ? 'No se cargó la portada guardada: recarga para editar'
-        : desk.stacked ? 'Necesitas una pantalla más ancha para editar' : 'Modo administrador';
+        : desk.stacked ? 'Pantalla estrecha: se edita en vista apilada' : 'Modo administrador';
       return;
     }
 
@@ -303,12 +304,41 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
   }
 
   function closeMenu({ returnFocus = false } = {}) {
-    const menu = bar.querySelector('[data-menu]');
-    const opener = bar.querySelector('[data-act="add-menu"]');
-    if (!menu || menu.hidden) return;
-    menu.hidden = true;
-    opener?.setAttribute('aria-expanded', 'false');
-    if (returnFocus) opener?.focus();
+    let focusTarget = null;
+    [['[data-menu]', '[data-act="add-menu"]'], ['[data-menu-tpl]', '[data-act="tpl-menu"]']].forEach(([menuSel, openerSel]) => {
+      const menu = bar.querySelector(menuSel);
+      const opener = bar.querySelector(openerSel);
+      if (!menu || menu.hidden) return;
+      menu.hidden = true;
+      opener?.setAttribute('aria-expanded', 'false');
+      focusTarget = opener;
+    });
+    if (returnFocus) focusTarget?.focus();
+  }
+
+  function applyTemplate(id) {
+    const tpl = TEMPLATES.find((item) => item.id === id);
+    if (!tpl) return;
+    if (desk.getLayout().windows.length && !window.confirm(`Esto sustituye la composición actual por la plantilla "${tpl.label}". Puedes deshacerlo antes de guardar. ¿Seguir?`)) return;
+    desk.setLayout(normalizeLayout(tpl.build()));
+    seedDraft();
+    record();
+    renderPanel();
+  }
+
+  // Sin arrastre (vista apilada) hay que poder cambiar el orden de otra forma:
+  // se intercambian las posiciones con la ventana anterior o posterior.
+  function moveSelected(direction) {
+    const list = [...desk.getLayout().windows].sort((a, b) => a.y - b.y || a.x - b.x);
+    const at = list.findIndex((win) => win.id === desk.selectedId);
+    const other = list[at + (direction === 'up' ? -1 : 1)];
+    if (at < 0 || !other) return;
+    const a = list[at];
+    desk.update(a.id, { x: other.x, y: other.y });
+    desk.update(other.id, { x: a.x, y: a.y });
+    desk.resort();
+    record();
+    syncGeometryInputs();
   }
 
   bar.addEventListener('click', (event) => {
@@ -320,6 +350,11 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
       closeMenu();
       return;
     }
+    if (button.dataset.tpl) {
+      applyTemplate(button.dataset.tpl);
+      closeMenu();
+      return;
+    }
     switch (button.dataset.act) {
       case 'enter': enter(); break;
       case 'leave': leave(); break;
@@ -327,14 +362,16 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
       case 'undo': undo(); break;
       case 'redo': redo(); break;
       case 'snap': snapOn = !snapOn; desk.setSnap(snapOn); renderBar(); break;
-      case 'reset':
-        if (window.confirm('Se sustituirá la composición actual por la inicial (puedes deshacerlo antes de guardar). ¿Seguir?')) {
-          desk.setLayout(defaultLayout());
-          seedDraft();
-          record();
-          renderPanel();
-        }
+      case 'tpl-menu': {
+        const tplMenu = bar.querySelector('[data-menu-tpl]');
+        if (!tplMenu) break;
+        const willOpen = tplMenu.hidden;
+        closeMenu();
+        tplMenu.hidden = !willOpen;
+        button.setAttribute('aria-expanded', String(willOpen));
+        if (willOpen) tplMenu.querySelector('button')?.focus();
         break;
+      }
       case 'panel':
         panelOpen = !panelOpen;
         renderPanel();
@@ -344,6 +381,7 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
         break;
       case 'add-menu': {
         if (!menu) break;
+        if (menu.hidden) closeMenu();
         menu.hidden = !menu.hidden;
         button.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
         if (!menu.hidden) menu.querySelector('button')?.focus();
@@ -354,7 +392,7 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
   });
   document.addEventListener('click', (event) => {
     const menu = bar.querySelector('[data-menu]');
-    if (menu && !menu.hidden && !event.target.closest('.dk-menu-wrap')) closeMenu();
+    if (!event.target.closest('.dk-menu-wrap')) closeMenu();
   }, { signal });
 
   // ---------- panel de propiedades ----------
@@ -446,6 +484,8 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
           <label>Alto (px)<input class="dk-input" type="number" data-geo="h" step="8" min="${LIMITS.minH}" max="${LIMITS.maxH}" value="${win.h}"></label>
         </div>
         <div class="dk-actions">
+          <button type="button" class="dk-btn dk-btn-ghost" data-move="up">Subir</button>
+          <button type="button" class="dk-btn dk-btn-ghost" data-move="down">Bajar</button>
           <button type="button" class="dk-btn dk-btn-ghost" data-order="front">Traer al frente</button>
           <button type="button" class="dk-btn dk-btn-ghost" data-order="back">Enviar atrás</button>
           <button type="button" class="dk-btn dk-btn-ghost" data-act2="dup">${icon('copy-simple')}<span>Duplicar</span></button>
@@ -472,6 +512,7 @@ export function initEditor({ desk, stage, getSaved, save = saveLayout, canEdit =
     if (!id) return;
     if (target.dataset.chrome) { patchWindow(id, { chrome: target.dataset.chrome }, { immediate: true }); renderPanel(); return; }
     if (target.dataset.order) { desk.reorder(id, target.dataset.order); return; }
+    if (target.dataset.move) { moveSelected(target.dataset.move); return; }
     if (target.dataset.act2 === 'dup') { duplicateSelected(); return; }
     if (target.dataset.act2 === 'del') { removeSelected(); return; }
     const links = target.closest('[data-links]');

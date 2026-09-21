@@ -145,7 +145,7 @@ const RENDER = {
   ip(win, body, ctx) {
     const { address, note } = win.props;
     if (!address) {
-      body.innerHTML = emptyState('Todavía no puse la dirección del server. Cuando la tenga, sale aquí.', ctx.admin,
+      body.innerHTML = emptyState('Aquí va la dirección para conectarse.', ctx.admin,
         'Edítala en el modo edición de la portada.');
       return;
     }
@@ -186,7 +186,7 @@ const RENDER = {
       const label = new Map(categories.map((c) => [c.slug, c.label]));
       const list = [...logs].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).slice(0, win.props.limit || 5);
       if (!list.length) {
-        body.innerHTML = emptyState('Aquí van a salir los logs del server. Todavía no he publicado ninguno, dame chance ;3', ctx.admin,
+        body.innerHTML = emptyState('Todavía no hay logs publicados.', ctx.admin,
           'Crea el primero desde <a href="logs.html">Logs</a>.');
         return;
       }
@@ -207,7 +207,7 @@ const RENDER = {
       const weapons = (await ctx.data.weapons()).slice(0, win.props.limit || 6);
       if (!body.isConnected) return;
       if (!weapons.length) {
-        body.innerHTML = emptyState('Las guías de armas llegan pronto. Estoy pasando todo a limpio, cero drama.', ctx.admin,
+        body.innerHTML = emptyState('Todavía no hay guías publicadas.', ctx.admin,
           'Publica la primera desde <a href="guides.html">Guías</a>.');
         return;
       }
