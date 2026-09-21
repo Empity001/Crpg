@@ -126,10 +126,17 @@ body.cw-skin[data-page='logs'].pw-on .app-main { max-width: 1500px; }
 body.cw-skin[data-page='logs'] .pw { padding: 0 0 4px; }
 body.cw-skin[data-page='logs'] .pw-bar { margin: 0 0 0; }
 body.cw-skin .pw .logs-workspace {
-  min-height: 0;
+  min-height: max(520px, calc(100dvh - 210px));
   border: 0;
   border-radius: 0 0 3px 3px;
   background: none;
+  box-shadow: none;
+}
+body.cw-skin .pw .logs-master-column { background: none; border-right: 2px solid var(--sk-line-soft); }
+body.cw-skin .pw .logs-inspector {
+  border: 0;
+  border-radius: 0 0 3px 0;
+  background: color-mix(in srgb, var(--cw-page) 45%, transparent);
   box-shadow: none;
 }
 
