@@ -1,14 +1,68 @@
--- =========================================================
--- CULONES-RPG · Migración 014
--- Action Logs descriptivos desde cliente
--- =========================================================
--- Ejecutar en Supabase Dashboard -> SQL Editor -> New query.
--- Requiere migration_005_action_log.sql aplicada.
---
--- No cambia la tabla action_log ni reemplaza created_at del servidor.
--- Solo agrega una puerta admin-gated para que la UI registre acciones
--- realizadas en cliente: export/import, fondo y multimedia.
--- =========================================================
+-- Sobrecargas antiguas y dependencias del sistema de códigos que ya no existe.
+drop function if exists public.create_log(text, text, text, text, text, timestamptz, jsonb, jsonb);
+drop function if exists public.update_log(text, uuid, text, text, text, text, timestamptz, jsonb, jsonb);
+drop function if exists public.private_hash_admin_code(text);
+
+-- Puerta de administración: solo service_role (la Edge Function ya validó Discord y el rol).
+create or replace function public.validate_admin_code(input_code text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_catalog
+as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.role', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role',
+    ''
+  ) = 'service_role';
+$$;
+
+-- Quién está haciendo la petición (la Edge Function envía su Discord ID en una cabecera interna).
+create or replace function public.current_admin_owner()
+returns text
+language sql
+stable
+set search_path = public, pg_catalog
+as $$
+  select coalesce(
+    nullif(nullif(current_setting('request.headers', true), '')::jsonb ->> 'x-culones-discord-user', ''),
+    'sin-identidad'
+  );
+$$;
+
+create or replace function public.private_weapon_context(input_category_id uuid, input_type_id uuid)
+returns text
+language sql
+stable
+set search_path = public, pg_catalog
+as $$
+  select case
+    when x.c is not null and x.t is not null then format(' (categoría: %s, tipo: %s)', x.c, x.t)
+    when x.c is not null then format(' (categoría: %s)', x.c)
+    when x.t is not null then format(' (tipo: %s)', x.t)
+    else ''
+  end
+  from (
+    select
+      (select label from public.weapon_categories where id = input_category_id) as c,
+      (select label from public.weapon_types where id = input_type_id) as t
+  ) x;
+$$;
+
+create or replace function public.private_tier_column_label(input_key text)
+returns text
+language sql
+immutable
+set search_path = public, pg_catalog
+as $$
+  select case input_key
+    when 'weapon' then 'Arma'
+    when 'subweapon' then 'Subarma'
+    when 'accessory' then 'Accesorio'
+    else coalesce(input_key, 'columna desconocida')
+  end;
+$$;
 
 create or replace function public.record_admin_action(
   input_code text,
@@ -20,66 +74,19 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  clean_action text := left(coalesce(nullif(trim(input_action), ''), 'admin_action'), 80);
-  clean_description text := left(coalesce(nullif(trim(input_description), ''), 'Acción administrativa registrada sin descripción.'), 240);
 begin
   if not public.validate_admin_code(input_code) then
     raise exception 'Código de administrador inválido o expirado';
   end if;
 
   insert into public.action_log (actor, action, description)
-  values ('Admin', clean_action, clean_description);
+  values (
+    'Admin',
+    left(coalesce(nullif(trim(input_action), ''), 'admin_action'), 80),
+    left(coalesce(nullif(trim(input_description), ''), 'Acción administrativa registrada sin descripción.'), 240)
+  );
 end;
 $$;
-
-grant execute on function public.record_admin_action(text, text, text) to anon, authenticated;
-
--- ---------------------------------------------------------
--- Descripciones mejoradas para acciones existentes.
--- Mantienen las mismas firmas RPC.
--- ---------------------------------------------------------
-
-create or replace function public.delete_log(
-  input_code text,
-  input_id uuid
-)
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  old_log public.logs;
-begin
-  if not public.validate_admin_code(input_code) then
-    raise exception 'Código de administrador inválido o expirado';
-  end if;
-
-  select * into old_log from public.logs where id = input_id;
-
-  delete from public.logs where id = input_id;
-
-  if old_log.id is not null then
-    insert into public.action_log (actor, action, description)
-    values (
-      'Admin',
-      'log_deleted',
-      format(
-        'Se eliminó el log "%s"%s.',
-        coalesce(nullif(trim(old_log.title), ''), 'log sin título'),
-        case
-          when old_log.created_at is not null
-            then format(' del %s', to_char(old_log.created_at at time zone 'America/Santo_Domingo', 'DD Mon YYYY, HH24:MI'))
-          else ''
-        end
-      )
-    );
-  end if;
-end;
-$$;
-
-grant execute on function public.delete_log(text, uuid) to anon, authenticated;
 
 create or replace function public.set_comment_hidden(
   input_code text,
@@ -121,8 +128,6 @@ begin
 end;
 $$;
 
-grant execute on function public.set_comment_hidden(text, uuid, boolean) to anon, authenticated;
-
 create or replace function public.delete_comment(
   input_code text,
   input_id uuid
@@ -160,8 +165,6 @@ begin
 end;
 $$;
 
-grant execute on function public.delete_comment(text, uuid) to anon, authenticated;
-
 create or replace function public.update_app_setting(
   input_code text,
   input_key text,
@@ -174,8 +177,7 @@ set search_path = public
 as $$
 declare
   result public.app_settings;
-  action_key text;
-  action_description text;
+  has_image boolean := coalesce(input_value->>'image_url', '') <> '';
 begin
   if not public.validate_admin_code(input_code) then
     raise exception 'Código de administrador inválido o expirado';
@@ -186,26 +188,24 @@ begin
   on conflict (key) do update set value = excluded.value, updated_at = now()
   returning * into result;
 
-  action_key := case
-    when input_key = 'background_config' and coalesce(input_value->>'image_url', '') <> '' then 'background_updated'
-    when input_key = 'background_config' then 'background_cleared'
-    else 'field_config_updated'
-  end;
-
-  action_description := case
-    when input_key = 'background_config' and coalesce(input_value->>'image_url', '') <> '' then 'Se cambió el fondo principal.'
-    when input_key = 'background_config' then 'Se quitó el fondo principal.'
-    else format('Se actualizó la configuración de fichas ("%s").', coalesce(input_key, 'configuración'))
-  end;
-
   insert into public.action_log (actor, action, description)
-  values ('Admin', action_key, action_description);
+  values (
+    'Admin',
+    case
+      when input_key = 'background_config' and has_image then 'background_updated'
+      when input_key = 'background_config' then 'background_cleared'
+      else 'field_config_updated'
+    end,
+    case
+      when input_key = 'background_config' and has_image then 'Se cambió el fondo principal.'
+      when input_key = 'background_config' then 'Se quitó el fondo principal.'
+      else format('Se actualizó la configuración de fichas ("%s").', coalesce(input_key, 'configuración'))
+    end
+  );
 
   return result;
 end;
 $$;
-
-grant execute on function public.update_app_setting(text, text, jsonb) to anon, authenticated;
 
 create or replace function public.create_tierlist_row(
   input_code text,
@@ -241,8 +241,6 @@ begin
   return new_row;
 end;
 $$;
-
-grant execute on function public.create_tierlist_row(text, text, text) to anon, authenticated;
 
 create or replace function public.update_tierlist_row(
   input_code text,
@@ -286,8 +284,6 @@ begin
 end;
 $$;
 
-grant execute on function public.update_tierlist_row(text, uuid, text, text) to anon, authenticated;
-
 create or replace function public.delete_tierlist_row(
   input_code text,
   input_id uuid
@@ -325,15 +321,13 @@ begin
 end;
 $$;
 
-grant execute on function public.delete_tierlist_row(text, uuid) to anon, authenticated;
-
 create or replace function public.upsert_tierlist_item(
   input_code text,
   input_id uuid,
   input_name text,
   input_image_url text,
   input_column_key text,
-  input_row_id uuid,
+  input_row_id uuid default null,
   input_extra_fields jsonb default '[]'::jsonb
 )
 returns public.tierlist_items
@@ -345,7 +339,6 @@ declare
   result public.tierlist_items;
   next_order integer;
   row_name text;
-  column_label text;
 begin
   if not public.validate_admin_code(input_code) then
     raise exception 'Código de administrador inválido o expirado';
@@ -358,14 +351,6 @@ begin
   if input_column_key not in ('weapon', 'subweapon', 'accessory') then
     raise exception 'Columna inválida: %', input_column_key;
   end if;
-
-  select name into row_name from public.tierlist_rows where id = input_row_id;
-  column_label := case input_column_key
-    when 'weapon' then 'Arma'
-    when 'subweapon' then 'Subarma'
-    when 'accessory' then 'Accesorio'
-    else input_column_key
-  end;
 
   if input_id is null then
     select coalesce(max(sort_order) + 1, 0) into next_order
@@ -383,18 +368,6 @@ begin
       next_order
     )
     returning * into result;
-
-    insert into public.action_log (actor, action, description)
-    values (
-      'Admin',
-      'tierlist_item_created',
-      format(
-        'Se creó el elemento de tierlist "%s" en %s / %s.',
-        result.name,
-        column_label,
-        coalesce(nullif(trim(row_name), ''), 'Sin clasificar')
-      )
-    );
   else
     update public.tierlist_items
     set name = trim(input_name),
@@ -402,27 +375,26 @@ begin
         extra_fields = coalesce(input_extra_fields, extra_fields)
     where id = input_id
     returning * into result;
-
-    select name into row_name from public.tierlist_rows where id = result.row_id;
-
-    insert into public.action_log (actor, action, description)
-    values (
-      'Admin',
-      'tierlist_item_updated',
-      format(
-        'Se editó el elemento de tierlist "%s" en %s / %s.',
-        result.name,
-        column_label,
-        coalesce(nullif(trim(row_name), ''), 'Sin clasificar')
-      )
-    );
   end if;
+
+  select name into row_name from public.tierlist_rows where id = result.row_id;
+
+  insert into public.action_log (actor, action, description)
+  values (
+    'Admin',
+    case when input_id is null then 'tierlist_item_created' else 'tierlist_item_updated' end,
+    format(
+      'Se %s el elemento de tierlist "%s" en %s / %s.',
+      case when input_id is null then 'creó' else 'editó' end,
+      result.name,
+      public.private_tier_column_label(input_column_key),
+      coalesce(nullif(trim(row_name), ''), 'Sin clasificar')
+    )
+  );
 
   return result;
 end;
 $$;
-
-grant execute on function public.upsert_tierlist_item(text, uuid, text, text, text, uuid, jsonb) to anon, authenticated;
 
 create or replace function public.delete_tierlist_item(
   input_code text,
@@ -436,7 +408,6 @@ as $$
 declare
   item public.tierlist_items;
   row_name text;
-  column_label text;
 begin
   if not public.validate_admin_code(input_code) then
     raise exception 'Código de administrador inválido o expirado';
@@ -444,12 +415,6 @@ begin
 
   select * into item from public.tierlist_items where id = input_id;
   select name into row_name from public.tierlist_rows where id = item.row_id;
-  column_label := case item.column_key
-    when 'weapon' then 'Arma'
-    when 'subweapon' then 'Subarma'
-    when 'accessory' then 'Accesorio'
-    else coalesce(item.column_key, 'columna desconocida')
-  end;
 
   delete from public.tierlist_items where id = input_id;
 
@@ -461,15 +426,13 @@ begin
       format(
         'Se eliminó el elemento de tierlist "%s" de %s / %s.',
         coalesce(nullif(trim(item.name), ''), 'elemento sin nombre'),
-        column_label,
+        public.private_tier_column_label(item.column_key),
         coalesce(nullif(trim(row_name), ''), 'Sin clasificar')
       )
     );
   end if;
 end;
 $$;
-
-grant execute on function public.delete_tierlist_item(text, uuid) to anon, authenticated;
 
 create or replace function public.create_weapon(
   input_code text,
@@ -486,10 +449,7 @@ set search_path = public
 as $$
 declare
   new_weapon public.weapons;
-  category_label text;
-  type_label text;
-  weapon_context text;
-  rank_label text;
+  rank_label text := coalesce(nullif(trim(input_initial_rank_name), ''), 'MK1');
 begin
   if not public.validate_admin_code(input_code) then
     raise exception 'Código de administrador inválido o expirado';
@@ -498,19 +458,6 @@ begin
   if coalesce(trim(input_name), '') = '' then
     raise exception 'El arma necesita un nombre';
   end if;
-
-  select label into category_label from public.weapon_categories where id = input_category_id;
-  select label into type_label from public.weapon_types where id = input_type_id;
-  weapon_context := case
-    when category_label is not null and type_label is not null
-      then format(' (categoría: %s, tipo: %s)', category_label, type_label)
-    when category_label is not null
-      then format(' (categoría: %s)', category_label)
-    when type_label is not null
-      then format(' (tipo: %s)', type_label)
-    else ''
-  end;
-  rank_label := coalesce(nullif(trim(input_initial_rank_name), ''), 'MK1');
 
   insert into public.weapons (name, image_url, category_id, type_id, published)
   values (trim(input_name), nullif(trim(input_image_url), ''), input_category_id, input_type_id, false)
@@ -526,7 +473,7 @@ begin
     format(
       'Se creó el arma "%s"%s con rango inicial "%s" (oculta hasta publicarla).',
       new_weapon.name,
-      weapon_context,
+      public.private_weapon_context(input_category_id, input_type_id),
       rank_label
     )
   );
@@ -534,8 +481,6 @@ begin
   return new_weapon;
 end;
 $$;
-
-grant execute on function public.create_weapon(text, text, text, uuid, uuid, text) to anon, authenticated;
 
 create or replace function public.update_weapon(
   input_code text,
@@ -552,9 +497,6 @@ set search_path = public
 as $$
 declare
   result public.weapons;
-  category_label text;
-  type_label text;
-  weapon_context text;
 begin
   if not public.validate_admin_code(input_code) then
     raise exception 'Código de administrador inválido o expirado';
@@ -569,18 +511,6 @@ begin
   where id = input_id
   returning * into result;
 
-  select label into category_label from public.weapon_categories where id = result.category_id;
-  select label into type_label from public.weapon_types where id = result.type_id;
-  weapon_context := case
-    when category_label is not null and type_label is not null
-      then format(' (categoría: %s, tipo: %s)', category_label, type_label)
-    when category_label is not null
-      then format(' (categoría: %s)', category_label)
-    when type_label is not null
-      then format(' (tipo: %s)', type_label)
-    else ''
-  end;
-
   insert into public.action_log (actor, action, description)
   values (
     'Admin',
@@ -588,15 +518,13 @@ begin
     format(
       'Se editó el arma "%s"%s.',
       coalesce(nullif(trim(result.name), ''), 'arma sin nombre'),
-      weapon_context
+      public.private_weapon_context(result.category_id, result.type_id)
     )
   );
 
   return result;
 end;
 $$;
-
-grant execute on function public.update_weapon(text, uuid, text, text, uuid, uuid) to anon, authenticated;
 
 create or replace function public.set_weapon_published(
   input_code text,
@@ -635,8 +563,6 @@ begin
 end;
 $$;
 
-grant execute on function public.set_weapon_published(text, uuid, boolean) to anon, authenticated;
-
 create or replace function public.delete_weapon(
   input_code text,
   input_id uuid
@@ -648,26 +574,12 @@ set search_path = public
 as $$
 declare
   old_weapon public.weapons;
-  category_label text;
-  type_label text;
-  weapon_context text;
 begin
   if not public.validate_admin_code(input_code) then
     raise exception 'Código de administrador inválido o expirado';
   end if;
 
   select * into old_weapon from public.weapons where id = input_id;
-  select label into category_label from public.weapon_categories where id = old_weapon.category_id;
-  select label into type_label from public.weapon_types where id = old_weapon.type_id;
-  weapon_context := case
-    when category_label is not null and type_label is not null
-      then format(' (categoría: %s, tipo: %s)', category_label, type_label)
-    when category_label is not null
-      then format(' (categoría: %s)', category_label)
-    when type_label is not null
-      then format(' (tipo: %s)', type_label)
-    else ''
-  end;
 
   delete from public.weapons where id = input_id;
 
@@ -679,11 +591,190 @@ begin
       format(
         'Se eliminó el arma "%s"%s.',
         coalesce(nullif(trim(old_weapon.name), ''), 'arma sin nombre'),
-        weapon_context
+        public.private_weapon_context(old_weapon.category_id, old_weapon.type_id)
       )
     );
   end if;
 end;
 $$;
 
-grant execute on function public.delete_weapon(text, uuid) to anon, authenticated;
+create or replace function public.patch_weapon_rank(
+  input_code text,
+  input_id uuid,
+  input_name text default null,
+  input_description text default null,
+  input_image_url text default null,
+  input_stats jsonb default null,
+  input_abilities jsonb default null,
+  input_extra_sections jsonb default null,
+  input_upgrade_recipe jsonb default null,
+  input_clear_upgrade_recipe boolean default false
+)
+returns public.weapon_ranks
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  result public.weapon_ranks;
+  weapon_name text;
+begin
+  if not public.validate_admin_code(input_code) then
+    raise exception 'Código de administrador inválido o expirado';
+  end if;
+
+  if input_name is not null and coalesce(trim(input_name), '') = '' then
+    raise exception 'El rango necesita un nombre';
+  end if;
+
+  update public.weapon_ranks
+  set name = case when input_name is null then name else trim(input_name) end,
+      description = case when input_description is null then description else nullif(trim(input_description), '') end,
+      image_url = case when input_image_url is null then image_url else nullif(trim(input_image_url), '') end,
+      stats = coalesce(input_stats, stats),
+      abilities = coalesce(input_abilities, abilities),
+      extra_sections = coalesce(input_extra_sections, extra_sections),
+      upgrade_recipe = case
+        when input_clear_upgrade_recipe then null
+        when input_upgrade_recipe is not null then input_upgrade_recipe
+        else upgrade_recipe
+      end
+  where id = input_id
+  returning * into result;
+
+  if result.id is null then
+    raise exception 'El rango ya no existe';
+  end if;
+
+  select name into weapon_name from public.weapons where id = result.weapon_id;
+
+  insert into public.action_log (actor, action, description)
+  values (
+    'Admin',
+    'weapon_rank_updated',
+    format('📈 Rango "%s" editado en "%s"', result.name, coalesce(weapon_name, '—'))
+  );
+
+  return result;
+end;
+$$;
+
+-- Kits. Correcciones: el admin ahora ve también los kits ocultos (la versión anterior dependía de un
+-- código que ya no llega) y se evita devolver cada kit publicado duplicado.
+create or replace function public.list_kits(input_code text default null)
+returns setof public.kits
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if public.validate_admin_code(input_code) then
+    return query select * from public.kits order by sort_order, created_at;
+  else
+    return query select * from public.kits where published = true order by sort_order, created_at;
+  end if;
+end;
+$$;
+
+create or replace function public.normalize_kit_items(input_items jsonb)
+returns jsonb
+language sql
+immutable
+set search_path = public, pg_catalog
+as $$
+  select jsonb_build_object(
+    'weapon', coalesce(input_items->'weapon', '[]'::jsonb),
+    'accessory', coalesce(input_items->'accessory', '[]'::jsonb),
+    'subweapon', coalesce(input_items->'subweapon', '[]'::jsonb)
+  );
+$$;
+
+create or replace function public.upsert_kit(
+  input_code text,
+  input_id uuid,
+  input_name text,
+  input_description text default null,
+  input_published boolean default true,
+  input_items jsonb default null
+)
+returns public.kits
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  result public.kits;
+  next_order integer;
+  clean_name text := nullif(trim(input_name), '');
+begin
+  if not public.validate_admin_code(input_code) then
+    raise exception 'Codigo de administrador invalido o expirado';
+  end if;
+
+  if clean_name is null then
+    raise exception 'El kit necesita un nombre';
+  end if;
+
+  if input_id is null then
+    select coalesce(max(sort_order) + 1, 0) into next_order from public.kits;
+
+    insert into public.kits (name, description, published, items, sort_order, updated_at)
+    values (
+      clean_name,
+      nullif(trim(coalesce(input_description, '')), ''),
+      coalesce(input_published, true),
+      public.normalize_kit_items(input_items),
+      next_order,
+      now()
+    )
+    returning * into result;
+
+    insert into public.action_log (actor, action, description)
+    values ('Admin', 'kit_created', format('Se creo el kit recomendado "%s".', result.name));
+  else
+    update public.kits
+    set name = clean_name,
+        description = nullif(trim(coalesce(input_description, '')), ''),
+        published = coalesce(input_published, published),
+        items = public.normalize_kit_items(input_items),
+        updated_at = now()
+    where id = input_id
+    returning * into result;
+
+    if result.id is null then
+      raise exception 'El kit ya no existe';
+    end if;
+
+    insert into public.action_log (actor, action, description)
+    values ('Admin', 'kit_updated', format('Se edito el kit recomendado "%s".', result.name));
+  end if;
+
+  return result;
+end;
+$$;
+
+create or replace function public.delete_kit(
+  input_code text,
+  input_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  old_kit public.kits;
+begin
+  if not public.validate_admin_code(input_code) then
+    raise exception 'Codigo de administrador invalido o expirado';
+  end if;
+
+  select * into old_kit from public.kits where id = input_id;
+  delete from public.kits where id = input_id;
+
+  if old_kit.id is not null then
+    insert into public.action_log (actor, action, description)
+    values ('Admin', 'kit_deleted', format('Se elimino el kit recomendado "%s".', old_kit.name));
+  end if;
+end;
+$$;

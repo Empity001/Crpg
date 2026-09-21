@@ -1,29 +1,8 @@
--- =========================================================
--- CULONES-RPG · Migración 005
--- Bitácora de acciones ("Acciones realizadas"): registra TODO
--- lo que pasa en la web — creación/edición/borrado de logs,
--- mobs, items y Extras; categorías; moderación de
--- comentarios; comentarios nuevos de visitantes; cambios de
--- configuración de fichas. Solo visible para admins.
--- =========================================================
--- Ejecutar completo en: Supabase Dashboard → SQL Editor → New query
--- Seguro de correr sobre una base que ya tiene schema.sql +
--- migration_002 + migration_003 + migration_004 aplicados.
--- =========================================================
-
--- ---------------------------------------------------------
--- 1) TABLA: action_log
---    Totalmente bloqueada para lectura/escritura directa vía
---    anon key (mismo patrón que admin_codes) — solo se lee a
---    través de list_action_log (valida código de admin) y solo
---    se escribe desde dentro de las funciones RPC / el trigger
---    de comentarios, todas SECURITY DEFINER.
--- ---------------------------------------------------------
 create table if not exists public.action_log (
   id          uuid primary key default gen_random_uuid(),
-  actor       text not null default 'Admin', -- 'Admin' o el alias de quien comentó
-  action      text not null,                  -- clave corta: log_created, mob_deleted, etc.
-  description text not null,                  -- texto ya armado, listo para mostrar
+  actor       text not null default 'Admin',
+  action      text not null,
+  description text not null,
   created_at  timestamptz not null default now()
 );
 
@@ -38,9 +17,6 @@ create policy "action_log_no_direct_access"
   using (false)
   with check (false);
 
--- ---------------------------------------------------------
--- 2) list_action_log: única puerta de lectura, admin-gated.
--- ---------------------------------------------------------
 create or replace function public.list_action_log(
   input_code text,
   input_limit integer default 300
@@ -64,10 +40,6 @@ $$;
 
 grant execute on function public.list_action_log(text, integer) to anon, authenticated;
 
--- ---------------------------------------------------------
--- 3) create_log: ahora también registra "log creado" y un
---    evento por cada mob/item/bloque libre incluido.
--- ---------------------------------------------------------
 create or replace function public.create_log(
   input_code text,
   input_title text,
@@ -129,7 +101,6 @@ begin
   from jsonb_array_elements(coalesce(input_items, '[]'::jsonb)) with ordinality as t(elem, idx)
   where coalesce(trim(elem->>'name'), '') <> '';
 
-  -- ---- Bitácora ----
   insert into public.action_log (actor, action, description)
   values ('Admin', 'log_created', format('📜 Log creado: "%s"', input_title));
 
@@ -153,11 +124,6 @@ $$;
 
 grant execute on function public.create_log(text, text, text, text, text, timestamptz, jsonb, jsonb) to anon, authenticated;
 
--- ---------------------------------------------------------
--- 4) update_log: compara mobs/items ANTES vs DESPUÉS (por
---    nombre) para registrar exactamente qué se agregó y qué
---    se quitó, además del "log editado" general.
--- ---------------------------------------------------------
 create or replace function public.update_log(
   input_code text,
   input_id uuid,
@@ -253,7 +219,6 @@ begin
   added_items   := array(select unnest(new_item_names) except select unnest(old_item_names));
   removed_items := array(select unnest(old_item_names) except select unnest(new_item_names));
 
-  -- ---- Bitácora ----
   insert into public.action_log (actor, action, description)
   values ('Admin', 'log_updated', format('✏️ Log editado: "%s"', input_title));
 
@@ -283,9 +248,6 @@ $$;
 
 grant execute on function public.update_log(text, uuid, text, text, text, text, timestamptz, jsonb, jsonb) to anon, authenticated;
 
--- ---------------------------------------------------------
--- 5) delete_log: registra el título antes de borrarlo.
--- ---------------------------------------------------------
 create or replace function public.delete_log(
   input_code text,
   input_id uuid
@@ -315,9 +277,6 @@ $$;
 
 grant execute on function public.delete_log(text, uuid) to anon, authenticated;
 
--- ---------------------------------------------------------
--- 6) create_category / delete_category: registran el cambio.
--- ---------------------------------------------------------
 create or replace function public.create_category(
   input_code text,
   input_slug text,
@@ -391,9 +350,6 @@ $$;
 
 grant execute on function public.delete_category(text, text) to anon, authenticated;
 
--- ---------------------------------------------------------
--- 7) set_comment_hidden / delete_comment: moderación de admin.
--- ---------------------------------------------------------
 create or replace function public.set_comment_hidden(
   input_code text,
   input_id uuid,
@@ -465,9 +421,6 @@ $$;
 
 grant execute on function public.delete_comment(text, uuid) to anon, authenticated;
 
--- ---------------------------------------------------------
--- 8) update_app_setting: cambios en "Configurar fichas".
--- ---------------------------------------------------------
 create or replace function public.update_app_setting(
   input_code text,
   input_key text,
@@ -499,10 +452,6 @@ $$;
 
 grant execute on function public.update_app_setting(text, text, jsonb) to anon, authenticated;
 
--- ---------------------------------------------------------
--- 9) TRIGGER: comentario nuevo de cualquier visitante (no pasa
---    por una función RPC, así que se captura con un trigger).
--- ---------------------------------------------------------
 create or replace function public.log_comment_created()
 returns trigger
 language plpgsql

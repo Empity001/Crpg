@@ -117,51 +117,44 @@ js/features/         módulos funcionales por dominio
 js/pages/            entry point de cada página
 js/vendor/           cliente local de Supabase
 partials/            header y footer compartidos
-sql/                 esquema y migraciones incrementales
+supabase/            migraciones SQL y Edge Function
 ```
 
 El proyecto es una MPA estática sin bundler ni build step. Usa ES Modules nativos. Cada página carga su entry point y su hoja específica. El rebrand compartido está dividido, en orden de cascada, entre `rebrand.css`, `rebrand-runtime.css`, `rebrand-editors.css`, `rebrand-logs.css`, `rebrand-extras.css`, `rebrand-controls.css` y `theme-system.css`. La última capa centraliza tokens visibles compartidos, scrollbars y controles base para evitar colores duplicados en varias hojas.
 
 Supabase proporciona Postgres, Auth, Edge Functions, RPC, RLS, Storage y Realtime. La `anon key` es pública por diseño. Las escrituras administrativas pasan por `discord-admin-api`, que valida la sesión, la identidad de Discord, la pertenencia al servidor y el rol configurado antes de usar `service_role` en el servidor. Nunca debe incluirse una `service_role`, un Bot Token ni un Client Secret en el cliente.
 
-## Migraciones SQL
+## Base de datos (Supabase)
 
-Aplicar en orden desde Supabase SQL Editor:
+El esquema completo vive en `supabase/migrations/`: una cadena de 13 migraciones verificada de principio a fin con 24 pruebas funcionales sobre un proyecto limpio (RLS, permisos, límites de frecuencia, bitácora, borradores, kits, multimedia y cola de Discord). Ya no hay que ejecutar SQL a mano ni respetar el orden de las 24 migraciones antiguas, que se pisaban entre sí y no se podían volver a ejecutar.
 
-1. `sql/schema.sql`
-2. `sql/migration_002_categories_and_dates.sql`
-3. `sql/migration_003_mob_item_blocks.sql`
-4. `sql/migration_004_advanced_features.sql`
-5. `sql/migration_005_action_log.sql`
-6. `sql/migration_006_tierlist.sql`
-7. `sql/migration_007_drafts.sql`
-8. `sql/migration_008_weapons.sql`
-9. `sql/migration_009_fix_create_category_slug.sql`
-10. `sql/migration_010_storage.sql`
-11. `sql/migration_011_media_library.sql`
-12. `sql/migration_012_media_library_archive_cleanup.sql`
-13. `sql/migration_013_media_picker_light_list.sql`
-14. `sql/migration_014_admin_action_audit_details.sql`
-15. `sql/migration_015_patch_weapon_rank.sql`
-16. `sql/migration_016_kits.sql`
-17. `sql/migration_017_discord_deletion_queue.sql`
-18. `sql/migration_018_log_cover_image.sql`
-19. `sql/migration_019_replace_media_asset.sql`
-20. `sql/migration_020_update_log_category.sql`
-21. `sql/migration_021_discord_auth_and_forum.sql`
-22. `sql/migration_022_log_visibility.sql`
-23. `sql/migration_023_performance_content_versions.sql`
-24. `sql/migration_024_performance_hardening.sql`
+**Proyecto nuevo (vacío)**
 
-Las migraciones nuevas reemplazan algunas RPC conservando sus firmas públicas. No deben ejecutarse fuera de orden.
+```bash
+supabase link --project-ref TU_REF
+supabase db push
+supabase functions deploy discord-admin-api --project-ref TU_REF --use-api
+```
 
-Para el deploy 024, el orden exacto está en
-`DEPLOY_PERFORMANCE_HARDENING_01.md` y el diagnóstico completo en
-`PERFORMANCE_AUDIT_01.md`.
+**Proyecto existente que viene de la cadena antigua (001 a 024):** aplica solo las migraciones `culones_014` a `culones_020`. Unifican el estado final, cierran las funciones al navegador y corrigen los errores de la lista de abajo.
 
-El rediseño de Herramientas, el panel de salud y el respaldo v2 se despliegan
-siguiendo `DEPLOY_TOOLS_REFRESH_01.md`. No requieren migración SQL nueva, pero
-sí volver a desplegar `discord-admin-api` antes de publicar la página.
+Después, en el panel de Supabase:
+
+1. **Authentication → Providers → Discord:** Client ID y Client Secret de la aplicación de Discord.
+2. **Authentication → URL Configuration:** Site URL `https://empity001.github.io/Crpg/` y Redirect URL `https://empity001.github.io/Crpg/**`.
+3. **Edge Functions → Secrets:** `DISCORD_BOT_TOKEN` y `DISCORD_GUILD_ID`.
+4. **Rol administrador de la web** (no necesita el bot): `update public.discord_guild_config set admin_role_id = 'ID_DEL_ROL' where guild_id = 'ID_DEL_SERVIDOR';`. La Edge Function crea la fila del servidor sola en el primer inicio de sesión.
+
+### Qué corrigen las migraciones 014 a 020
+
+- **Borradores:** el guardado remoto fallaba en silencio desde que el acceso pasó a Discord; ahora se guardan por cuenta de Discord.
+- **Kits ocultos:** el administrador no los veía, y la función podía devolver cada kit publicado duplicado.
+- **`create_log` y `update_log`:** quedaban dos versiones de cada una; ahora hay una sola.
+- **Comentarios públicos:** se podían enviar `likes` falsos, `hidden` o un comentario padre ajeno; ahora se rechazan. Límite de frecuencia por IP: 5 comentarios por minuto y 40 por hora, y 30 likes por minuto.
+- **Likes:** solo por RPC, ya no por INSERT directo.
+- **Novedades:** un "me gusta" ya no marca el Log como actualizado.
+- **Permisos:** el navegador solo puede ejecutar `toggle_like`, `like_comment`, `list_kits`, `list_public_logs_with_counts` y `get_site_content_versions`. Toda la administración pasa por la Edge Function con `service_role`.
+- **Índices:** se quitaron los redundantes y el de `request_id` ahora sí lo usa el planificador.
 
 ## Desarrollo local
 
@@ -190,7 +183,7 @@ El bot vive en un repositorio independiente y utiliza la misma aplicación de Di
 
 ## Estado de mantenimiento
 
-La auditoría conjunta del 12 de julio de 2026 confirmó sintaxis válida, imports resueltos, IDs HTML únicos, CSS balanceado y carga local sin errores de las cinco páginas principales. La paleta global alcanza todas las familias de color visibles mediante tokens y canales RGB derivados; categorías y otros colores de contenido siguen siendo configurables por separado. `discord-admin-api` mantiene compatibilidad explícita entre RPC legacy y las RPC sin `input_code` de `migration_022`.
+La auditoría conjunta del 12 de julio de 2026 confirmó sintaxis válida, imports resueltos, IDs HTML únicos, CSS balanceado y carga local sin errores de las cinco páginas principales. La paleta global alcanza todas las familias de color visibles mediante tokens y canales RGB derivados; categorías y otros colores de contenido siguen siendo configurables por separado. `discord-admin-api` mantiene compatibilidad explícita entre RPC legacy y las RPC sin `input_code`.
 
 La página antigua `weapons.html` fue eliminada: Guías usa `guides.html`, `js/pages/guides.js` y `css/guides.css`. Multimedia separa helpers, usos y orquestación; Mesas de trabajo vive en `weapons-recipes-admin.js` y el resto del CRUD en `weapons-admin.js`.
 
@@ -200,4 +193,4 @@ La página antigua `weapons.html` fue eliminada: Guías usa `guides.html`, `js/p
 
 ### Visibilidad de Logs
 
-Después de `migration_021`, ejecuta `sql/migration_022_log_visibility.sql`. Los administradores pueden publicar o despublicar cada Log desde su inspector o menú contextual. Un Log oculto desaparece de la vista pública y su publicación de Discord se elimina mediante una cola durable.
+Los administradores pueden publicar o despublicar cada Log desde su inspector o menú contextual. Un Log oculto desaparece de la vista pública y su publicación de Discord se elimina mediante una cola durable.

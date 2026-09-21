@@ -1,0 +1,13 @@
+# Dependencias y secretos: nunca al repositorio
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Estado local del CLI de Supabase
+supabase/.temp/
+supabase/.branches/
+
+# Sistema y editores
+.DS_Store
+Thumbs.db
