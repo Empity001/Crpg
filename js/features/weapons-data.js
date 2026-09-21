@@ -11,6 +11,7 @@ import { isAdmin, state } from '../core/state.js';
 import { renderLoadError, withTimeout } from '../core/utils.js';
 import { renderWeaponCategoryFilters, renderWeaponTypeFilters, renderWeaponsGrid } from './weapons-catalog.js';
 import { renderWeaponDetail } from './weapons-detail.js';
+import { fetchWeaponsAndRanks } from './weapons-source.js';
 
 let weaponMetaPromise = null;
 let weaponDataPromise = null;
@@ -77,10 +78,7 @@ async function performReloadWeaponData() {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 8500);
   try {
-    const requests = Promise.all([
-      attachSignal(supabaseClient.from('weapons').select('id,name,image_url,category_id,type_id,published,sort_order'), controller.signal),
-      attachSignal(supabaseClient.from('weapon_ranks').select('id,weapon_id,name,description,image_url,stats,abilities,upgrade_recipe,extra_sections,sort_order').order('sort_order', { ascending: true }), controller.signal),
-    ]);
+    const requests = fetchWeaponsAndRanks({ signal: controller.signal });
     const [weaponsRes, ranksRes] = await withTimeout(requests, 9000, 'La carga del catálogo de Guías');
     if (weaponsRes.error || ranksRes.error) {
       console.error(weaponsRes.error || ranksRes.error);
@@ -129,11 +127,10 @@ export async function loadWeaponsCatalog() {
 // ni los renders de la guía. Seguro de llamar desde cualquier contexto.
 
 export async function fetchWeaponsDataForExport() {
-  const [catsRes, typesRes, weaponsRes, ranksRes] = await Promise.all([
+  const [catsRes, typesRes, [weaponsRes, ranksRes]] = await Promise.all([
     disableQueryRetry(supabaseClient.from('weapon_categories').select('id,label,color,sort_order').order('sort_order', { ascending: true })),
     disableQueryRetry(supabaseClient.from('weapon_types').select('id,label,sort_order').order('sort_order', { ascending: true })),
-    disableQueryRetry(supabaseClient.from('weapons').select('id,name,image_url,category_id,type_id,published,sort_order')),
-    disableQueryRetry(supabaseClient.from('weapon_ranks').select('id,weapon_id,name,description,image_url,stats,abilities,upgrade_recipe,extra_sections,sort_order').order('sort_order', { ascending: true })),
+    fetchWeaponsAndRanks(),
   ]);
   const categories = (!catsRes.error && catsRes.data)   || [];
   const types      = (!typesRes.error && typesRes.data)  || [];

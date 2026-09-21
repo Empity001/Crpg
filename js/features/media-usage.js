@@ -1,6 +1,7 @@
 import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { asArray, escapeHtml, safeUrl } from '../core/utils.js';
+import { fetchWeaponsAndRanks } from './weapons-source.js';
 
 function addUsage(map, url, label) {
   const normalized = safeUrl(url);
@@ -44,13 +45,12 @@ function addRecipeUsages(usage, ranks, weapons) {
 
 export async function buildMediaUsageIndex() {
   const usage = new Map();
-  const [logs, mobsResult, itemsResult, tierResult, weaponsResult, ranksResult, kitsResult] = await Promise.all([
+  const [logs, mobsResult, itemsResult, tierResult, [weaponsResult, ranksResult], kitsResult] = await Promise.all([
     loadLogsWithOptionalCover(),
     supabaseClient.from('log_mobs').select('log_id,name,image_url'),
     supabaseClient.from('log_items').select('log_id,name,item_type,image_url'),
     supabaseClient.from('tierlist_items').select('name,image_url'),
-    supabaseClient.from('weapons').select('id,name,image_url'),
-    supabaseClient.from('weapon_ranks').select('id,weapon_id,name,image_url,upgrade_recipe'),
+    fetchWeaponsAndRanks({ weaponColumns: 'id,name,image_url', rankColumns: 'id,weapon_id,name,image_url,upgrade_recipe' }),
     supabaseClient.from('kits').select('name,items'),
   ]);
   const mobs = mobsResult.data || [];

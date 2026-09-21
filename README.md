@@ -6,13 +6,17 @@ Plataforma web del servidor Minecraft RPG/Gacha **culones-rpg**. Reúne logs, gu
 
 | Página | Contenido | Acceso |
 |---|---|---|
-| `index.html` | Logs, fichas, comentarios y likes | Público |
+| `index.html` | Portada: escritorio de ventanas que compone el administrador | Público |
+| `logs.html` | Logs, fichas, comentarios y likes | Público |
 | `guides.html` | Catálogo de guías, rangos y fabricación | Público |
 | `tierlist.html` | Clasificación por filas y columnas | Público |
 | `kits.html` | Combinaciones recomendadas | Público |
 | `about.html` | Información editable del servidor | Público |
 | `admin.html` | Multimedia, backups, borradores y ajustes | Administrador |
 | `asset-view.html` | Visor de recursos a pantalla completa | Público |
+| `404.html` | Página de error (GitHub Pages la sirve sola en rutas que no existen) | Público |
+
+Los enlaces antiguos `index.html?log=...` (los que ya publicó el bot en Discord) se reenvían a `logs.html`.
 
 El shell compartido vive en `partials/header.html` y `partials/footer.html`. La navegación, el login y las herramientas globales se inicializan desde `js/app/shell.js`.
 
@@ -92,7 +96,7 @@ La interfaz incluye una capa global de productividad que solo activa cada acció
 |---|---|
 | `Ctrl + K` | Abrir el buscador global |
 | `/` | Enfocar el buscador o filtro de la sección actual |
-| `Alt + 1…6` | Ir a Logs, Guías, Tierlist, Kits, Acerca o Herramientas |
+| `Alt + 0…6` | Ir a Portada, Logs, Guías, Tierlist, Kits, Acerca o Herramientas |
 | `Alt + N` | Crear un elemento según la sección |
 | `Alt + E` | Editar el elemento seleccionado |
 | `Ctrl + S` | Guardar el editor o borrador abierto |
@@ -110,23 +114,39 @@ La paleta permite buscar acciones y navegación por nombre, muestra sus atajos y
 ## Arquitectura
 
 ```text
+assets/              iconos (sprite), fuentes propias y favicon
 css/                 estilos base, capas por sección y rebrand
 js/app/              shell, includes, bootstrap y Realtime
 js/core/             estado, utilidades, Storage, multimedia y auditoría
+js/desk/             la portada: modelo, motor de ventanas, contenidos y editor
 js/features/         módulos funcionales por dominio
 js/pages/            entry point de cada página
 js/vendor/           cliente local de Supabase
 partials/            header y footer compartidos
 supabase/            migraciones SQL y Edge Function
+tools/               utilidades de desarrollo (generador del sprite de iconos)
 ```
 
-El proyecto es una MPA estática sin bundler ni build step. Usa ES Modules nativos. Cada página carga su entry point y su hoja específica. El rebrand compartido está dividido, en orden de cascada, entre `rebrand.css`, `rebrand-runtime.css`, `rebrand-editors.css`, `rebrand-logs.css`, `rebrand-extras.css`, `rebrand-controls.css` y `theme-system.css`. La última capa centraliza tokens visibles compartidos, scrollbars y controles base para evitar colores duplicados en varias hojas.
+El proyecto es una MPA estática sin bundler ni build step. Usa ES Modules nativos. Cada página carga su entry point y su hoja específica. El rebrand compartido está dividido, en orden de cascada, entre `rebrand.css`, `rebrand-runtime.css`, `rebrand-editors.css`, `rebrand-logs.css`, `rebrand-extras.css`, `rebrand-controls.css` y `theme-system.css`. `css/culones.css` es la última capa de todas las páginas: variables de las ventanas, sistema de iconos y correcciones de accesibilidad globales. `css/desk.css` (solo la portada) contiene las ventanas y el editor. Los colores salen de las variables `--theme-*-rgb` que publica `js/features/theme.js`, así que el editor de tema recolorea también las ventanas.
+
+Las fuentes (Space Grotesk, JetBrains Mono y Press Start 2P, licencia OFL) se sirven desde `assets/fonts/`; ya no se piden a Google. Los iconos son Phosphor (MIT) en un sprite local: para añadir uno, apunta su nombre en `tools/build-icons.mjs`, ejecuta `npm install --no-save @phosphor-icons/core` y `node tools/build-icons.mjs`.
+
+## La portada (escritorio de ventanas)
+
+`index.html` es un lienzo de ventanas. Cada ventana es `{ id, type, title, chrome, x, y, w, h, z, props }`: `x` y `w` en porcentaje del ancho (se adapta a cualquier pantalla), `y` y `h` en píxeles. Tres carrocerías (`chrome`): **retro** (borde grueso y sombra dura), **cristal** (barra pastel) y **HUD** (esquinas y líneas finas).
+
+- **Visitantes:** pueden arrastrar, minimizar, cerrar (se reabre desde la barra de tareas), maximizar (doble clic en la barra) y pulsar "Ordenar". Nada de eso se guarda. En pantallas estrechas las ventanas pasan a una columna sin arrastre.
+- **Administrador:** el botón **Editar portada** abre el editor. Añadir ventanas de ocho tipos (bienvenida, texto, lista de enlaces, dirección del servidor, imagen, últimos logs, armas nuevas, números), mover, redimensionar, duplicar, borrar, cambiar estilo y contenido, deshacer/rehacer, cuadrícula y guardar. Nada se guarda hasta pulsar **Guardar**. Requiere una pantalla de al menos ~1100px de ancho.
+- **Datos:** la disposición se guarda en `app_settings.layout_home` (lectura pública, escritura por la Edge Function como el resto de ajustes). Lo que se lee de ahí pasa siempre por `normalizeLayout` (`js/desk/layout.js`): tipos conocidos, números acotados, textos recortados, texto escapado y enlaces solo `http(s)` o relativos. La migración 021 repite la validación en el servidor y audita el cambio como `layout_updated`.
+- **Sin contenido inventado:** la composición inicial solo enlaza a las secciones. La dirección del servidor y el resto se rellenan desde el editor.
+
+Para añadir un tipo de ventana: definirlo en `TYPES` (`js/desk/layout.js`, con sus campos editables) y escribir su renderizador en `js/desk/contents.js`. El editor genera el formulario a partir de los campos.
 
 Supabase proporciona Postgres, Auth, Edge Functions, RPC, RLS, Storage y Realtime. La `anon key` es pública por diseño. Las escrituras administrativas pasan por `discord-admin-api`, que valida la sesión, la identidad de Discord, la pertenencia al servidor y el rol configurado antes de usar `service_role` en el servidor. Nunca debe incluirse una `service_role`, un Bot Token ni un Client Secret en el cliente.
 
 ## Base de datos (Supabase)
 
-El esquema completo vive en `supabase/migrations/`: una cadena de 13 migraciones verificada de principio a fin con 24 pruebas funcionales sobre un proyecto limpio (RLS, permisos, límites de frecuencia, bitácora, borradores, kits, multimedia y cola de Discord). Ya no hay que ejecutar SQL a mano ni respetar el orden de las 24 migraciones antiguas, que se pisaban entre sí y no se podían volver a ejecutar.
+El esquema completo vive en `supabase/migrations/`: una cadena de 14 migraciones verificada de principio a fin con 24 pruebas funcionales sobre un proyecto limpio (RLS, permisos, límites de frecuencia, bitácora, borradores, kits, multimedia y cola de Discord). Ya no hay que ejecutar SQL a mano ni respetar el orden de las 24 migraciones antiguas, que se pisaban entre sí y no se podían volver a ejecutar.
 
 **Proyecto nuevo (vacío)**
 
@@ -136,7 +156,7 @@ supabase db push
 supabase functions deploy discord-admin-api --project-ref TU_REF --use-api
 ```
 
-**Proyecto existente que viene de la cadena antigua (001 a 024):** aplica solo las migraciones `culones_014` a `culones_020`. Unifican el estado final, cierran las funciones al navegador y corrigen los errores de la lista de abajo.
+**Proyecto existente que viene de la cadena antigua (001 a 024):** aplica solo las migraciones `culones_014` a `culones_021`. Unifican el estado final, cierran las funciones al navegador y corrigen los errores de la lista de abajo.
 
 Después, en el panel de Supabase:
 
@@ -151,7 +171,7 @@ Mientras el acceso con Discord no esté configurado, la web admite un código: g
 
 Para que esto funcione la función se despliega **sin** verificación de JWT en la puerta de Supabase (`supabase/config.toml`), porque decide ella misma: sesión de Discord válida o código correcto.
 
-### Qué corrigen las migraciones 014 a 020
+### Qué corrigen las migraciones 014 a 021
 
 - **Borradores:** el guardado remoto fallaba en silencio desde que el acceso pasó a Discord; ahora se guardan por cuenta de Discord.
 - **Kits ocultos:** el administrador no los veía, y la función podía devolver cada kit publicado duplicado.
@@ -161,6 +181,11 @@ Para que esto funcione la función se despliega **sin** verificación de JWT en 
 - **Novedades:** un "me gusta" ya no marca el Log como actualizado.
 - **Permisos:** el navegador solo puede ejecutar `toggle_like`, `like_comment`, `list_kits`, `list_public_logs_with_counts` y `get_site_content_versions`. Toda la administración pasa por la Edge Function con `service_role`.
 - **Índices:** se quitaron los redundantes y el de `request_id` ahora sí lo usa el planificador.
+- **Portada (021):** `update_app_setting` audita `layout_home` como "Se reorganizó la portada" en lugar de "configuración de fichas" y valida su forma y tamaño en el servidor.
+
+### Problema conocido: armas sin publicar
+
+Las políticas de lectura de `weapons` y `weapon_ranks` son `using (true)`: cualquiera que llame a la API puede leer también las armas y rangos sin publicar (borradores). La web pública los oculta en el cliente, pero no en la base de datos. Cerrarlo exige que el panel de administración lea los borradores por una RPC de administración en lugar de por la tabla, así que no se hizo a ciegas.
 
 ## Desarrollo local
 
@@ -176,6 +201,7 @@ git diff --check
 
 Después, comprobar con Live Server:
 
+- Portada: se pintan las ventanas, arrastrar/minimizar/maximizar, y en modo admin añadir, mover, deshacer, guardar y recargar.
 - Logs: carga, filtros, detalle, fichas, portada, comentarios y edición.
 - Guías: catálogo, filtros, rangos, recetas y enlaces profundos.
 - Tierlist: carga, movimiento, edición y enlaces.

@@ -10,6 +10,7 @@
 import { disableQueryRetry, supabaseClient } from '../config.js';
 import { isAdmin, state } from '../core/state.js';
 import { escapeHtml, safeUrl, withTimeout } from '../core/utils.js';
+import { fetchWeaponsAndRanks } from './weapons-source.js';
 
 const SECTION_META = {
   logs: { label: 'Logs', icon: '📜', order: 0 },
@@ -197,12 +198,17 @@ async function createSearchIndex() {
     ? supabaseClient.rpc('list_log_items_admin', { input_code: state.adminMode })
     : supabaseClient.from('log_items').select('id,log_id,name,description,item_type,tier,obtained_from,image_url');
 
+  const weaponsAndRanks = fetchWeaponsAndRanks({
+    weaponColumns: 'id,name,image_url,published,category_id,type_id',
+    rankColumns: 'id,weapon_id,name,description,image_url,abilities,upgrade_recipe,extra_sections,sort_order',
+  });
+
   const [logs, mobs, logItems, weapons, ranks, tierRows, tierItems, kits, aboutSettings] = await Promise.all([
     safeFetch('logs', logsRequest),
     safeFetch('log_mobs', mobsRequest),
     safeFetch('log_items', logItemsRequest),
-    safeFetch('weapons', supabaseClient.from('weapons').select('id,name,image_url,published,category_id,type_id')),
-    safeFetch('weapon_ranks', supabaseClient.from('weapon_ranks').select('id,weapon_id,name,description,image_url,abilities,upgrade_recipe,extra_sections,sort_order').order('sort_order', { ascending: true })),
+    safeFetch('weapons', weaponsAndRanks.then(([weaponsResult]) => weaponsResult)),
+    safeFetch('weapon_ranks', weaponsAndRanks.then(([, ranksResult]) => ranksResult)),
     safeFetch('tierlist_rows', supabaseClient.from('tierlist_rows').select('id,name,color,sort_order')),
     safeFetch('tierlist_items', supabaseClient.from('tierlist_items').select('id,row_id,column_key,name,image_url,extra_fields,sort_order')),
     safeFetch('kits', supabaseClient.rpc('list_kits', { input_code: adminCode })),

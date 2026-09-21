@@ -1,6 +1,6 @@
-import { supabaseClient } from '../config.js';
 import { state } from '../core/state.js';
 import { asArray, escapeHtml } from '../core/utils.js';
+import { fetchWeaponsAndRanks } from './weapons-source.js';
 
 const GUIDE_LINK_FIELD_KIND = 'guide_link';
 
@@ -67,10 +67,10 @@ export async function ensureGuideOptions() {
   }
   if (guideOptionsLoading) return guideOptionsLoading;
   guideOptionsLoading = (async () => {
-    const [weaponsRes, ranksRes] = await Promise.all([
-      supabaseClient.from('weapons').select('id,name,published,sort_order').order('name', { ascending: true }),
-      supabaseClient.from('weapon_ranks').select('id,weapon_id,name,sort_order').order('sort_order', { ascending: true }),
-    ]);
+    const [weaponsRes, ranksRes] = await fetchWeaponsAndRanks({
+      weaponColumns: 'id,name,published,sort_order',
+      rankColumns: 'id,weapon_id,name,sort_order',
+    });
     if (weaponsRes.error || ranksRes.error) {
       console.error(weaponsRes.error || ranksRes.error);
       return false;
