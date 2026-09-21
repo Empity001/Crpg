@@ -146,7 +146,7 @@ Supabase proporciona Postgres, Auth, Edge Functions, RPC, RLS, Storage y Realtim
 
 ## Base de datos (Supabase)
 
-El esquema completo vive en `supabase/migrations/`: una cadena de 14 migraciones verificada de principio a fin con 24 pruebas funcionales sobre un proyecto limpio (RLS, permisos, límites de frecuencia, bitácora, borradores, kits, multimedia y cola de Discord). Ya no hay que ejecutar SQL a mano ni respetar el orden de las 24 migraciones antiguas, que se pisaban entre sí y no se podían volver a ejecutar.
+El esquema completo vive en `supabase/migrations/`: una cadena de 16 migraciones verificada de principio a fin con 24 pruebas funcionales sobre un proyecto limpio (RLS, permisos, límites de frecuencia, bitácora, borradores, kits, multimedia y cola de Discord). Ya no hay que ejecutar SQL a mano ni respetar el orden de las 24 migraciones antiguas, que se pisaban entre sí y no se podían volver a ejecutar.
 
 **Proyecto nuevo (vacío)**
 
@@ -156,7 +156,7 @@ supabase db push
 supabase functions deploy discord-admin-api --project-ref TU_REF --use-api
 ```
 
-**Proyecto existente que viene de la cadena antigua (001 a 024):** aplica solo las migraciones `culones_014` a `culones_021`. Unifican el estado final, cierran las funciones al navegador y corrigen los errores de la lista de abajo.
+**Proyecto existente que viene de la cadena antigua (001 a 024):** aplica solo las migraciones `culones_014` a `culones_023`. Unifican el estado final, cierran las funciones al navegador y corrigen los errores de la lista de abajo.
 
 Después, en el panel de Supabase:
 
@@ -171,7 +171,7 @@ Mientras el acceso con Discord no esté configurado, la web admite un código: g
 
 Para que esto funcione la función se despliega **sin** verificación de JWT en la puerta de Supabase (`supabase/config.toml`), porque decide ella misma: sesión de Discord válida o código correcto.
 
-### Qué corrigen las migraciones 014 a 021
+### Qué corrigen las migraciones 014 a 023
 
 - **Borradores:** el guardado remoto fallaba en silencio desde que el acceso pasó a Discord; ahora se guardan por cuenta de Discord.
 - **Kits ocultos:** el administrador no los veía, y la función podía devolver cada kit publicado duplicado.
@@ -183,9 +183,7 @@ Para que esto funcione la función se despliega **sin** verificación de JWT en 
 - **Índices:** se quitaron los redundantes y el de `request_id` ahora sí lo usa el planificador.
 - **Portada (021):** `update_app_setting` audita `layout_home` como "Se reorganizó la portada" en lugar de "configuración de fichas" y valida su forma y tamaño en el servidor.
 
-### Problema conocido: armas sin publicar
-
-Las políticas de lectura de `weapons` y `weapon_ranks` son `using (true)`: cualquiera que llame a la API puede leer también las armas y rangos sin publicar (borradores). La web pública los oculta en el cliente, pero no en la base de datos. Cerrarlo exige que el panel de administración lea los borradores por una RPC de administración en lugar de por la tabla, así que no se hizo a ciegas.
+- **Armas sin publicar (022 y 023):** las políticas de lectura de `weapons` y `weapon_ranks` eran `using (true)`, así que cualquiera con la clave pública podía leer los borradores (estadísticas, habilidades, recetas). Ahora la lectura pública solo entrega lo publicado y el panel de administración lee los borradores por `list_weapons_admin` y `list_weapon_ranks_admin` (solo `service_role`, a través de la Edge Function). En el código, todo pasa por `js/features/weapons-source.js`. Orden de despliegue si vuelves a tocarlo: primero las funciones (022), después la web que las usa y por último la política (023).
 
 ## Desarrollo local
 
