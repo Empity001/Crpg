@@ -9,6 +9,12 @@ on:
     - cron: '17 9 */2 * *'
   workflow_dispatch:
 
+# GitHub desactiva los workflows programados de un repo público tras 60 días sin
+# commits. El último paso vuelve a habilitar este mismo workflow en cada ejecución
+# para reiniciar ese contador y que el aviso no se apague solo.
+permissions:
+  actions: write
+
 jobs:
   ping:
     runs-on: ubuntu-latest
@@ -22,3 +28,9 @@ jobs:
             "$SUPABASE_URL/rest/v1/site_content_versions?select=section&limit=1" \
             -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -o /dev/null
           echo "Supabase respondió correctamente."
+
+      - name: Mantener activo este workflow
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method PUT "repos/$GITHUB_REPOSITORY/actions/workflows/keepalive.yml/enable"
