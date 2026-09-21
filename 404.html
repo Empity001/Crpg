@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Página no encontrada · Culones RPG</title>
+<meta name="robots" content="noindex" />
+<meta name="theme-color" content="#070914" />
+<script>
+  // GitHub Pages sirve este archivo en cualquier ruta que no exista, a
+  // cualquier profundidad. Se fija la base para que estilos y enlaces
+  // carguen siempre desde la raíz del sitio (/Crpg/ en github.io, / en un dominio propio).
+  (function () {
+    var first = location.pathname.split('/')[1] || '';
+    var onProjectPages = location.hostname.slice(-10) === '.github.io' && first !== '';
+    document.write('<base href="' + (onProjectPages ? '/' + first + '/' : '/') + '">');
+  })();
+</script>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+<link rel="stylesheet" href="css/fonts.css?v=20260921-1" />
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/rebrand.css?v=20260711-21" />
+<link rel="stylesheet" href="css/culones.css?v=20260921-1" />
+<link rel="stylesheet" href="css/desk.css?v=20260921-1" />
+<style>
+  body { padding-left: 0; }
+  .nf-main { display: grid; place-items: center; min-height: 100vh; padding: 24px; }
+  .nf-window { position: relative; width: min(560px, 100%); }
+  .nf-window .cw-body { padding: 26px 26px 28px; }
+</style>
+</head>
+<body>
+<main class="nf-main">
+  <section class="cw cw-retro nf-window" aria-labelledby="nf-title">
+    <header class="cw-bar">
+      <div class="cw-dots" aria-hidden="true">
+        <span class="cw-dot cw-dot-close"></span><span class="cw-dot cw-dot-min"></span><span class="cw-dot cw-dot-max"></span>
+      </div>
+      <h2 class="cw-title">Error 404</h2>
+    </header>
+    <div class="cw-body">
+      <h1 class="cw-hero-title" id="nf-title">Esta página no existe</h1>
+      <div class="cw-prose">
+        <p>Puede que el enlace esté mal escrito, o que yo la haya movido sin avisar. Pasa por la portada y de ahí llegas a donde quieras, cero drama ;3</p>
+      </div>
+      <div class="cw-actions">
+        <a class="cw-btn" href="index.html">Volver a la portada</a>
+        <a class="cw-btn cw-btn-ghost" href="logs.html">Ver los logs</a>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

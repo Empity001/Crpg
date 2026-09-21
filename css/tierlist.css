@@ -89,7 +89,7 @@
   background: rgb(var(--theme-page-rgb) / 0.25);
   border: 1px solid rgb(var(--theme-page-rgb) / 0.3);
   color: var(--bg);
-  font-size: 10px;
+  font-size: 11px;
   padding: 3px 6px;
   border-radius: 4px;
   line-height: 1;
@@ -156,7 +156,7 @@
 }
 
 .tier-chip-name {
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.25;
   color: var(--ink-300);
   text-align: center;
@@ -200,7 +200,7 @@
   background: rgb(var(--theme-text-primary-rgb) / 0.08);
   border: 1px solid var(--border-soft);
   color: var(--ink-100);
-  font-size: 10px;
+  font-size: 11px;
   width: 18px;
   height: 18px;
   border-radius: 4px;
@@ -238,7 +238,7 @@
 
 .tier-bench-column-label {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--ink-600);

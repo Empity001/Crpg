@@ -10,7 +10,7 @@ export const DEFAULT_THEME_CONFIG = Object.freeze({
   inputBackground: '#1d2240',
   textPrimary: '#f5f3ff',
   textSecondary: '#aaa6c5',
-  textMuted: '#6d6a87',
+  textMuted: '#8b87aa',
   textGlow: '#8b3dff',
   brandPrimary: '#f5f3ff',
   brandAccent: '#ffb83e',

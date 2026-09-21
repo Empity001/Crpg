@@ -231,7 +231,7 @@ body.is-admin-mode .sidebar-session-card .btn-admin-toggle:hover {
 
 .admin-toggle-action {
   color: var(--theme-primary-soft);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: .045em;
   line-height: 1.2;
@@ -267,7 +267,7 @@ body.is-admin-mode .sidebar-session-card .btn-admin-toggle:hover {
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: .03em;
 }
 

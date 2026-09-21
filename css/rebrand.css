@@ -219,7 +219,7 @@ select {
   margin: 0;
   color: var(--ink-400);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.8px;
 }
 
@@ -243,7 +243,7 @@ select {
   margin: 4px 12px 7px;
   color: var(--theme-border);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1;
   font-weight: 700;
   letter-spacing: 1.35px;
@@ -330,7 +330,7 @@ select {
   margin: 0 7px 10px;
   color: var(--theme-text-secondary);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: .15px;
 }
 
@@ -385,7 +385,7 @@ select {
 
 .admin-toggle-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
 .admin-toggle-copy strong { font-size: 12.5px; line-height: 1.15; text-align: left; }
-.admin-toggle-copy small { color: var(--ink-600); font-size: 9.5px; line-height: 1.25; text-align: left; }
+.admin-toggle-copy small { color: var(--ink-600); font-size: 11px; line-height: 1.25; text-align: left; }
 .admin-toggle-arrow { color: var(--theme-primary-soft); font-size: 20px; transition: transform 160ms ease; }
 .btn-admin-toggle:hover .admin-toggle-arrow { transform: translateX(3px); }
 .btn-admin-toggle .dot-offline,
@@ -476,7 +476,7 @@ body.is-admin-mode .admin-toggle-emblem { color: var(--theme-text-secondary); bo
   margin-bottom: 12px;
   color: var(--theme-primary-soft);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.35px;
   text-transform: uppercase;
@@ -737,7 +737,7 @@ body.is-admin-mode .page-hero {
   border-radius: 7px;
   color: color-mix(in srgb, var(--rarity-color) 76%, var(--theme-text-primary));
   background: color-mix(in srgb, var(--rarity-color) 8%, transparent);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: .8px;
 }
 .log-relevance-badge {
@@ -753,7 +753,7 @@ body.is-admin-mode .page-hero {
   border-color: rgb(var(--theme-border-rgb) / .23);
   color: var(--theme-text-secondary);
   background: rgb(var(--theme-text-primary-rgb) / .028);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 .block-chip:hover { background: rgb(var(--theme-primary-rgb) / .08); }
 .block-chip.is-expanded { box-shadow: 0 0 16px rgb(var(--theme-primary-rgb) / .09); }
@@ -849,7 +849,7 @@ body:not(.is-admin-mode) .log-card-admin-actions { display: none !important; }
   margin-bottom: 7px;
   color: var(--theme-text-secondary);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: .15px;
 }
 .modal-input,
@@ -978,7 +978,7 @@ body:not(.is-admin-mode) .log-card-admin-actions { display: none !important; }
 .tierlist-header-row { gap: 10px; }
 .tier-column-head {
   color: var(--theme-text-muted);
-  font-size: 9.5px;
+  font-size: 11px;
   letter-spacing: 1.2px;
 }
 .tier-row { gap: 10px; }
@@ -1185,7 +1185,7 @@ body:not(.is-admin-mode) .log-card-admin-actions { display: none !important; }
     border-radius: 999px;
     color: var(--theme-confirmation);
     font-family: var(--font-mono);
-    font-size: 8px;
+    font-size: 11px;
     letter-spacing: .8px;
   }
 
@@ -1228,7 +1228,7 @@ body:not(.is-admin-mode) .log-card-admin-actions { display: none !important; }
   .page-hero-copy { max-width: 88%; }
   .page-hero h1 { font-size: 31px; letter-spacing: -1px; }
   .page-hero p { font-size: 13px; line-height: 1.5; }
-  .page-hero-eyebrow { margin-bottom: 9px; font-size: 8px; }
+  .page-hero-eyebrow { margin-bottom: 9px; font-size: 11px; }
   .page-hero-art { width: 74%; opacity: .38; }
 
   .logs-toolbar,

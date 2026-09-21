@@ -1,0 +1,55 @@
+/* =========================================================
+   culones.css: capa global compartida por TODAS las páginas
+   ---------------------------------------------------------
+   Se carga la última. Aquí viven las variables de las ventanas,
+   el sistema de iconos y las correcciones de accesibilidad que
+   afectan a todo el sitio. Los colores salen de --theme-*-rgb,
+   que publica js/features/theme.js.
+   ========================================================= */
+
+:root {
+  --cw-primary: rgb(var(--theme-primary-rgb, 139 61 255));
+  --cw-primary-soft: rgb(var(--theme-primary-soft-rgb, 180 108 255));
+  --cw-page: rgb(var(--theme-page-rgb, 7 9 20));
+  --cw-panel: rgb(var(--theme-panel-rgb, 17 21 40));
+  --cw-elev: rgb(var(--theme-elevated-rgb, 23 27 50));
+  --cw-ink: rgb(var(--theme-text-primary-rgb, 245 243 255));
+  --cw-ink-2: rgb(var(--theme-text-secondary-rgb, 170 166 197));
+  --cw-line: rgb(var(--theme-primary-soft-rgb, 180 108 255) / 0.55);
+  --cw-lilac: color-mix(in srgb, var(--cw-primary-soft) 50%, #ffffff);
+  --cw-lilac-ink: #1d1238;
+  --cw-close: rgb(var(--theme-danger-rgb, 239 68 68));
+  --cw-warn: rgb(var(--theme-warning-rgb, 245 197 66));
+  --cw-ok: rgb(var(--theme-confirmation-rgb, 53 217 139));
+  --cw-pixel: var(--font-pixel, 'Press Start 2P', monospace);
+  --cw-sans: var(--font-body, 'Space Grotesk', system-ui, sans-serif);
+  --cw-mono: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+  --cw-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------- iconos (sprite assets/icons.svg) ---------- */
+.cw-ic { width: 1.15em; height: 1.15em; fill: currentColor; flex: 0 0 auto; }
+.tab-icon { display: inline-grid; place-items: center; font-size: 20px; }
+.tab-icon .cw-ic { width: 1em; height: 1em; }
+
+/* ---------- la campana y la lupa flotan arriba a la derecha ----------
+   Nada les reservaba sitio y tapaban el banner de cada página. */
+@media (min-width: 901px) {
+  .app-main,
+  body[data-page='guides'] .app-main { padding-top: 76px; }
+}
+
+/* ---------- foco visible donde el CSS antiguo lo quitaba ---------- */
+.global-search-field:focus-within { outline: 2px solid var(--cw-lilac); outline-offset: 2px; }
+.command-palette-search:focus-visible { outline: 2px solid var(--cw-lilac); outline-offset: 6px; border-radius: 4px; }
+
+/* ---------- indicadores de carga con "reducir movimiento" ----------
+   La regla global congela toda animación, incluidos estos giros, y la
+   interfaz parece colgada. Un giro lento sigue siendo seguro y avisa de que
+   algo está cargando. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner, .btn-spinner, .tier-img-spinner, .global-search-spinner, .tools-spinner {
+    animation-duration: 2.4s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

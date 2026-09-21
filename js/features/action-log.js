@@ -18,6 +18,7 @@ const ACTION_LOG_ICONS = {
   category_created: '🏷', category_deleted: '🏷',
   comment_created: '💬', comment_hidden: '🙈', comment_shown: '👁', comment_deleted: '💬',
   field_config_updated: '⚙',
+  layout_updated: '🖼',
   tierlist_row_created: '🏆',
   tierlist_row_updated: '🏆',
   tierlist_row_deleted: '🏆',
@@ -87,6 +88,7 @@ function enhanceLegacyDescription(row) {
     category_created: `Se creó la categoría${quotedName}.`,
     category_deleted: `Se eliminó la categoría${quotedName}.`,
     field_config_updated: 'Se actualizó la configuración de fichas.',
+    layout_updated: 'Se reorganizó la portada.',
   };
   return legacyMap[row.action] || description || 'Acción administrativa registrada sin descripción.';
 }

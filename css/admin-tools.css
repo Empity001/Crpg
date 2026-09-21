@@ -406,7 +406,7 @@
 .draft-local-tag {
   display: inline-block;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   color: var(--admin-warning);
   border: 1px solid var(--admin-warning-border);
   background: var(--admin-warning-bg);

@@ -12,32 +12,7 @@
      hud    rectas (2px)                 líneas finas
    ========================================================= */
 
-:root {
-  --cw-primary: rgb(var(--theme-primary-rgb, 139 61 255));
-  --cw-primary-soft: rgb(var(--theme-primary-soft-rgb, 180 108 255));
-  --cw-page: rgb(var(--theme-page-rgb, 7 9 20));
-  --cw-panel: rgb(var(--theme-panel-rgb, 17 21 40));
-  --cw-elev: rgb(var(--theme-elevated-rgb, 23 27 50));
-  --cw-ink: rgb(var(--theme-text-primary-rgb, 245 243 255));
-  --cw-ink-2: rgb(var(--theme-text-secondary-rgb, 170 166 197));
-  --cw-line: rgb(var(--theme-primary-soft-rgb, 180 108 255) / 0.55);
-  --cw-lilac: color-mix(in srgb, var(--cw-primary-soft) 50%, #ffffff);
-  --cw-lilac-ink: #1d1238;
-  --cw-close: rgb(var(--theme-danger-rgb, 239 68 68));
-  --cw-warn: rgb(var(--theme-warning-rgb, 245 197 66));
-  --cw-ok: rgb(var(--theme-confirmation-rgb, 53 217 139));
-  --cw-pixel: var(--font-pixel, 'Press Start 2P', monospace);
-  --cw-sans: var(--font-body, 'Space Grotesk', system-ui, sans-serif);
-  --cw-mono: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
-  --cw-ease: cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* ---------- icono base ---------- */
-.cw-ic { width: 1.15em; height: 1.15em; fill: currentColor; flex: 0 0 auto; }
-
 /* ---------- página ---------- */
-/* La campana y la lupa flotan arriba a la derecha: se reserva ese hueco en escritorio. */
-@media (min-width: 901px) { .desk-page-main { padding-top: 76px; } }
 .desk-visually-hidden {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;

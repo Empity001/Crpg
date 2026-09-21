@@ -219,7 +219,7 @@ body[data-page="logs"] .logs-page-main {
 .log-list-card .log-relevance-badge {
   min-height: 21px;
   padding: 3px 7px;
-  font-size: 8px;
+  font-size: 11px;
   line-height: 1;
 }
 
@@ -275,7 +275,7 @@ body[data-page="logs"] .logs-page-main {
   gap: 5px;
   min-height: 21px;
   color: var(--ink-400);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .log-row-metrics > span b { font-size: 11px; font-weight: 400; }
@@ -480,7 +480,7 @@ body[data-page="logs"] .logs-page-main {
 }
 .inspector-count-grid > :last-child { border-right: 0; }
 .inspector-count-grid strong { color: var(--ink-100); font: 700 16px/1 var(--font-mono); }
-.inspector-count-grid span { font-size: 9.5px; }
+.inspector-count-grid span { font-size: 11px; }
 .inspector-like-btn { cursor: pointer; }
 .inspector-like-btn strong { color: var(--magenta); }
 .inspector-like-btn:hover { background: rgb(var(--theme-event-rgb) / .05); }
@@ -522,7 +522,7 @@ body[data-page="logs"] .logs-page-main {
   margin: 0 0 8px;
   overflow: hidden;
   color: var(--ink-400);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
@@ -649,7 +649,7 @@ body[data-page="logs"] .logs-page-main {
   .logs-inspector { inset: 76px 7px 7px; width: auto; border-radius: 15px; }
   .logs-inspector-head { padding: 15px 14px 12px; }
   .logs-inspector-head h2 { font-size: 17px; }
-  .logs-inspector-tabs button { min-height: 43px; font-size: 9.5px; }
+  .logs-inspector-tabs button { min-height: 43px; font-size: 11px; }
   .logs-inspector-body { padding: 12px; }
   .inspector-count-grid { grid-template-columns: repeat(2, 1fr); }
   .inspector-count-grid > :nth-child(2) { border-right: 0; }
@@ -742,7 +742,7 @@ body[data-page="logs"] .logs-page-main {
 }
 .log-cover-image-empty > span { font-size: 22px; color: var(--admin-purple-light); }
 .log-cover-image-empty strong { color: var(--ink-300); font-size: 12px; }
-.log-cover-image-empty small { font-size: 10px; }
+.log-cover-image-empty small { font-size: 11px; }
 #log-cover-image-clear-btn { margin-top: 8px; }
 
 /* Acciones del inspector: jerarquía consistente y anchos completos. */
@@ -839,7 +839,7 @@ body[data-page="logs"] .logs-page-main {
   display: -webkit-box;
   overflow: hidden;
   color: var(--ink-400);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;

@@ -252,7 +252,7 @@
 
 .media-card-picker .media-card-meta {
   overflow: hidden;
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -262,7 +262,7 @@
   top: 5px;
   left: 5px;
   padding: 3px 6px;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .media-thumb {
@@ -303,7 +303,7 @@
   background: rgb(var(--theme-page-rgb) / 0.88);
   border: 1px solid var(--admin-border-strong);
   color: var(--admin-ink);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -349,7 +349,7 @@
   padding: 3px 7px;
   background: rgb(var(--theme-primary-rgb) / 0.16);
   color: var(--theme-text-primary);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .media-usage-row {
@@ -631,7 +631,7 @@
   border-radius: 999px;
   background: var(--admin-white-ghost);
   color: var(--admin-ink-soft) !important;
-  font-size: 10px !important;
+  font-size: 11px !important;
   font-weight: 800;
   text-transform: uppercase;
 }

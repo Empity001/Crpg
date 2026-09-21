@@ -69,7 +69,7 @@
 .weapon-cat-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .weapon-card-type {
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 11px;
   color: var(--ink-600);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -121,7 +121,7 @@
 
 .weapon-cat-badge, .weapon-type-badge {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   letter-spacing: 0.4px;
   text-transform: uppercase;
   padding: 3px 9px;
@@ -153,7 +153,7 @@
   background: rgb(var(--theme-text-primary-rgb) / 0.05);
   border: 1px solid var(--border-soft);
   color: var(--ink-600);
-  font-size: 9px;
+  font-size: 11px;
   width: 18px; height: 18px;
   border-radius: 4px;
   cursor: pointer;
@@ -213,7 +213,7 @@
 .weapon-ability-name { font-size: 13.5px; font-weight: 700; color: var(--ink-100); margin: 0; }
 .weapon-ability-tag {
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
   color: var(--cyan);
@@ -224,7 +224,7 @@
 .weapon-ability-admin-actions { margin-left: auto; display: flex; gap: 6px; }
 .weapon-ability-desc { font-size: 12.5px; color: var(--ink-300); line-height: 1.5; margin: 0 0 10px; white-space: pre-line; }
 .weapon-ability-level-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.weapon-ability-level-label { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-400); flex-shrink: 0; }
+.weapon-ability-level-label { font-family: var(--font-mono); font-size: 11px; color: var(--ink-400); flex-shrink: 0; }
 .weapon-ability-stats-grid { display: flex; flex-direction: column; gap: 4px; }
 .weapon-ability-stat-row {
   display: flex;
@@ -304,7 +304,7 @@
 }
 .weapon-furnace-label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--theme-elevated-bg);
   text-align: center;
 }
@@ -392,13 +392,13 @@
   position: absolute;
   bottom: 1px; right: 2px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--ink-100);
   background: rgb(var(--theme-page-rgb) / 0.65);
   border-radius: 3px;
   padding: 0 3px;
 }
-.weapon-recipe-material-name { font-size: 9.5px; color: var(--ink-400); text-align: center; line-height: 1.2; }
+.weapon-recipe-material-name { font-size: 11px; color: var(--ink-400); text-align: center; line-height: 1.2; }
 .weapon-recipe-arrow { font-size: 22px; color: var(--gold); flex-shrink: 0; }
 .weapon-recipe-result { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 72px; }
 .weapon-recipe-result-thumb {
@@ -409,7 +409,7 @@
   background: var(--bg-panel);
 }
 .weapon-recipe-result-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm); }
-.weapon-recipe-result-name { font-size: 10.5px; color: var(--gold); font-weight: 700; text-align: center; }
+.weapon-recipe-result-name { font-size: 11px; color: var(--gold); font-weight: 700; text-align: center; }
 
 /* ---------- Editor de materiales (modal admin) ---------- */
 .weapon-material-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
@@ -421,7 +421,7 @@
 .weapon-material-slot-label {
   flex: 0 0 86px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--ink-500);
   text-transform: uppercase;
 }
@@ -513,7 +513,7 @@
   border: 1px solid var(--cyan);
   color: var(--cyan);
   font-family: var(--font-pixel);
-  font-size: 10px;
+  font-size: 11px;
   border-radius: 6px;
   cursor: pointer;
   letter-spacing: 0.05em;
