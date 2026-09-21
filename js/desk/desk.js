@@ -58,6 +58,7 @@ export function createDesk({ root, taskbar, ctx, layout }) {
     el.dataset.type = data.type;
     el.style.setProperty('--i', String(index));
     el.setAttribute('aria-labelledby', `cw-title-${data.id}`);
+    el.setAttribute('role', 'group');
     el.innerHTML = `
       <header class="cw-bar">
         <div class="cw-dots">
@@ -65,13 +66,14 @@ export function createDesk({ root, taskbar, ctx, layout }) {
           <button type="button" class="cw-dot cw-dot-min" data-act="min" aria-label="Minimizar ventana">${icon('minus', 'cw-ic cw-dot-ic')}</button>
           <button type="button" class="cw-dot cw-dot-max" data-act="max" aria-label="Maximizar ventana">${icon('corners-out', 'cw-ic cw-dot-ic')}</button>
         </div>
-        <h2 class="cw-title" id="cw-title-${data.id}"></h2>
+        <h2 class="cw-title"></h2>
         <span class="cw-bar-deco" aria-hidden="true"></span>
       </header>
       <div class="cw-body"></div>
       <span class="cw-grip cw-grip-e" data-dir="e" aria-hidden="true"></span>
       <span class="cw-grip cw-grip-s" data-dir="s" aria-hidden="true"></span>
       <span class="cw-grip cw-grip-se" data-dir="se" aria-hidden="true"></span>`;
+    el.querySelector('.cw-title').id = 'cw-title-' + data.id;
     const entry = { data, el, body: el.querySelector('.cw-body'), hidden: false, collapsed: false };
     wireWindow(entry);
     return entry;
@@ -93,6 +95,9 @@ export function createDesk({ root, taskbar, ctx, layout }) {
 
   function paint(entry) {
     entry.el.querySelector('.cw-title').textContent = entry.data.title;
+    entry.el.querySelector('.cw-dot-close').setAttribute('aria-label', 'Cerrar ' + entry.data.title);
+    entry.el.querySelector('.cw-dot-min').setAttribute('aria-label', 'Minimizar ' + entry.data.title);
+    entry.el.querySelector('.cw-dot-max').setAttribute('aria-label', 'Maximizar ' + entry.data.title);
     applyChrome(entry);
     applyGeometry(entry);
     entry.el.classList.toggle('is-hidden', entry.hidden);
